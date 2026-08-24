@@ -27,7 +27,11 @@ import msgspec
 # "fork" is safe here because dexpot forks workers before starting any threads
 # (the supervisor process never starts pools/reactors). It preserves the
 # application object in-memory, avoiding pickle of compiled routes/codecs.
-_multiprocessing = multiprocessing.get_context("fork") if os.name == "posix" else multiprocessing.get_context("spawn")
+_multiprocessing = (
+    multiprocessing.get_context("fork")
+    if os.name == "posix"
+    else multiprocessing.get_context("spawn")
+)
 
 SOCKET_BACKLOG = 4096
 RECV_SIZE = 65536
@@ -115,9 +119,7 @@ class Route:
         self.resp_encoder = msgspec.json.Encoder() if resp_type is not None else None
         hints = _type_hints(handler)
         # positional slots (in capture order) whose values must be converted to int
-        self.int_slots = tuple(
-            path_names.index(n) for n in path_names if hints.get(n) is int
-        )
+        self.int_slots = tuple(path_names.index(n) for n in path_names if hints.get(n) is int)
 
     def encode(self, result: Any) -> bytes:
         """Encode a successful result using the route's response contract."""
@@ -140,7 +142,9 @@ class Dex:
     def _register(self, method: str, path: str, fn: Callable[..., Any]) -> Callable[..., Any]:
         body_type = getattr(fn, "__dexpot_body__", None)
         resp_type = getattr(fn, "__dexpot_resp__", None)
-        path_names = [s[1:-1] for s in path.strip("/").split("/") if s.startswith("{") and s.endswith("}")]
+        path_names = [
+            s[1:-1] for s in path.strip("/").split("/") if s.startswith("{") and s.endswith("}")
+        ]
         route = Route(fn, body_type, resp_type, (fn.__doc__ or "").strip(), path_names)
         key = (method, path)
         if "{" in path:
@@ -426,7 +430,9 @@ class Dex:
 
         procs: list[Any] = []
         for listener in listeners:
-            proc = _multiprocessing.Process(target=self._worker_process, args=(listener,), daemon=True)
+            proc = _multiprocessing.Process(
+                target=self._worker_process, args=(listener,), daemon=True
+            )
             proc.start()
             procs.append(proc)
 
@@ -444,7 +450,9 @@ class Dex:
                     if not proc.is_alive():
                         print(f"dexpot worker {i} exited; restarting", flush=True)
                         listener = listeners[i]
-                        proc = _multiprocessing.Process(target=self._worker_process, args=(listener,), daemon=True)
+                        proc = _multiprocessing.Process(
+                            target=self._worker_process, args=(listener,), daemon=True
+                        )
                         proc.start()
                         procs[i] = proc
                 stopping.wait(1.0)

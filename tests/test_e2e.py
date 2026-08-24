@@ -150,7 +150,9 @@ def test_multiprocess_workers_serve():
     old = os.environ.get("DEXPOT_WORKERS")
     os.environ["DEXPOT_WORKERS"] = "2"
     try:
-        t = threading.Thread(target=app.serve, kwargs={"host": "127.0.0.1", "port": port}, daemon=True)
+        t = threading.Thread(
+            target=app.serve, kwargs={"host": "127.0.0.1", "port": port}, daemon=True
+        )
         t.start()
         base = f"http://127.0.0.1:{port}"
         for _ in range(60):
