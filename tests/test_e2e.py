@@ -104,3 +104,65 @@ def test_keep_alive_many_requests(server):
         for _i in range(50):
             r = c.get("/items/3")
             assert r.status_code == 200
+
+
+def test_invalid_int_path_param(server):
+    r = httpx.get(f"{server}/items/notanumber")
+    assert r.status_code == 422
+    assert "invalid int" in r.json()["detail"]
+
+
+def test_duplicate_route_rejected():
+    from dexpot import Dex
+
+    app = Dex()
+
+    @app.get("/dupe")
+    def a() -> dict:
+        return {}
+
+    with pytest.raises(ValueError, match="duplicate route"):
+
+        @app.get("/dupe")
+        def b() -> dict:
+            return {}
+
+
+def test_multiprocess_workers_serve():
+    """DEXPOT_WORKERS>1 on GIL builds: workers forked, kernel balances conns."""
+    import os
+    import socket
+    import time
+
+    from dexpot import Dex
+
+    app = Dex()
+
+    @app.get("/health")
+    def health() -> dict:
+        return {"ok": True}
+
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+
+    old = os.environ.get("DEXPOT_WORKERS")
+    os.environ["DEXPOT_WORKERS"] = "2"
+    try:
+        t = threading.Thread(target=app.serve, kwargs={"host": "127.0.0.1", "port": port}, daemon=True)
+        t.start()
+        base = f"http://127.0.0.1:{port}"
+        for _ in range(60):
+            try:
+                httpx.get(f"{base}/health", timeout=0.5)
+                break
+            except httpx.HTTPError:
+                time.sleep(0.25)
+        results = [httpx.get(f"{base}/health", timeout=2).status_code for _ in range(10)]
+        assert all(code == 200 for code in results)
+    finally:
+        if old is None:
+            os.environ.pop("DEXPOT_WORKERS", None)
+        else:
+            os.environ["DEXPOT_WORKERS"] = old

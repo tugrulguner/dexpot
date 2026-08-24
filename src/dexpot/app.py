@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import contextlib
 import inspect
+import multiprocessing
 import os
+import signal
 import socket
 import sys
 import threading
@@ -22,7 +24,10 @@ from typing import Any
 
 import msgspec
 
-from .requests import Request
+# "fork" is safe here because dexpot forks workers before starting any threads
+# (the supervisor process never starts pools/reactors). It preserves the
+# application object in-memory, avoiding pickle of compiled routes/codecs.
+_multiprocessing = multiprocessing.get_context("fork") if os.name == "posix" else multiprocessing.get_context("spawn")
 
 SOCKET_BACKLOG = 4096
 RECV_SIZE = 65536
@@ -80,7 +85,18 @@ class HTTPError(Exception):
 
 
 class Route:
-    __slots__ = ("body_type", "decoder", "handler", "resp_type", "summary")
+    """Compiled, immutable endpoint plan. Built once at registration."""
+
+    __slots__ = (
+        "body_decoder",
+        "body_type",
+        "handler",
+        "int_slots",
+        "path_names",
+        "resp_encoder",
+        "resp_type",
+        "summary",
+    )
 
     def __init__(
         self,
@@ -88,12 +104,26 @@ class Route:
         body_type: Any,
         resp_type: Any,
         summary: str,
+        path_names: list[str],
     ) -> None:
         self.handler = handler
         self.body_type = body_type
         self.resp_type = resp_type
         self.summary = summary
-        self.decoder = msgspec.json.Decoder(body_type) if body_type is not None else None
+        self.path_names = path_names
+        self.body_decoder = msgspec.json.Decoder(body_type) if body_type is not None else None
+        self.resp_encoder = msgspec.json.Encoder() if resp_type is not None else None
+        hints = _type_hints(handler)
+        # positional slots (in capture order) whose values must be converted to int
+        self.int_slots = tuple(
+            path_names.index(n) for n in path_names if hints.get(n) is int
+        )
+
+    def encode(self, result: Any) -> bytes:
+        """Encode a successful result using the route's response contract."""
+        if self.resp_encoder is not None and type(result) is self.resp_type:
+            return self.resp_encoder.encode(result)
+        return _json_encode(result)
 
 
 class Dex:
@@ -110,12 +140,18 @@ class Dex:
     def _register(self, method: str, path: str, fn: Callable[..., Any]) -> Callable[..., Any]:
         body_type = getattr(fn, "__dexpot_body__", None)
         resp_type = getattr(fn, "__dexpot_resp__", None)
-        route = Route(fn, body_type, resp_type, (fn.__doc__ or "").strip())
+        path_names = [s[1:-1] for s in path.strip("/").split("/") if s.startswith("{") and s.endswith("}")]
+        route = Route(fn, body_type, resp_type, (fn.__doc__ or "").strip(), path_names)
+        key = (method, path)
         if "{" in path:
+            if any(m == method and p == path for m, p, _r in self._parametric):
+                raise ValueError(f"duplicate route: {method} {path}")
             segments = path.strip("/").split("/")
             self._parametric.append((method, segments, route))
         else:
-            self._literal[(method, path)] = route
+            if key in self._literal:
+                raise ValueError(f"duplicate route: {method} {path}")
+            self._literal[key] = route
         return fn
 
     def get(
@@ -165,24 +201,24 @@ class Dex:
 
     # ---- matching ----
 
-    def _match(self, method: str, path: str) -> tuple[Route | None, dict[str, str] | None]:
+    def _match(self, method: str, path: str) -> tuple[Route | None, list[Any] | None]:
         hit = self._literal.get((method, path))
         if hit is not None:
-            return hit, {}
+            return hit, []
         segs = path.strip("/").split("/")
         for m, pattern, route in self._parametric:
             if m != method or len(pattern) != len(segs):
                 continue
-            params: dict[str, str] = {}
+            captures: list[Any] = []
             ok = True
             for p, s in zip(pattern, segs, strict=True):
                 if p.startswith("{") and p.endswith("}"):
-                    params[p[1:-1]] = s
+                    captures.append(s)
                 elif p != s:
                     ok = False
                     break
             if ok:
-                return route, params
+                return route, captures
         return None, None
 
     # ---- request processing ----
@@ -218,45 +254,37 @@ class Dex:
             rest += chunk
         body_bytes, buf = rest[:content_length], rest[content_length:]
 
-        path_only, _, query = raw_path.partition("?")
-        route, params = self._match(method, path_only)
-        if route is None or params is None:
+        path_only, _, _query = raw_path.partition("?")
+        route, captures_list = self._match(method, path_only)
+        if route is None or captures_list is None:
             self._send(conn, 404, _json_encode({"detail": "not found"}))
             return keep_alive, buf
 
-        req = Request(method, path_only, params, query, headers)
         try:
-            if route.decoder is not None:
+            # compiled positional layout: convert typed path slots in place
+            captures = list(captures_list)
+            for slot in route.int_slots:
                 try:
-                    req._body = route.decoder.decode(body_bytes)
+                    captures[slot] = int(captures[slot])
+                except ValueError:
+                    name = route.path_names[slot] if slot < len(route.path_names) else str(slot)
+                    self._send(conn, 422, _json_encode({"detail": f"invalid int for {name}"}))
+                    return keep_alive, buf
+
+            args: list[Any] = list(captures)
+            if route.body_decoder is not None:
+                try:
+                    args.append(route.body_decoder.decode(body_bytes))
                 except (msgspec.ValidationError, msgspec.DecodeError) as exc:
                     self._send(conn, 422, _json_encode({"detail": str(exc)}))
                     return keep_alive, buf
-            kwargs: dict[str, Any] = dict(params or {})
-            # inject typed path params (int conversion for int-annotated names)
-            hints = _type_hints(route.handler)
-            for name, ann in hints.items():
-                if name in kwargs and ann is int:
-                    try:
-                        kwargs[name] = int(kwargs[name])
-                    except ValueError:
-                        self._send(conn, 422, _json_encode({"detail": f"invalid int for {name}"}))
-                        return keep_alive, buf
-            if route.decoder is not None:
-                # The declared body model is explicit contract data. Inject it into
-                # the first handler parameter that is not supplied by the path.
-                body_param = next(
-                    (p for p in hints if p not in kwargs and p not in ("request", "req")),
-                    None,
-                )
-                if body_param is not None:
-                    kwargs[body_param] = req.body
-            result = route.handler(**kwargs)
+
+            result = route.handler(*args)
             if isinstance(result, tuple):
                 status, payload = result
                 out = _json_encode(payload)
             else:
-                status, out = 200, _json_encode(result)
+                status, out = 200, route.encode(result)
         except HTTPError as exc:
             status = exc.status
             out = _json_encode({"detail": exc.detail})
@@ -332,7 +360,21 @@ class Dex:
 
     # ---- serving ----
 
+    def _make_listener(self, host: str, reuseport: bool) -> socket.socket:
+        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if reuseport and hasattr(socket, "SO_REUSEPORT"):
+            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        return srv
+
     def serve(self, host: str = "127.0.0.1", port: int = 8000) -> None:
+        workers_env = os.environ.get("DEXPOT_WORKERS", "")
+        n_workers = max(1, int(workers_env)) if workers_env.isdigit() else 0
+
+        if not _gil_free and n_workers > 1:
+            self._serve_multiprocess(host, port, n_workers)
+            return
+
         srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         srv.bind((host, port))
@@ -344,5 +386,86 @@ class Dex:
                 threading.Thread(target=self._worker_gil, daemon=True).start()
         while True:
             conn, _addr = srv.accept()
+            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self._handle_admission(conn, b"")
+
+    def _accept_loop(self, srv: socket.socket) -> None:
+        while True:
+            try:
+                conn, _addr = srv.accept()
+            except OSError:
+                return
+            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self._handle_admission(conn, b"")
+
+    def _serve_multiprocess(self, host: str, port: int, n_workers: int) -> None:
+        """GIL build: one worker process per DEXPOT_WORKERS, each with its own
+        listener via SO_REUSEPORT (kernel load-balances connections).
+
+        Workers are forked BEFORE any threads exist; each child then starts its
+        own pool inside serve(). The parent only supervises.
+        """
+        listeners: list[socket.socket] = []
+        for _ in range(n_workers):
+            srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if hasattr(socket, "SO_REUSEPORT"):
+                srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            else:  # pragma: no cover - Linux/macOS/Windows all have it on 3.12+
+                srv.close()
+                raise OSError("SO_REUSEPORT is required for multiprocess serving")
+            srv.bind((host, port))
+            srv.listen(SOCKET_BACKLOG)
+            listeners.append(srv)
+
+        print(
+            f"dexpot serving on http://{host}:{port} pid={os.getpid()} "
+            f"mode=pooled-gil({POOL_SIZE})x{n_workers}",
+            flush=True,
+        )
+
+        procs: list[Any] = []
+        for listener in listeners:
+            proc = _multiprocessing.Process(target=self._worker_process, args=(listener,), daemon=True)
+            proc.start()
+            procs.append(proc)
+
+        stopping = threading.Event()
+
+        def stop(*_args: object) -> None:
+            stopping.set()
+
+        signal.signal(signal.SIGTERM, stop)
+        signal.signal(signal.SIGINT, stop)
+
+        try:
+            while not stopping.is_set():
+                for i, proc in enumerate(procs):
+                    if not proc.is_alive():
+                        print(f"dexpot worker {i} exited; restarting", flush=True)
+                        listener = listeners[i]
+                        proc = _multiprocessing.Process(target=self._worker_process, args=(listener,), daemon=True)
+                        proc.start()
+                        procs[i] = proc
+                stopping.wait(1.0)
+        finally:
+            for proc in procs:
+                proc.terminate()
+            for proc in procs:
+                proc.join(timeout=5)
+            for listener in listeners:
+                with contextlib.suppress(OSError):
+                    listener.close()
+
+    def _worker_process(self, listener: socket.socket) -> None:
+        """Child entrypoint: adopt the inherited listener and serve forever."""
+        if not _gil_free:
+            for _ in range(POOL_SIZE):
+                threading.Thread(target=self._worker_gil, daemon=True).start()
+        while True:
+            try:
+                conn, _addr = listener.accept()
+            except OSError:
+                return
             conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             self._handle_admission(conn, b"")

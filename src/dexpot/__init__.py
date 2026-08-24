@@ -1,10 +1,13 @@
 """dexpot: a thread-per-request Python API framework built for free-threaded CPython."""
 
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
 from .app import Dex
 from .requests import Request
 
-__version__ = version("dexpot")
+try:
+    __version__ = version("dexpot")
+except PackageNotFoundError:  # running from source without installation
+    __version__ = "0.0.0.dev0"
 
 __all__ = ["Dex", "Request", "__version__"]
