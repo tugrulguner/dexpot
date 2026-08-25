@@ -18,6 +18,7 @@ import signal
 import socket
 import sys
 import threading
+import time
 from collections import deque
 from collections.abc import Callable
 from typing import Any
@@ -89,13 +90,19 @@ class HTTPError(Exception):
 
 
 class Route:
-    """Compiled, immutable endpoint plan. Built once at registration."""
+    """Compiled, immutable endpoint plan. Built once at registration.
+
+    The binder preserves Python signature semantics: each handler parameter
+    resolves to a source (path capture by name, body, or default) regardless
+    of the order path segments appear in or where the body parameter sits.
+    """
 
     __slots__ = (
+        "bind",
         "body_decoder",
         "body_type",
         "handler",
-        "int_slots",
+        "int_captures",
         "path_names",
         "resp_encoder",
         "resp_type",
@@ -117,9 +124,59 @@ class Route:
         self.path_names = path_names
         self.body_decoder = msgspec.json.Decoder(body_type) if body_type is not None else None
         self.resp_encoder = msgspec.json.Encoder() if resp_type is not None else None
+
+        # --- compile the binder in signature order ---
         hints = _type_hints(handler)
-        # positional slots (in capture order) whose values must be converted to int
-        self.int_slots = tuple(path_names.index(n) for n in path_names if hints.get(n) is int)
+        sig = inspect.signature(handler)
+        captures_by_name = {n: i for i, n in enumerate(path_names)}
+
+        sources: list[tuple[str, Any]] = []  # (kind, payload) per parameter
+        int_captures: list[tuple[int, str]] = []  # (capture_index, param_name)
+        used_captures: set[int] = set()
+        body_param_seen = False
+
+        for name, param in sig.parameters.items():
+            ann = hints.get(name)
+            if name in captures_by_name:
+                idx = captures_by_name[name]
+                if ann is int:
+                    int_captures.append((idx, name))
+                sources.append(("capture", idx))
+                used_captures.add(idx)
+            elif body_type is not None and not body_param_seen:
+                body_param_seen = True
+                sources.append(("body", None))
+            elif param.default is not inspect.Parameter.empty:
+                sources.append(("default", param.default))
+            else:
+                raise TypeError(
+                    f"handler parameter '{name}' on route "
+                    f"cannot be bound: no matching path segment, body, or default"
+                )
+
+        self.int_captures = tuple(int_captures)
+
+        # Build a positional invoker in signature order. Captures arrive from
+        # the router in path-segment order; this closure maps them by name.
+        order = list(sources)
+
+        def bind(captures: list[Any], body: Any) -> list[Any]:
+            args: list[Any] = []
+            for kind, payload in order:
+                if kind == "capture":
+                    args.append(captures[payload])
+                elif kind == "body":
+                    args.append(body)
+                else:
+                    args.append(payload)
+            return args
+
+        self.bind = bind  # type: ignore[assignment]
+
+        # every path segment must be consumed by a handler parameter
+        unconsumed = [path_names[i] for i in range(len(path_names)) if i not in used_captures]
+        if unconsumed:
+            raise TypeError(f"path parameter(s) {unconsumed} are not accepted by the handler")
 
     def encode(self, result: Any) -> bytes:
         """Encode a successful result using the route's response contract."""
@@ -136,6 +193,8 @@ class Dex:
         self._parametric: list[tuple[str, list[str], Route]] = []
         self._work: deque[tuple[socket.socket, bytes]] = deque()
         self._cond = threading.Condition()
+        self._stopping = threading.Event()
+        self._active_connections: set[socket.socket] = set()
 
     # ---- route registration ----
 
@@ -148,8 +207,18 @@ class Dex:
         route = Route(fn, body_type, resp_type, (fn.__doc__ or "").strip(), path_names)
         key = (method, path)
         if "{" in path:
-            if any(m == method and p == path for m, p, _r in self._parametric):
-                raise ValueError(f"duplicate route: {method} {path}")
+            # structural shape: literal segments kept, params normalized to {},
+            # so /users/{id} and /users/{name} are correctly seen as duplicates
+            shape = tuple(
+                "{}" if s.startswith("{") and s.endswith("}") else s
+                for s in path.strip("/").split("/")
+            )
+            for m, _p, _r in self._parametric:
+                existing_shape = tuple(
+                    "{}" if seg.startswith("{") and seg.endswith("}") else seg for seg in _p
+                )
+                if m == method and existing_shape == shape:
+                    raise ValueError(f"duplicate route: {method} {path}")
             segments = path.strip("/").split("/")
             self._parametric.append((method, segments, route))
         else:
@@ -265,24 +334,24 @@ class Dex:
             return keep_alive, buf
 
         try:
-            # compiled positional layout: convert typed path slots in place
-            captures = list(captures_list)
-            for slot in route.int_slots:
+            # compiled binder: convert typed captures, then build args in
+            # signature order (path by name, body, defaults)
+            for cap_idx, pname in route.int_captures:
                 try:
-                    captures[slot] = int(captures[slot])
+                    captures_list[cap_idx] = int(captures_list[cap_idx])
                 except ValueError:
-                    name = route.path_names[slot] if slot < len(route.path_names) else str(slot)
-                    self._send(conn, 422, _json_encode({"detail": f"invalid int for {name}"}))
+                    self._send(conn, 422, _json_encode({"detail": f"invalid int for {pname}"}))
                     return keep_alive, buf
 
-            args: list[Any] = list(captures)
+            body_arg: Any = None
             if route.body_decoder is not None:
                 try:
-                    args.append(route.body_decoder.decode(body_bytes))
+                    body_arg = route.body_decoder.decode(body_bytes)
                 except (msgspec.ValidationError, msgspec.DecodeError) as exc:
                     self._send(conn, 422, _json_encode({"detail": str(exc)}))
                     return keep_alive, buf
 
+            args = route.bind(captures_list, body_arg)
             result = route.handler(*args)
             if isinstance(result, tuple):
                 status, payload = result
@@ -313,11 +382,14 @@ class Dex:
         cond = self._cond
         while True:
             with cond:
-                while not self._work:
-                    cond.wait()
+                while not self._work and not self._stopping.is_set():
+                    cond.wait(timeout=0.5)
+                if self._stopping.is_set() and not self._work:
+                    return
                 conn, buf = self._work.popleft()
+                self._active_connections.add(conn)
             try:
-                while True:
+                while not self._stopping.is_set():
                     keep_alive, buf = self._process(conn, buf)
                     if not keep_alive:
                         break
@@ -325,10 +397,16 @@ class Dex:
             except (ConnectionError, OSError, ValueError):
                 with contextlib.suppress(OSError):
                     conn.close()
+            finally:
+                with cond:
+                    self._active_connections.discard(conn)
+                    cond.notify_all()
 
     def _own_connection(self, conn: socket.socket, buf: bytes) -> None:
+        with self._cond:
+            self._active_connections.add(conn)
         try:
-            while True:
+            while not self._stopping.is_set():
                 keep_alive, buf = self._process(conn, buf)
                 if not keep_alive:
                     break
@@ -336,8 +414,16 @@ class Dex:
         except (ConnectionError, OSError, ValueError):
             with contextlib.suppress(OSError):
                 conn.close()
+        finally:
+            with self._cond:
+                self._active_connections.discard(conn)
+                self._cond.notify_all()
 
     def _handle_admission(self, conn: socket.socket, buf: bytes) -> None:
+        if self._stopping.is_set():
+            with contextlib.suppress(OSError):
+                conn.close()
+            return
         if _gil_free:
             # free-threaded: threads are cheap and truly parallel — spawn per connection.
             threading.Thread(target=self._own_connection, args=(conn, buf), daemon=True).start()
@@ -383,15 +469,50 @@ class Dex:
         srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         srv.bind((host, port))
         srv.listen(SOCKET_BACKLOG)
+        srv.settimeout(0.5)
         mode = "unbounded-ft" if _gil_free else f"pooled-gil({POOL_SIZE})"
         print(f"dexpot serving on http://{host}:{port} pid={os.getpid()} mode={mode}", flush=True)
         if not _gil_free:
             for _ in range(POOL_SIZE):
                 threading.Thread(target=self._worker_gil, daemon=True).start()
-        while True:
-            conn, _addr = srv.accept()
+        # clean exit on SIGTERM/SIGINT (main thread only); otherwise default behavior
+        stopping = threading.Event()
+
+        def stop(*_args: object) -> None:
+            stopping.set()
+
+        if threading.current_thread() is threading.main_thread():
+            signal.signal(signal.SIGTERM, stop)
+            signal.signal(signal.SIGINT, stop)
+        while not stopping.is_set():
+            try:
+                conn, _addr = srv.accept()
+            except TimeoutError:
+                continue
             conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             self._handle_admission(conn, b"")
+        with contextlib.suppress(OSError):
+            srv.close()
+        self._begin_drain(timeout=5.0)
+
+    def _begin_drain(self, timeout: float) -> None:
+        """Stop new work, discard queued idle connections, and wait for active
+        connections up to *timeout*. Close survivors after the deadline."""
+        self._stopping.set()
+        deadline = time.monotonic() + timeout
+        with self._cond:
+            while self._work:
+                conn, _buf = self._work.popleft()
+                with contextlib.suppress(OSError):
+                    conn.close()
+            self._cond.notify_all()
+            while self._active_connections and time.monotonic() < deadline:
+                self._cond.wait(timeout=min(0.1, max(0.0, deadline - time.monotonic())))
+            survivors = list(self._active_connections)
+        for conn in survivors:
+            with contextlib.suppress(OSError):
+                conn.shutdown(socket.SHUT_RDWR)
+                conn.close()
 
     def _accept_loop(self, srv: socket.socket) -> None:
         while True:
@@ -403,24 +524,31 @@ class Dex:
             self._handle_admission(conn, b"")
 
     def _serve_multiprocess(self, host: str, port: int, n_workers: int) -> None:
-        """GIL build: one worker process per DEXPOT_WORKERS, each with its own
-        listener via SO_REUSEPORT (kernel load-balances connections).
+        """Supervise one process-local SO_REUSEPORT listener per GIL worker."""
+        if os.name != "posix":
+            raise OSError(
+                "DEXPOT_WORKERS > 1 requires POSIX fork + SO_REUSEPORT; "
+                f"found {os.name!r}. Use DEXPOT_WORKERS=1 on this platform."
+            )
+        if not hasattr(socket, "SO_REUSEPORT"):
+            raise OSError(
+                "DEXPOT_WORKERS > 1 requires SO_REUSEPORT; use DEXPOT_WORKERS=1 on this platform."
+            )
+        if threading.current_thread() is not threading.main_thread():
+            raise RuntimeError(
+                "multiprocess serve() must run in the main thread; "
+                "start dexpot from its CLI or a process, not a background thread"
+            )
 
-        Workers are forked BEFORE any threads exist; each child then starts its
-        own pool inside serve(). The parent only supervises.
-        """
-        listeners: list[socket.socket] = []
-        for _ in range(n_workers):
-            srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            if hasattr(socket, "SO_REUSEPORT"):
-                srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-            else:  # pragma: no cover - Linux/macOS/Windows all have it on 3.12+
-                srv.close()
-                raise OSError("SO_REUSEPORT is required for multiprocess serving")
-            srv.bind((host, port))
-            srv.listen(SOCKET_BACKLOG)
-            listeners.append(srv)
+        # Preflight bind before launching anything. Workers create their own
+        # process-local listeners after fork, so no child inherits unused peers.
+        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            probe.bind((host, port))
+        finally:
+            probe.close()
 
         print(
             f"dexpot serving on http://{host}:{port} pid={os.getpid()} "
@@ -429,13 +557,6 @@ class Dex:
         )
 
         procs: list[Any] = []
-        for listener in listeners:
-            proc = _multiprocessing.Process(
-                target=self._worker_process, args=(listener,), daemon=True
-            )
-            proc.start()
-            procs.append(proc)
-
         stopping = threading.Event()
 
         def stop(*_args: object) -> None:
@@ -445,35 +566,96 @@ class Dex:
         signal.signal(signal.SIGINT, stop)
 
         try:
+            for _ in range(n_workers):
+                proc = self._new_worker(host, port)
+                proc.start()
+                procs.append(proc)
+
+            # Stabilize the full worker set before announcing startup success.
+            # On macOS, rapid SO_REUSEPORT restarts can transiently fail one
+            # child bind; retry within a bounded startup window. If the set
+            # cannot stabilize, teardown is atomic in the finally block.
+            startup_deadline = time.monotonic() + 3.0
+            while True:
+                dead = [i for i, p in enumerate(procs) if not p.is_alive()]
+                if not dead:
+                    break
+                if time.monotonic() >= startup_deadline:
+                    raise RuntimeError(f"{len(dead)} dexpot worker(s) failed during startup")
+                for i in dead:
+                    replacement = self._new_worker(host, port)
+                    replacement.start()
+                    procs[i] = replacement
+                time.sleep(0.2)
+
             while not stopping.is_set():
-                for i, proc in enumerate(procs):
-                    if not proc.is_alive():
-                        print(f"dexpot worker {i} exited; restarting", flush=True)
-                        listener = listeners[i]
-                        proc = _multiprocessing.Process(
-                            target=self._worker_process, args=(listener,), daemon=True
-                        )
-                        proc.start()
-                        procs[i] = proc
+                self._restart_dead_workers(self, host, port, procs)
                 stopping.wait(1.0)
         finally:
-            for proc in procs:
-                proc.terminate()
-            for proc in procs:
-                proc.join(timeout=5)
-            for listener in listeners:
-                with contextlib.suppress(OSError):
-                    listener.close()
+            self._teardown(procs)
 
-    def _worker_process(self, listener: socket.socket) -> None:
-        """Child entrypoint: adopt the inherited listener and serve forever."""
-        if not _gil_free:
-            for _ in range(POOL_SIZE):
-                threading.Thread(target=self._worker_gil, daemon=True).start()
-        while True:
-            try:
-                conn, _addr = listener.accept()
-            except OSError:
-                return
-            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            self._handle_admission(conn, b"")
+    def _new_worker(self, host: str, port: int) -> Any:
+        return _multiprocessing.Process(
+            target=self._worker_process,
+            args=(host, port),
+            daemon=True,
+        )
+
+    @staticmethod
+    def _restart_dead_workers(owner: Dex, host: str, port: int, procs: list[Any]) -> None:
+        for i, proc in enumerate(procs):
+            if not proc.is_alive():
+                print(f"dexpot worker {i} exited; restarting", flush=True)
+                replacement = owner._new_worker(host, port)
+                replacement.start()
+                procs[i] = replacement
+
+    @staticmethod
+    def _teardown(procs: list[Any]) -> None:
+        """Ask workers to stop accepting and drain active work for five seconds;
+        kill only workers that exceed the deadline."""
+        deadline = time.monotonic() + 6.0  # worker drain is 5s + IPC margin
+        for proc in procs:
+            with contextlib.suppress(Exception):
+                proc.terminate()  # SIGTERM: worker handler initiates cooperative drain
+        for proc in procs:
+            remaining = max(0.0, deadline - time.monotonic())
+            with contextlib.suppress(Exception):
+                proc.join(timeout=remaining)
+        for proc in procs:
+            with contextlib.suppress(Exception):
+                if proc.is_alive():
+                    proc.kill()
+                    proc.join(timeout=1)
+
+    def _worker_process(self, host: str, port: int) -> None:
+        """Child entrypoint: create a process-local listener, serve, then drain."""
+        self._stopping.clear()
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        listener.bind((host, port))
+        listener.listen(SOCKET_BACKLOG)
+        listener.settimeout(0.5)
+
+        def stop(*_args: object) -> None:
+            self._stopping.set()
+
+        signal.signal(signal.SIGTERM, stop)
+        signal.signal(signal.SIGINT, stop)
+
+        for _ in range(POOL_SIZE):
+            threading.Thread(target=self._worker_gil, daemon=True).start()
+
+        try:
+            while not self._stopping.is_set():
+                try:
+                    conn, _addr = listener.accept()
+                except TimeoutError:
+                    continue
+                conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                self._handle_admission(conn, b"")
+        finally:
+            with contextlib.suppress(OSError):
+                listener.close()
+            self._begin_drain(timeout=5.0)

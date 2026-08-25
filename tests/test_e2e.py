@@ -50,6 +50,20 @@ def server():
     def boom() -> dict:
         raise ValueError("kaboom")
 
+    class Body(msgspec.Struct):
+        tag: str
+
+    class NestedOut(msgspec.Struct):
+        parent: int
+        child: int
+        tag: str
+
+    # body param FIRST, path params after (reversed relative to path order):
+    # regression test for signature-order binding
+    @app.post("/parents/{parent_id}/children/{child_id}", body=Body, response=NestedOut)
+    def create_nested(child_id: int, item: Body, parent_id: int) -> NestedOut:
+        return NestedOut(parent=parent_id, child=child_id, tag=item.tag)
+
     port = _free_port()
     t = threading.Thread(target=app.serve, kwargs={"host": "127.0.0.1", "port": port}, daemon=True)
     t.start()
@@ -128,43 +142,30 @@ def test_duplicate_route_rejected():
             return {}
 
 
-def test_multiprocess_workers_serve():
-    """DEXPOT_WORKERS>1 on GIL builds: workers forked, kernel balances conns."""
-    import os
-    import socket
-    import time
-
+def test_structurally_equivalent_parametric_routes_rejected():
     from dexpot import Dex
 
     app = Dex()
 
-    @app.get("/health")
-    def health() -> dict:
-        return {"ok": True}
+    @app.get("/users/{id}")
+    def by_id(id: int) -> dict:
+        return {}
 
-    s = socket.socket()
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-    s.close()
+    with pytest.raises(ValueError, match="duplicate route"):
 
-    old = os.environ.get("DEXPOT_WORKERS")
-    os.environ["DEXPOT_WORKERS"] = "2"
-    try:
-        t = threading.Thread(
-            target=app.serve, kwargs={"host": "127.0.0.1", "port": port}, daemon=True
-        )
-        t.start()
-        base = f"http://127.0.0.1:{port}"
-        for _ in range(60):
-            try:
-                httpx.get(f"{base}/health", timeout=0.5)
-                break
-            except httpx.HTTPError:
-                time.sleep(0.25)
-        results = [httpx.get(f"{base}/health", timeout=2).status_code for _ in range(10)]
-        assert all(code == 200 for code in results)
-    finally:
-        if old is None:
-            os.environ.pop("DEXPOT_WORKERS", None)
-        else:
-            os.environ["DEXPOT_WORKERS"] = old
+        @app.get("/users/{name}")
+        def by_name(name: str) -> dict:
+            return {}
+
+
+def test_signature_order_binding(server):
+    """P1 regression: params bind by name regardless of path-segment order,
+    and the body param may appear anywhere in the signature."""
+    r = httpx.post(f"{server}/parents/11/children/22", json={"tag": "t1"})
+    assert r.status_code == 200
+    assert r.json() == {"parent": 11, "child": 22, "tag": "t1"}
+
+
+# Multiprocess supervisor is covered by tests/test_multiprocess.py, which runs
+# the supervisor in a real subprocess (signal handlers require the main thread;
+# in-thread serving cannot test shutdown or worker restart safely).
