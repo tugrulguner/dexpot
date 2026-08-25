@@ -130,24 +130,33 @@ class Route:
         sig = inspect.signature(handler)
         captures_by_name = {n: i for i, n in enumerate(path_names)}
 
-        sources: list[tuple[str, Any]] = []  # (kind, payload) per parameter
+        sources: list[tuple[Any, str, str, Any]] = []
         int_captures: list[tuple[int, str]] = []  # (capture_index, param_name)
         used_captures: set[int] = set()
         body_param_seen = False
 
         for name, param in sig.parameters.items():
+            if param.kind in (
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD,
+            ):
+                raise TypeError(
+                    f"handler parameter '{name}' uses unsupported "
+                    f"{param.kind.description}; *args/**kwargs cannot be compiled"
+                )
+
             ann = hints.get(name)
             if name in captures_by_name:
                 idx = captures_by_name[name]
                 if ann is int:
                     int_captures.append((idx, name))
-                sources.append(("capture", idx))
+                sources.append((param.kind, name, "capture", idx))
                 used_captures.add(idx)
             elif body_type is not None and not body_param_seen:
                 body_param_seen = True
-                sources.append(("body", None))
+                sources.append((param.kind, name, "body", None))
             elif param.default is not inspect.Parameter.empty:
-                sources.append(("default", param.default))
+                sources.append((param.kind, name, "default", param.default))
             else:
                 raise TypeError(
                     f"handler parameter '{name}' on route "
@@ -156,20 +165,43 @@ class Route:
 
         self.int_captures = tuple(int_captures)
 
-        # Build a positional invoker in signature order. Captures arrive from
-        # the router in path-segment order; this closure maps them by name.
-        order = list(sources)
+        # Build positional and keyword-only invokers in signature order.
+        # Common routes allocate no kwargs dict; keyword-only routes do.
+        positional_sources = [
+            (source, payload)
+            for kind, _name, source, payload in sources
+            if kind
+            in (
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            )
+        ]
+        keyword_sources = [
+            (name, source, payload)
+            for kind, name, source, payload in sources
+            if kind is inspect.Parameter.KEYWORD_ONLY
+        ]
 
-        def bind(captures: list[Any], body: Any) -> list[Any]:
-            args: list[Any] = []
-            for kind, payload in order:
-                if kind == "capture":
-                    args.append(captures[payload])
-                elif kind == "body":
-                    args.append(body)
-                else:
-                    args.append(payload)
-            return args
+        def resolve(source: str, payload: Any, captures: list[Any], body: Any) -> Any:
+            if source == "capture":
+                return captures[payload]
+            if source == "body":
+                return body
+            return payload
+
+        def bind(captures: list[Any], body: Any) -> tuple[list[Any], dict[str, Any] | None]:
+            args = [
+                resolve(source, payload, captures, body) for source, payload in positional_sources
+            ]
+            kwargs = (
+                {
+                    name: resolve(source, payload, captures, body)
+                    for name, source, payload in keyword_sources
+                }
+                if keyword_sources
+                else None
+            )
+            return args, kwargs
 
         self.bind = bind  # type: ignore[assignment]
 
@@ -351,8 +383,8 @@ class Dex:
                     self._send(conn, 422, _json_encode({"detail": str(exc)}))
                     return keep_alive, buf
 
-            args = route.bind(captures_list, body_arg)
-            result = route.handler(*args)
+            args, kwargs = route.bind(captures_list, body_arg)
+            result = route.handler(*args, **kwargs) if kwargs else route.handler(*args)
             if isinstance(result, tuple):
                 status, payload = result
                 out = _json_encode(payload)
