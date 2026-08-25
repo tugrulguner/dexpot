@@ -64,7 +64,8 @@ The runtime package is `dexpot`; the command requires `dexpot[cli]`.
 - A handler may return a payload or `(status, payload)`.
 - Path captures bind by parameter name, not by handler position.
 - An `int` path annotation converts the capture and returns 422 when conversion fails.
-- Body, path, and default parameters may appear in any valid Python signature order.
+- Path parameters may appear in any valid signature order because they bind by name.
+- The first non-path parameter is the body parameter. Put default-only parameters after it.
 - Keyword-only parameters work. `*args` and `**kwargs` are rejected at registration.
 - Every path capture must have a matching handler parameter.
 - Two routes with one method and the same structural shape conflict: `/users/{id}` and

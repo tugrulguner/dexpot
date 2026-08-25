@@ -54,6 +54,12 @@ def test_skill_documents_current_boundaries() -> None:
         assert boundary in body
 
 
+def test_skill_documents_current_body_binding_order() -> None:
+    body = skill_body()
+    assert "first non-path parameter is the body parameter" in body
+    assert "default-only parameters after it" in body
+
+
 def test_skill_python_examples_compile() -> None:
     blocks = re.findall(r"```python\n(.*?)```", skill_body(), re.DOTALL)
 

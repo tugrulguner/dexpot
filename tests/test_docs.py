@@ -74,3 +74,11 @@ def test_readme_does_not_claim_unshipped_framework_features() -> None:
     assert "not yet recommended for untrusted production traffic" in text
     assert "does not yet enforce the returned type" in text
     assert "are not yet injectable" in text
+
+
+def test_readme_uses_the_current_source_install_until_first_release() -> None:
+    text = README.read_text()
+
+    assert "git+https://github.com/tugrulguner/dexpot.git@main" in text
+    assert "has not published its first PyPI release yet" in text
+    assert "img.shields.io/pypi/" not in text

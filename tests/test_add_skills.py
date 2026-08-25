@@ -116,6 +116,22 @@ def test_install_without_agent_uses_detected_configuration(tmp_path: Path) -> No
     assert not (tmp_path / ".claude").exists()
 
 
+def test_legacy_cline_file_is_preserved_and_updated(tmp_path: Path) -> None:
+    path = tmp_path / ".clinerules"
+    path.write_text("# Existing Cline rules\n\nKeep this.\n")
+
+    for _ in range(2):
+        result = runner.invoke(app, ["add", "skills", "--path", str(tmp_path)])
+        assert result.exit_code == 0, result.output
+
+    text = path.read_text()
+    assert "# Existing Cline rules" in text
+    assert "Keep this." in text
+    assert "# dexpot applications" in text
+    assert text.count("dexpot:managed:start") == 1
+    assert text.count("dexpot:managed:end") == 1
+
+
 def test_install_without_detected_agent_lists_explicit_choices(tmp_path: Path) -> None:
     result = runner.invoke(app, ["add", "skills", "--path", str(tmp_path)])
 

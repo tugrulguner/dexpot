@@ -11,8 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/tugrulguner/dexpot/actions/workflows/ci.yml"><img src="https://github.com/tugrulguner/dexpot/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://pypi.org/project/dexpot/"><img src="https://img.shields.io/pypi/v/dexpot" alt="PyPI version"></a>
-  <a href="https://pypi.org/project/dexpot/"><img src="https://img.shields.io/pypi/pyversions/dexpot" alt="Python versions"></a>
+  <img src="https://img.shields.io/badge/Python-3.12%2B-blue" alt="Python 3.12+">
   <a href="https://github.com/tugrulguner/dexpot/stargazers"><img src="https://img.shields.io/github/stars/tugrulguner/dexpot?style=flat" alt="GitHub stars"></a>
   <a href="https://github.com/tugrulguner/dexpot/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a>
 </p>
@@ -54,8 +53,11 @@ and hardened parser limits are tracked in the [roadmap](ROADMAP.md).
 ### 1. Install
 
 ```bash
-pip install "dexpot[cli]"
+pip install "dexpot[cli] @ git+https://github.com/tugrulguner/dexpot.git@main"
 ```
+
+dexpot has not published its first PyPI release yet. The source install above is the current
+public installation path; `pip install "dexpot[cli]"` will become available with that release.
 
 ### 2. Define an application
 
@@ -141,8 +143,9 @@ def create_for_account(item: ItemIn, account_id: int) -> ItemOut:
 ```
 
 The handler signature does not have to mirror URL order. dexpot binds path captures by name,
-finds the declared body parameter, preserves Python signature order, and supports
-keyword-only parameters. Registration fails before serving when:
+treats the first non-path parameter as the declared body, preserves Python signature order,
+and supports keyword-only parameters. Put default-only parameters after that body parameter.
+Registration fails before serving when:
 
 - a required parameter has no matching path capture, request body, or default;
 - a path capture is not accepted by the handler;
@@ -281,13 +284,15 @@ dexpot version
 dexpot --version
 ```
 
-The CLI extra is optional so applications that call `Dex.serve()` directly do not need
-Typer:
+The CLI extra is optional, so applications that call `Dex.serve()` directly do not need
+Typer. Until the first PyPI release, install the framework and Typer CLI from GitHub:
 
 ```bash
-pip install dexpot          # framework runtime
-pip install "dexpot[cli]"   # framework runtime + dexpot command
+pip install "dexpot[cli] @ git+https://github.com/tugrulguner/dexpot.git@main"
 ```
+
+After the first release, the equivalent index installs will be `pip install dexpot` for the
+runtime and `pip install "dexpot[cli]"` for the runtime plus command.
 
 ## Examples
 

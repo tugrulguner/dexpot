@@ -68,6 +68,9 @@ def _write_copilot(root: Path) -> list[Path]:
 
 def _write_cline(root: Path) -> list[Path]:
     directory = root / ".clinerules"
+    if directory.is_file():
+        _upsert_managed_block(directory, cline_rule(skill_body()))
+        return [directory]
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"{SKILL_NAME}.md"
     path.write_text(cline_rule(skill_body()))
