@@ -4,35 +4,122 @@ on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
+  workflow_call:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
+    name: lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - run: uv sync --all-extras
-      - run: uv run ruff check src tests
-      - run: uv run ruff format --check src tests
+      - run: uv sync --all-extras --locked
+      - run: uv run ruff check src/ tests/
+      - run: uv run ruff format --check src/ tests/
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - run: uv sync --all-extras --locked
+      - run: uv run pyright src/ tests/
 
   test:
+    name: test (${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.12", "3.13", "3.14", "3.14t"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - run: uv python install ${{ matrix.python-version }}
-      - run: uv sync --all-extras --python ${{ matrix.python-version }}
-      - run: uv run pytest -q
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --all-extras --locked
+      - name: Verify interpreter mode
+        env:
+          EXPECTED_PYTHON: ${{ matrix.python-version }}
+        run: |
+          uv run python - <<'PY'
+          import os
+          import sys
+
+          expected = os.environ["EXPECTED_PYTHON"]
+          is_gil_enabled = getattr(sys, "_is_gil_enabled", lambda: True)()
+          print(sys.version)
+          print(f"gil_enabled={is_gil_enabled}")
+          if expected.endswith("t") and is_gil_enabled:
+              raise SystemExit("expected a free-threaded interpreter")
+          if not expected.endswith("t") and not is_gil_enabled:
+              raise SystemExit("expected a GIL-enabled interpreter")
+          PY
+      - run: >-
+          uv run pytest tests/ -v
+          --cov=src/dexpot
+          --cov-report=term-missing
+          --cov-fail-under=65
 
   build:
+    name: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - run: uv build
+      - name: Verify distribution artifacts
+        run: |
+          python3 - <<'PY'
+          import glob
+          import tarfile
+          import zipfile
+
+          wheels = glob.glob("dist/*.whl")
+          sdists = glob.glob("dist/*.tar.gz")
+          assert len(wheels) == 1, f"expected one wheel, found {wheels}"
+          assert len(sdists) == 1, f"expected one sdist, found {sdists}"
+
+          with zipfile.ZipFile(wheels[0]) as archive:
+              names = archive.namelist()
+              for required in (
+                  "dexpot/__init__.py",
+                  "dexpot/templates/skills/dexpot.md",
+              ):
+                  assert required in names, f"{required} missing from wheel"
+
+          with tarfile.open(sdists[0]) as archive:
+              names = archive.getnames()
+              for suffix in (
+                  "/src/dexpot/__init__.py",
+                  "/README.md",
+                  "/ROADMAP.md",
+                  "/CONTRIBUTING.md",
+              ):
+                  assert any(name.endswith(suffix) for name in names), (
+                      f"{suffix} missing from sdist"
+                  )
+
+          print(f"verified {wheels[0]} and {sdists[0]}")
+          PY

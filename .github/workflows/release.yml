@@ -1,0 +1,175 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  verify-version:
+    name: verify version and changelog
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify tag, package version, and changelog
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+          import sys
+          import tomllib
+
+          tag = os.environ["RELEASE_TAG"]
+          if not tag.startswith("v") or len(tag) == 1:
+              print(f"::error::release tag must be v<version>, got {tag!r}")
+              sys.exit(1)
+
+          version = tag[1:]
+          package_version = tomllib.loads(
+              pathlib.Path("pyproject.toml").read_text()
+          )["project"]["version"]
+          if version != package_version:
+              print(
+                  f"::error::tag {tag} does not match pyproject.toml version "
+                  f"{package_version} — run 'uv version {version}' on main first"
+              )
+              sys.exit(1)
+
+          changelog = pathlib.Path("CHANGELOG.md").read_text()
+          heading = re.compile(rf"^## \[{re.escape(version)}\](?:\s|$)", re.MULTILINE)
+          if heading.search(changelog) is None:
+              print(
+                  f"::error::CHANGELOG.md has no exact '## [{version}]' section — "
+                  "run 'make changelog' and commit it before tagging"
+              )
+              sys.exit(1)
+
+          print(f"{tag} matches pyproject.toml and CHANGELOG.md")
+          PY
+
+  build:
+    name: build release artifacts
+    needs: [ci, verify-version]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: false
+      - run: uv build
+      - name: Verify release artifacts
+        run: |
+          python3 - <<'PY'
+          import glob
+          import tarfile
+          import zipfile
+
+          wheels = glob.glob("dist/*.whl")
+          sdists = glob.glob("dist/*.tar.gz")
+          assert len(wheels) == 1, f"expected one wheel, found {wheels}"
+          assert len(sdists) == 1, f"expected one sdist, found {sdists}"
+          with zipfile.ZipFile(wheels[0]) as archive:
+              names = archive.namelist()
+              assert "dexpot/__init__.py" in names
+              assert "dexpot/templates/skills/dexpot.md" in names
+          with tarfile.open(sdists[0]) as archive:
+              names = archive.getnames()
+              assert any(name.endswith("/src/dexpot/__init__.py") for name in names)
+              assert any(name.endswith("/ROADMAP.md") for name in names)
+          print(f"verified {wheels[0]} and {sdists[0]}")
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write # Required for PyPI trusted publishing through OIDC.
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          attestations: true
+
+  github-release:
+    name: create GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Required to create the GitHub Release and upload assets.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist/
+      - name: Extract release notes from changelog
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY' > release-notes.md
+          import os
+          import pathlib
+          import re
+          import sys
+
+          version = os.environ["RELEASE_VERSION"].removeprefix("v")
+          text = pathlib.Path("CHANGELOG.md").read_text()
+          match = re.search(
+              rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)",
+              text,
+              re.MULTILINE | re.DOTALL,
+          )
+          if match is None:
+              sys.exit(f"no exact '## [{version}]' section in CHANGELOG.md")
+          print(match.group(1).strip())
+          PY
+          cat release-notes.md
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          args=()
+          case "$version" in *-*) args+=(--prerelease) ;; esac
+          gh release create "$RELEASE_TAG" \
+            --title "$RELEASE_TAG" \
+            --notes-file release-notes.md \
+            --verify-tag \
+            "${args[@]}" \
+            dist/*

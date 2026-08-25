@@ -1,4 +1,4 @@
-"""dexpot: a thread-per-request Python API framework built for free-threaded CPython."""
+"""dexpot: synchronous APIs with adaptive GIL and free-threaded execution."""
 
 from importlib.metadata import PackageNotFoundError, version
 
