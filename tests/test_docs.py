@@ -44,7 +44,7 @@ def test_public_names_documented_by_quick_start_are_importable() -> None:
 def test_cli_exposes_documented_topology() -> None:
     help_result = runner.invoke(app, ["--help"])
     add_result = runner.invoke(app, ["add", "--help"])
-    skills_result = runner.invoke(app, ["add", "skills", "--help"])
+    skills_result = runner.invoke(app, ["add", "skills", "--help"], color=True)
 
     assert help_result.exit_code == 0
     assert "serve" in help_result.output
@@ -53,8 +53,9 @@ def test_cli_exposes_documented_topology() -> None:
     assert add_result.exit_code == 0
     assert "skills" in add_result.output
     assert skills_result.exit_code == 0
-    assert "--agent" in skills_result.output
-    assert "--path" in skills_result.output
+    skills_output = re.sub(r"\x1b\[[0-9;]*m", "", skills_result.output)
+    assert "--agent" in skills_output
+    assert "--path" in skills_output
 
 
 def test_both_version_surfaces_derive_from_package_metadata() -> None:
