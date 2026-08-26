@@ -1,7 +1,7 @@
 """The Dex application: routing, validation, and the serving loop.
 
 Ported from the gilpot-bench spike (micro6) with the same measured architecture:
-- thread-per-request, no asyncio
+- connection-owning threads, no asyncio
 - mode-adaptive scheduling (unbounded threads on free-threaded CPython,
   bounded pool + fast-shed on GIL builds)
 - msgspec fused decode+validate for typed bodies
