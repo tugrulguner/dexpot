@@ -1,7 +1,7 @@
 # dexpot
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/assets/dexpot.png" alt="dexpot synchronous Python API framework" width="900">
+  <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/assets/dexpot.png" alt="dexpot synchronous Python API framework" width="600">
 </p>
 
 <p align="center">
