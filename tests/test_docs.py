@@ -50,6 +50,7 @@ def test_readme_hero_is_an_optimized_png() -> None:
         'src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/assets/dexpot.png"' in text
     )
     assert 'alt="dexpot synchronous Python API framework"' in text
+    assert 'width="600"' in text
 
 
 def test_public_names_documented_by_quick_start_are_importable() -> None:
