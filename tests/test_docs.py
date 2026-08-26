@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import struct
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -12,6 +13,7 @@ from dexpot.cli import app
 
 ROOT = Path(__file__).resolve().parent.parent
 README = ROOT / "README.md"
+HERO = ROOT / "assets" / "dexpot.png"
 runner = CliRunner()
 
 
@@ -34,6 +36,20 @@ def test_readme_relative_markdown_links_exist() -> None:
             missing.append(target)
 
     assert missing == []
+
+
+def test_readme_hero_is_an_optimized_png() -> None:
+    data = HERO.read_bytes()
+    width, height = struct.unpack(">II", data[16:24])
+    text = README.read_text()
+
+    assert data.startswith(b"\x89PNG\r\n\x1a\n")
+    assert (width, height) == (1200, 900)
+    assert len(data) < 700_000
+    assert (
+        'src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/assets/dexpot.png"' in text
+    )
+    assert 'alt="dexpot synchronous Python API framework"' in text
 
 
 def test_public_names_documented_by_quick_start_are_importable() -> None:
