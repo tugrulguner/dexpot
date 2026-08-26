@@ -11,7 +11,8 @@
 
 <p align="center">
   <a href="https://github.com/tugrulguner/dexpot/actions/workflows/ci.yml"><img src="https://github.com/tugrulguner/dexpot/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/Python-3.12%2B-blue" alt="Python 3.12+">
+  <a href="https://pypi.org/project/dexpot/"><img src="https://img.shields.io/pypi/v/dexpot" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/dexpot/"><img src="https://img.shields.io/pypi/pyversions/dexpot" alt="Python versions"></a>
   <a href="https://github.com/tugrulguner/dexpot/stargazers"><img src="https://img.shields.io/github/stars/tugrulguner/dexpot?style=flat" alt="GitHub stars"></a>
   <a href="https://github.com/tugrulguner/dexpot/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a>
 </p>
@@ -53,11 +54,8 @@ and hardened parser limits are tracked in the [roadmap](ROADMAP.md).
 ### 1. Install
 
 ```bash
-pip install "dexpot[cli] @ git+https://github.com/tugrulguner/dexpot.git@main"
+pip install "dexpot[cli]"
 ```
-
-dexpot has not published its first PyPI release yet. The source install above is the current
-public installation path; `pip install "dexpot[cli]"` will become available with that release.
 
 ### 2. Define an application
 
@@ -285,14 +283,12 @@ dexpot --version
 ```
 
 The CLI extra is optional, so applications that call `Dex.serve()` directly do not need
-Typer. Until the first PyPI release, install the framework and Typer CLI from GitHub:
+Typer:
 
 ```bash
-pip install "dexpot[cli] @ git+https://github.com/tugrulguner/dexpot.git@main"
+pip install dexpot          # framework runtime
+pip install "dexpot[cli]"   # framework runtime + dexpot command
 ```
-
-After the first release, the equivalent index installs will be `pip install dexpot` for the
-runtime and `pip install "dexpot[cli]"` for the runtime plus command.
 
 ## Examples
 

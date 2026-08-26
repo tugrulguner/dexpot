@@ -76,9 +76,9 @@ def test_readme_does_not_claim_unshipped_framework_features() -> None:
     assert "are not yet injectable" in text
 
 
-def test_readme_uses_the_current_source_install_until_first_release() -> None:
+def test_readme_uses_pypi_install_for_the_release() -> None:
     text = README.read_text()
 
-    assert "git+https://github.com/tugrulguner/dexpot.git@main" in text
-    assert "has not published its first PyPI release yet" in text
-    assert "img.shields.io/pypi/" not in text
+    assert 'pip install "dexpot[cli]"' in text
+    assert "img.shields.io/pypi/v/dexpot" in text
+    assert "git+https://github.com/tugrulguner/dexpot.git" not in text
