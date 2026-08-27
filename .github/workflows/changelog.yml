@@ -35,7 +35,8 @@ jobs:
           pattern='^changelog\.d/([0-9]+|\+[A-Za-z0-9][A-Za-z0-9._-]*)\.(added|changed|deprecated|removed|fixed)\.md$'
           mapfile -t fragments < <(
             gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files" \
-              --paginate --jq '.[].filename' | grep -E "$pattern" || true
+              --paginate --jq '.[] | select(.status != "removed") | .filename' \
+              | grep -E "$pattern" || true
           )
 
           if (( ${#fragments[@]} == 0 )); then
