@@ -14,6 +14,20 @@ gh api repos/tugrulguner/dexpot/pulls/<number>/reviews
 gh api repos/tugrulguner/dexpot/pulls/<number>/comments
 ```
 
+### Pin the exact head
+
+Record the reviewed head SHA and fetch it into an immutable review ref:
+
+```bash
+HEAD_SHA=$(gh pr view <number> --json headRefOid --jq .headRefOid)
+git fetch origin "pull/<number>/head:refs/remotes/review/<number>"
+test "$(git rev-parse refs/remotes/review/<number>)" = "$HEAD_SHA"
+```
+
+Run the review from that commit. Before publishing findings or merging, query GitHub again
+and confirm the live head still equals the reviewed head SHA. Also compare the branch against
+current main; a green result against an obsolete base is not integration evidence.
+
 For local work, inspect `git status --short`, the unstaged diff, and the staged diff.
 Untracked files are part of the change.
 

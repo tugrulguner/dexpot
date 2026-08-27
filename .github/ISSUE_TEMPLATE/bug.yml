@@ -70,9 +70,9 @@ body:
       required: true
 
   - type: textarea
-    id: observed
+    id: current-behavior
     attributes:
-      label: "Observed behavior"
+      label: "Current behavior"
       description: "Include the exact response, traceback, or process behavior."
     validations:
       required: true
@@ -89,6 +89,19 @@ body:
     attributes:
       label: "Additional context"
       description: "State whether the failure reproduces with one connection and one process."
+
+  - type: dropdown
+    id: contribution-intent
+    attributes:
+      label: "Contribution intent"
+      description: "Tell maintainers whether you want to work on the fix after triage."
+      options:
+        - "I would like to implement this after maintainer confirmation"
+        - "I can help test a fix"
+        - "I am reporting the problem only"
+        - "I need guidance before deciding"
+    validations:
+      required: true
 
   - type: checkboxes
     id: confirmations
