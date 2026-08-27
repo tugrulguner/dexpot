@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import struct
+import tomllib
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -14,6 +15,11 @@ from dexpot.cli import app
 ROOT = Path(__file__).resolve().parent.parent
 README = ROOT / "README.md"
 HERO = ROOT / "assets" / "dexpot.png"
+CONTRIBUTING = ROOT / "CONTRIBUTING.md"
+CHANGELOG_GUIDE = ROOT / "changelog.d" / "README.md"
+CHANGELOG_WORKFLOW = ROOT / ".github" / "workflows" / "changelog.yml"
+ISSUE_FORMS = ROOT / ".github" / "ISSUE_TEMPLATE"
+PULL_REQUEST_TEMPLATE = ROOT / ".github" / "pull_request_template.md"
 runner = CliRunner()
 
 
@@ -86,11 +92,64 @@ def test_both_version_surfaces_derive_from_package_metadata() -> None:
 
 
 def test_readme_does_not_claim_unshipped_framework_features() -> None:
-    text = " ".join(README.read_text().split())
+    source = README.read_text()
+    text = " ".join(source.split())
 
     assert "not yet recommended for untrusted production traffic" in text
+    assert source.index("alpha software") < source.index("## Quick start")
     assert "does not yet enforce the returned type" in text
     assert "are not yet injectable" in text
+
+
+def test_contributor_entry_points_are_actionable() -> None:
+    readme = README.read_text()
+    contributing = CONTRIBUTING.read_text()
+    pull_request_template = PULL_REQUEST_TEMPLATE.read_text()
+
+    assert "issues/new/choose" in readme
+    assert "github.com/tugrulguner/dexpot/discussions" in readme
+    assert "github.com/tugrulguner/dexpot" in readme
+    assert "issues/new?template=bug.yml" in contributing
+    assert "issues/new?template=feature.yml" in contributing
+    assert "Closes #<issue-number>" in contributing
+    assert "Closes #" in pull_request_template
+    assert "make check" in pull_request_template
+    assert "make build" in pull_request_template
+    assert "## Support dexpot" in readme
+    assert "use the Star control" in readme
+
+
+def test_issue_forms_and_template_chooser_are_present() -> None:
+    bug = (ISSUE_FORMS / "bug.yml").read_text()
+    feature = (ISSUE_FORMS / "feature.yml").read_text()
+    chooser = (ISSUE_FORMS / "config.yml").read_text()
+
+    assert 'name: "Bug report"' in bug
+    assert "Python version" in bug
+    assert "GIL status" in bug
+    assert "Minimal runnable application" in bug
+    assert 'name: "Feature request"' in feature
+    assert "Problem" in feature
+    assert "Proposed contract" in feature
+    assert "blank_issues_enabled: false" in chooser
+    assert "/discussions" in chooser
+
+
+def test_changelog_fragments_do_not_require_a_pr_number() -> None:
+    contributing = CONTRIBUTING.read_text()
+    guide = CHANGELOG_GUIDE.read_text()
+    workflow = CHANGELOG_WORKFLOW.read_text()
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["towncrier"]
+
+    assert "<issue-number>.<type>.md" in contributing
+    assert "towncrier create +.changed.md" in contributing
+    assert "<issue-number>.<type>.md" in guide
+    assert "\\+[A-Za-z0-9]" in workflow
+    assert "issues: read" in workflow
+    assert "issues/${issue_number}" in workflow
+    assert "must use an issue number" in workflow
+    assert "pull/{issue}" not in config["issue_format"]
+    assert config["issue_format"].endswith("/issues/{issue})")
 
 
 def test_readme_uses_pypi_install_for_the_release() -> None:

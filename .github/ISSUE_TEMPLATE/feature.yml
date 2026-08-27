@@ -1,0 +1,72 @@
+name: "Feature request"
+description: "Propose a scoped addition or contract change"
+title: "[Feature]: "
+labels:
+  - "enhancement"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the user problem before the API. For substantial API, parser, scheduler, or execution-model changes, use this issue to align on the contract before implementation.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem"
+      description: "What cannot a dexpot user do today, or what current behavior creates the problem?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: "Concrete use case"
+      description: "Show the smallest realistic application or request that needs this capability."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: "Area"
+      options:
+        - "Public handler or routing API"
+        - "HTTP parsing or protocol behavior"
+        - "Scheduler or execution model"
+        - "CLI and developer tooling"
+        - "Documentation or runnable examples"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-contract
+    attributes:
+      label: "Proposed contract"
+      description: "Describe the smallest public behavior that would solve the problem. Code is optional."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives considered"
+      description: "Describe workarounds or smaller approaches you considered."
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: "Acceptance criteria"
+      description: "How could a real user verify that the feature works?"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: "Confirmations"
+      options:
+        - label: "I searched existing issues, pull requests, and the roadmap for this request."
+          required: true
+        - label: "I will wait for contract alignment before implementing a substantial change."
+          required: true

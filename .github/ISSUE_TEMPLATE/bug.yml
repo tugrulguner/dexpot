@@ -1,0 +1,101 @@
+name: "Bug report"
+description: "Report a reproducible failure in dexpot"
+title: "[Bug]: "
+labels:
+  - "bug"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a dexpot bug. Search existing issues first and remove secrets, credentials, tokens, and private connection strings from everything you post.
+
+  - type: input
+    id: dexpot-version
+    attributes:
+      label: "dexpot version"
+      description: "Run `dexpot --version` or inspect the installed package metadata."
+      placeholder: "0.1.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: python-version
+    attributes:
+      label: "Python version"
+      options:
+        - "3.12"
+        - "3.13"
+        - "3.14"
+        - "3.14 free-threaded"
+        - "Other supported version"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: gil-status
+    attributes:
+      label: "GIL status"
+      description: "When available, report the result of `sys._is_gil_enabled()`."
+      options:
+        - "Enabled"
+        - "Disabled (free-threaded)"
+        - "Unknown or unavailable"
+    validations:
+      required: true
+
+  - type: input
+    id: operating-system
+    attributes:
+      label: "Operating system"
+      placeholder: "macOS 26, Ubuntu 24.04, Windows 11, or similar"
+    validations:
+      required: true
+
+  - type: textarea
+    id: minimal-application
+    attributes:
+      label: "Minimal runnable application"
+      description: "Provide the smallest complete application that reproduces the failure."
+      render: "python"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "Exact reproduction steps and request"
+      description: "Include the command, HTTP request, and relevant DEXPOT_POOL, DEXPOT_MAX_QUEUE, or DEXPOT_WORKERS settings."
+      render: "shell"
+    validations:
+      required: true
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: "Observed behavior"
+      description: "Include the exact response, traceback, or process behavior."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected behavior"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: "Additional context"
+      description: "State whether the failure reproduces with one connection and one process."
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: "Confirmations"
+      options:
+        - label: "I searched existing issues and pull requests for this failure."
+          required: true
+        - label: "I removed secrets, credentials, tokens, and private connection strings from this report."
+          required: true

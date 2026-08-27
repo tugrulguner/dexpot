@@ -49,9 +49,10 @@ dexpot is designed around that runtime instead of hiding it behind an ASGI adapt
 - **A small, owned HTTP core.** Routing, parsing, scheduling, draining, and response writes
   are dexpot code—not a wrapper around another web framework.
 
-This is a full framework under active construction. The serving and routing foundation is
-shipped; production HTTP features such as middleware, OpenAPI, streaming, authentication,
-and hardened parser limits are tracked in the [roadmap](ROADMAP.md).
+dexpot is alpha software and is not yet recommended for untrusted production traffic. The
+serving and routing foundation is shipped; production HTTP features such as middleware,
+OpenAPI, streaming, authentication, and hardened parser limits are tracked in the
+[roadmap](ROADMAP.md).
 
 ## Quick start
 
@@ -232,8 +233,7 @@ handler again.
 
 ## Current boundaries
 
-dexpot is alpha software and is not yet recommended for untrusted production traffic.
-Today:
+The current alpha release has these boundaries:
 
 - HTTP/1.1 requests with `Content-Length` and keep-alive are supported; chunked request
   bodies are not.
@@ -335,6 +335,15 @@ make check
 
 User-facing changes require a Towncrier fragment. See
 [`changelog.d/README.md`](changelog.d/README.md).
+
+## Support dexpot
+
+- Ask usage questions in [GitHub Discussions](https://github.com/tugrulguner/dexpot/discussions).
+- Report reproducible failures through the
+  [issue forms](https://github.com/tugrulguner/dexpot/issues/new/choose).
+- Discuss substantial API or execution-model changes before implementation.
+- If you want to follow dexpot's progress, use the Star control on the
+  [repository](https://github.com/tugrulguner/dexpot).
 
 ## License
 
