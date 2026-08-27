@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import contextlib
 import inspect
+import logging
 import multiprocessing
 import os
 import signal
@@ -25,6 +26,8 @@ from typing import Any
 
 import msgspec
 
+from ._http import ClientDisconnected, HttpLimits, HTTPParseError, read_request
+
 # "fork" is safe here because dexpot forks workers before starting any threads
 # (the supervisor process never starts pools/reactors). It preserves the
 # application object in-memory, avoiding pickle of compiled routes/codecs.
@@ -35,7 +38,6 @@ _multiprocessing = (
 )
 
 SOCKET_BACKLOG = 4096
-RECV_SIZE = 65536
 
 _cores = os.cpu_count() or 4
 _is_gil_enabled = getattr(sys, "_is_gil_enabled", None)
@@ -47,13 +49,21 @@ STATUS_TEXT = {
     200: b"OK",
     201: b"Created",
     204: b"No Content",
+    400: b"Bad Request",
     404: b"Not Found",
+    405: b"Method Not Allowed",
+    408: b"Request Timeout",
+    413: b"Content Too Large",
+    414: b"URI Too Long",
     422: b"Unprocessable Entity",
+    431: b"Request Header Fields Too Large",
     500: b"Internal Server Error",
     503: b"Service Unavailable",
+    505: b"HTTP Version Not Supported",
 }
 
 _json_encode = msgspec.json.encode
+_logger = logging.getLogger("dexpot.error")
 
 _type_hints_cache: dict[Any, dict[str, Any]] = {}
 
@@ -217,10 +227,17 @@ class Route:
         return _json_encode(result)
 
 
+def _path_segments(path: str) -> list[str]:
+    if path == "/":
+        return []
+    return path[1:].split("/")
+
+
 class Dex:
     """The application. ``@dex.get(...)`` / ``@dex.post(...)`` register routes."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, limits: HttpLimits | None = None) -> None:
+        self.limits = limits or HttpLimits()
         self._literal: dict[tuple[str, str], Route] = {}
         self._parametric: list[tuple[str, list[str], Route]] = []
         self._work: deque[tuple[socket.socket, bytes]] = deque()
@@ -231,10 +248,12 @@ class Dex:
     # ---- route registration ----
 
     def _register(self, method: str, path: str, fn: Callable[..., Any]) -> Callable[..., Any]:
+        if not path.startswith("/") or "?" in path or "#" in path:
+            raise ValueError("route paths must be absolute paths without a query or fragment")
         body_type = getattr(fn, "__dexpot_body__", None)
         resp_type = getattr(fn, "__dexpot_resp__", None)
         path_names = [
-            s[1:-1] for s in path.strip("/").split("/") if s.startswith("{") and s.endswith("}")
+            s[1:-1] for s in _path_segments(path) if s.startswith("{") and s.endswith("}")
         ]
         route = Route(fn, body_type, resp_type, (fn.__doc__ or "").strip(), path_names)
         key = (method, path)
@@ -242,8 +261,7 @@ class Dex:
             # structural shape: literal segments kept, params normalized to {},
             # so /users/{id} and /users/{name} are correctly seen as duplicates
             shape = tuple(
-                "{}" if s.startswith("{") and s.endswith("}") else s
-                for s in path.strip("/").split("/")
+                "{}" if s.startswith("{") and s.endswith("}") else s for s in _path_segments(path)
             )
             for m, _p, _r in self._parametric:
                 existing_shape = tuple(
@@ -251,7 +269,7 @@ class Dex:
                 )
                 if m == method and existing_shape == shape:
                     raise ValueError(f"duplicate route: {method} {path}")
-            segments = path.strip("/").split("/")
+            segments = _path_segments(path)
             self._parametric.append((method, segments, route))
         else:
             if key in self._literal:
@@ -306,64 +324,72 @@ class Dex:
 
     # ---- matching ----
 
-    def _match(self, method: str, path: str) -> tuple[Route | None, list[Any] | None]:
+    def _match(
+        self, method: str, path: str
+    ) -> tuple[Route | None, list[Any] | None, tuple[str, ...]]:
         hit = self._literal.get((method, path))
         if hit is not None:
-            return hit, []
-        segs = path.strip("/").split("/")
-        for m, pattern, route in self._parametric:
-            if m != method or len(pattern) != len(segs):
+            return hit, [], ()
+        allowed = {
+            registered_method
+            for registered_method, registered_path in self._literal
+            if registered_path == path
+        }
+        segs = _path_segments(path)
+        for registered_method, pattern, route in self._parametric:
+            if len(pattern) != len(segs):
                 continue
             captures: list[Any] = []
             ok = True
-            for p, s in zip(pattern, segs, strict=True):
-                if p.startswith("{") and p.endswith("}"):
-                    captures.append(s)
-                elif p != s:
+            for expected, actual in zip(pattern, segs, strict=True):
+                if expected.startswith("{") and expected.endswith("}"):
+                    captures.append(actual)
+                elif expected != actual:
                     ok = False
                     break
             if ok:
-                return route, captures
-        return None, None
+                if registered_method == method:
+                    return route, captures, ()
+                allowed.add(registered_method)
+        return None, None, tuple(sorted(allowed))
 
     # ---- request processing ----
 
     def _process(self, conn: socket.socket, buf: bytes) -> tuple[bool, bytes]:
-        while b"\r\n\r\n" not in buf:
-            chunk = conn.recv(RECV_SIZE)
-            if not chunk:
-                return False, b""
-            buf += chunk
-        head, _, rest = buf.partition(b"\r\n\r\n")
-        lines = head.split(b"\r\n")
         try:
-            method, raw_path, _ver = lines[0].decode("latin-1").split(" ", 2)
-        except ValueError:
+            request, buf = read_request(conn, buf, self.limits)
+        except ClientDisconnected:
             return False, b""
-        content_length = 0
-        keep_alive = True
-        headers: dict[str, str] = {}
-        for line in lines[1:]:
-            k, _, v = line.partition(b":")
-            key = k.strip().lower().decode("latin-1")
-            val = v.strip()
-            headers[key] = val.decode("latin-1")
-            if key == "content-length":
-                content_length = int(val)
-            elif key == "connection" and val.lower() == b"close":
-                keep_alive = False
-        while len(rest) < content_length:
-            chunk = conn.recv(RECV_SIZE)
-            if not chunk:
-                return False, b""
-            rest += chunk
-        body_bytes, buf = rest[:content_length], rest[content_length:]
+        except HTTPParseError as exc:
+            self._send(
+                conn,
+                exc.status,
+                _json_encode({"detail": exc.detail}),
+                keep_alive=False,
+                version=exc.version or "HTTP/1.1",
+            )
+            return False, b""
 
-        path_only, _, _query = raw_path.partition("?")
-        route, captures_list = self._match(method, path_only)
+        route, captures_list, allowed = self._match(request.method, request.path)
         if route is None or captures_list is None:
-            self._send(conn, 404, _json_encode({"detail": "not found"}))
-            return keep_alive, buf
+            if allowed:
+                self._send(
+                    conn,
+                    405,
+                    _json_encode({"detail": "method not allowed"}),
+                    keep_alive=request.keep_alive,
+                    version=request.version,
+                    extra_headers=(("Allow", ", ".join(allowed)),),
+                )
+            else:
+                self._send(
+                    conn,
+                    404,
+                    _json_encode({"detail": "not found"}),
+                    keep_alive=request.keep_alive,
+                    version=request.version,
+                )
+            return request.keep_alive, buf
 
         try:
             # compiled binder: convert typed captures, then build args in
@@ -372,16 +398,28 @@ class Dex:
                 try:
                     captures_list[cap_idx] = int(captures_list[cap_idx])
                 except ValueError:
-                    self._send(conn, 422, _json_encode({"detail": f"invalid int for {pname}"}))
-                    return keep_alive, buf
+                    self._send(
+                        conn,
+                        422,
+                        _json_encode({"detail": f"invalid int for {pname}"}),
+                        keep_alive=request.keep_alive,
+                        version=request.version,
+                    )
+                    return request.keep_alive, buf
 
             body_arg: Any = None
             if route.body_decoder is not None:
                 try:
-                    body_arg = route.body_decoder.decode(body_bytes)
+                    body_arg = route.body_decoder.decode(request.body)
                 except (msgspec.ValidationError, msgspec.DecodeError) as exc:
-                    self._send(conn, 422, _json_encode({"detail": str(exc)}))
-                    return keep_alive, buf
+                    self._send(
+                        conn,
+                        422,
+                        _json_encode({"detail": str(exc)}),
+                        keep_alive=request.keep_alive,
+                        version=request.version,
+                    )
+                    return request.keep_alive, buf
 
             args, kwargs = route.bind(captures_list, body_arg)
             result = route.handler(*args, **kwargs) if kwargs else route.handler(*args)
@@ -393,20 +431,46 @@ class Dex:
         except HTTPError as exc:
             status = exc.status
             out = _json_encode({"detail": exc.detail})
-        except Exception as exc:
+        except Exception:
+            _logger.exception(
+                "unhandled exception while processing %s %s", request.method, request.path
+            )
             status = 500
-            out = _json_encode({"detail": f"{type(exc).__name__}: {exc}"})
-        self._send(conn, status, out)
-        return keep_alive, buf
+            out = _json_encode({"detail": "internal server error"})
+        self._send(
+            conn,
+            status,
+            out,
+            keep_alive=request.keep_alive,
+            version=request.version,
+        )
+        return request.keep_alive, buf
 
     @staticmethod
-    def _send(conn: socket.socket, status: int, out: bytes) -> None:
+    def _send(
+        conn: socket.socket,
+        status: int,
+        out: bytes,
+        *,
+        keep_alive: bool,
+        version: str = "HTTP/1.1",
+        extra_headers: tuple[tuple[str, str], ...] = (),
+    ) -> None:
         reason = STATUS_TEXT.get(status, b"OK")
-        hdr = (
-            b"HTTP/1.1 %d %s\r\nContent-Type: application/json\r\n"
-            b"Content-Length: %d\r\nServer: dexpot\r\n\r\n" % (status, reason, len(out))
+        header = (
+            b"%s %d %s\r\nContent-Type: application/json\r\n"
+            b"Content-Length: %d\r\nServer: dexpot\r\nConnection: %s\r\n"
+            % (
+                version.encode("ascii"),
+                status,
+                reason,
+                len(out),
+                b"keep-alive" if keep_alive else b"close",
+            )
         )
-        conn.sendall(hdr + out)
+        for name, value in extra_headers:
+            header += f"{name}: {value}\r\n".encode("latin-1")
+        conn.sendall(header + b"\r\n" + out)
 
     # ---- scheduling ----
 
@@ -522,6 +586,7 @@ class Dex:
             except TimeoutError:
                 continue
             conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            conn.settimeout(self.limits.idle_read_seconds)
             self._handle_admission(conn, b"")
         with contextlib.suppress(OSError):
             srv.close()
@@ -553,6 +618,7 @@ class Dex:
             except OSError:
                 return
             conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            conn.settimeout(self.limits.idle_read_seconds)
             self._handle_admission(conn, b"")
 
     def _serve_multiprocess(self, host: str, port: int, n_workers: int) -> None:
@@ -686,6 +752,7 @@ class Dex:
                 except TimeoutError:
                     continue
                 conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                conn.settimeout(self.limits.idle_read_seconds)
                 self._handle_admission(conn, b"")
         finally:
             with contextlib.suppress(OSError):

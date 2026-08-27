@@ -11,7 +11,7 @@ SKILL_NAME = "dexpot"
 SKILL_TITLE = "dexpot applications"
 SKILL_DESCRIPTION = (
     "Build and review synchronous dexpot APIs with compiled routes, msgspec bodies, "
-    "adaptive GIL/free-threaded scheduling, bounded overload, and real HTTP tests."
+    "bounded HTTP parsing, adaptive GIL/free-threaded scheduling, and real socket tests."
 )
 
 

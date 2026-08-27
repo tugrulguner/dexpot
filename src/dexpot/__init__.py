@@ -2,6 +2,7 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
+from ._http import HttpLimits
 from .app import Dex
 from .requests import Request
 
@@ -10,4 +11,4 @@ try:
 except PackageNotFoundError:  # running from source without installation
     __version__ = "0.0.0.dev0"
 
-__all__ = ["Dex", "Request", "__version__"]
+__all__ = ["Dex", "HttpLimits", "Request", "__version__"]

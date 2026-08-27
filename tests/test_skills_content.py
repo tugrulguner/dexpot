@@ -49,7 +49,8 @@ def test_skill_documents_current_boundaries() -> None:
         "Chunked request bodies",
         "Query/header injection",
         "does **not** currently validate",
-        "exception names and messages",
+        "internal server error",
+        "Structured request IDs",
     ):
         assert boundary in body
 
