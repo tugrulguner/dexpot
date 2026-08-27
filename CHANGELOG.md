@@ -10,6 +10,21 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.1.1] - 2026-08-26
+
+### Added
+
+- Add an optimized dexpot project image with a public-API-accurate handler to the README hero. ([#6](https://github.com/tugrulguner/dexpot/pull/6))
+
+### Changed
+
+- Reduce the README project image to match the presentation scale used across the potion projects. ([#7](https://github.com/tugrulguner/dexpot/pull/7))
+
+### Fixed
+
+- Make `dexpot serve module:app` load application modules from the command's working directory. ([#8](https://github.com/tugrulguner/dexpot/pull/8))
+
+
 ## [0.1.0] - 2026-08-25
 
 ### Added
