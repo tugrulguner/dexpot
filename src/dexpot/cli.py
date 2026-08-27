@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+from pathlib import Path
 from typing import Any
 
 try:
@@ -54,6 +55,7 @@ def _load(target: str) -> Any:
     if not separator or not module_path or not attr:
         typer.echo("Error: target must be 'module:attribute', e.g. main:app", err=True)
         raise typer.Exit(1)
+    sys.path.insert(0, str(Path.cwd()))
     try:
         module = importlib.import_module(module_path)
     except Exception as exc:
