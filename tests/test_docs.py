@@ -145,6 +145,7 @@ def test_changelog_fragments_do_not_require_a_pr_number() -> None:
     assert "towncrier create +.changed.md" in contributing
     assert "<issue-number>.<type>.md" in guide
     assert "\\+[A-Za-z0-9]" in workflow
+    assert 'select(.status != "removed") | .filename' in workflow
     assert "issues: read" in workflow
     assert "issues/${issue_number}" in workflow
     assert "must use an issue number" in workflow
