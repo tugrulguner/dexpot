@@ -5,18 +5,33 @@ CPython.
 
 ## Choose the right path
 
-- Use the [bug report form](https://github.com/tugrulguner/dexpot/issues/new?template=bug.yml)
-  for reproducible failures.
-- Open a
-  [feature request](https://github.com/tugrulguner/dexpot/issues/new?template=feature.yml)
-  before substantial API, parser, scheduler, or execution-model work. Align on the public
-  contract before implementing it.
-- Small documentation, test, and clearly scoped bug fixes may go directly to a pull request.
-- Use [GitHub Discussions](https://github.com/tugrulguner/dexpot/discussions) for questions
-  and early ideas that are not ready to become scoped work.
+### Substantial contract work: open an issue first
 
-Search open issues and pull requests before starting. If an issue is labeled `good first
-issue` or `help wanted`, comment before implementation so contributors do not duplicate work.
+Open a
+[feature request](https://github.com/tugrulguner/dexpot/issues/new?template=feature.yml)
+before substantial handler, routing, parser, scheduler, protocol, or execution-model work.
+Start with the user problem and wait for agreement on the public contract before implementing
+it.
+
+### Small direct changes
+
+Focused documentation, regression tests, clearly scoped bug fixes, and repository maintenance
+may go directly to a pull request when they do not introduce a new public contract. Explain
+why a direct pull request is appropriate in the template.
+
+### Questions and early ideas
+
+Use [Q&A](https://github.com/tugrulguner/dexpot/discussions/categories/q-a) for usage help and
+[Ideas](https://github.com/tugrulguner/dexpot/discussions/categories/ideas) for an idea that is
+not yet a scoped proposal.
+
+### Claimed community work
+
+Search open issues, every issue comment, and open pull requests before starting. For a `good
+first issue` or `help wanted` issue, comment and wait for confirmation before implementation
+so contributors do not duplicate work. Use the
+[bug report form](https://github.com/tugrulguner/dexpot/issues/new?template=bug.yml) for
+reproducible failures.
 
 ## Development setup
 
@@ -59,6 +74,9 @@ uv run pytest tests/test_e2e.py -v
 uv run pytest tests/test_multiprocess.py -v
 uv run pytest tests/test_add_skills.py tests/test_skills_content.py -v
 ```
+
+Record exact commands, environment details, and results so a reviewer can reproduce the
+evidence rather than infer it from a green summary.
 
 A behavior change needs an end-to-end test against the real socket server. A unit test of a
 private helper is not enough by itself. Multiprocess, signal, restart, and drain behavior

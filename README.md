@@ -326,6 +326,10 @@ include:
 - roadmap features with a focused issue and end-to-end tests; and
 - documentation that clearly separates current behavior from planned architecture.
 
+Open an issue before substantial handler, routing, parser, scheduler, protocol, or execution
+contract work. Focused fixes, tests, documentation, and maintenance may be direct pull
+requests when they do not introduce a new public contract.
+
 Set up and run the complete local gate with:
 
 ```bash

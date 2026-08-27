@@ -1,39 +1,36 @@
-## Summary
+## Summary and motivation
 
-Describe the current behavior and the focused change in this pull request.
+<!-- What changed, and which concrete user or maintainer problem does it solve? -->
 
-## Related issue
+## Related issue or direct-PR reason
 
-Use `Closes #<issue-number>` when this work has an agreed issue. Write `Not applicable` for a small change that did not need one.
+<!-- Use `Closes #<issue-number>` for tracked work. If there is no issue, explain why this is a small, scoped direct PR such as a focused fix, test, documentation repair, or maintenance change. -->
 
-<!-- Closes #123 -->
+## Scope and non-goals
 
-## User-visible behavior
+<!-- State what this PR changes and what it deliberately leaves alone. -->
 
-Describe what changes for a dexpot user. Write `None` for maintenance-only work.
+## Safety and compatibility
 
-## Verification
+<!-- Address handler/route contracts, parser and response behavior, bounded admission, shutdown, platform constraints, and GIL and free-threaded execution as applicable. -->
 
-- [ ] Added or updated real-user coverage when behavior changed.
-- [ ] Verified behavior through the real HTTP or CLI surface when applicable.
+## Verification and behavioral evidence
+
+<!-- List exact commands and results so a reviewer can reproduce them. -->
+
 - [ ] `make check`
 - [ ] `make build`
-- [ ] Completed the relevant checks in `docs/reviewing.md`.
+- [ ] Relevant real socket, subprocess, saturation, or artifact checks
+- [ ] Behavior exercised through the real HTTP or CLI surface when applicable
 
-List the commands run and their results:
+## Documentation and changelog
 
-```text
+- [ ] Updated README, roadmap, examples, coding-agent guidance, or contributor documentation when their contract changed.
+- [ ] Added `changelog.d/<issue-number>.<type>.md` for tracked user-facing work; or
+- [ ] Added a unique `changelog.d/+<identifier>.<type>.md` orphan fragment for a small direct user-facing change; or
+- [ ] This has no user-visible effect and should receive the maintainer-applied `skip-changelog` label.
+- [ ] Did not edit `CHANGELOG.md`, package versions, or `uv.lock` manually.
 
-```
+## Reviewer guidance
 
-## Documentation and contracts
-
-- [ ] Updated the README, roadmap, examples, or coding-agent guidance when their public contract changed.
-- [ ] Preserved the synchronous handler and interpreter-adaptive execution contracts.
-- [ ] Kept current behavior separate from planned architecture.
-
-## Changelog
-
-- [ ] Added `changelog.d/<issue-number>.<type>.md` for a tracked user-facing change; or
-- [ ] Added a unique `changelog.d/+<identifier>.<type>.md` orphan fragment; or
-- [ ] This has no user-visible effect and should receive the `skip-changelog` label.
+<!-- Point reviewers to the riskiest boundary, exact files, negative cases, concurrency modes, and evidence they should reproduce. -->
