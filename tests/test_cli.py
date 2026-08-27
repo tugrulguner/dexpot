@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -9,6 +12,37 @@ from typer.testing import CliRunner
 from dexpot.cli import app
 
 runner = CliRunner()
+
+
+def test_console_script_loads_app_from_current_working_directory(tmp_path: Path) -> None:
+    (tmp_path / "main.py").write_text(
+        """from pathlib import Path
+
+
+class App:
+    def serve(self, *, host: str, port: int) -> None:
+        Path("served.txt").write_text(f"{host}:{port}")
+
+
+app = App()
+"""
+    )
+    cli = shutil.which("dexpot")
+    assert cli is not None
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(Path(__file__).parents[1] / "src")
+
+    result = subprocess.run(
+        [cli, "serve", "main:app", "--host", "127.0.0.1", "--port", "8765"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / "served.txt").read_text() == "127.0.0.1:8765"
 
 
 def test_serve_rejects_malformed_target() -> None:
