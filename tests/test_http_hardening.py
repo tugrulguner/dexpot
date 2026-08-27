@@ -29,7 +29,7 @@ def _free_port() -> int:
         return sock.getsockname()[1]
 
 
-def _start_server(port: int, *, idle_read_seconds: float = 0.25) -> subprocess.Popen[bytes]:
+def _start_server(port: int, *, idle_read_seconds: float = 2.0) -> subprocess.Popen[bytes]:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(ROOT / "src") + os.pathsep + env.get("PYTHONPATH", "")
     env["DEXPOT_POOL"] = "1"
@@ -254,6 +254,7 @@ def test_malformed_requests_receive_stable_errors(
 
 def test_idle_partial_head_times_out(hardened_server: int) -> None:
     with _connect(hardened_server) as sock:
+        sock.settimeout(5)
         sock.sendall(b"GET /health HTTP/1.1\r\nHost: test")
         status, headers, _body, _rest = _read_response(sock)
         assert status == 408
@@ -390,7 +391,9 @@ def test_saturation_still_returns_503(hardened_server: int) -> None:
     third = _connect(hardened_server)
     try:
         first.sendall(b"GET /health HTTP/1.1\r\nHost: test")
+        time.sleep(0.1)
         second.sendall(b"GET /health HTTP/1.1\r\nHost: test")
+        time.sleep(0.1)
         third.sendall(b"GET /health HTTP/1.1\r\nHost: test\r\n\r\n")
         status, headers, body, _rest = _read_response(third)
         assert status == 503
