@@ -387,13 +387,15 @@ def test_disconnects_do_not_break_subsequent_requests(hardened_server: int) -> N
 @pytest.mark.skipif(not _GIL_ENABLED, reason="free-threaded mode has no framework work queue")
 def test_saturation_still_returns_503(hardened_server: int) -> None:
     first = _connect(hardened_server)
-    second = _connect(hardened_server)
-    third = _connect(hardened_server)
+    second: socket.socket | None = None
+    third: socket.socket | None = None
     try:
         first.sendall(b"GET /health HTTP/1.1\r\nHost: test")
-        time.sleep(0.1)
+        time.sleep(0.2)
+        second = _connect(hardened_server)
         second.sendall(b"GET /health HTTP/1.1\r\nHost: test")
-        time.sleep(0.1)
+        time.sleep(0.2)
+        third = _connect(hardened_server)
         third.sendall(b"GET /health HTTP/1.1\r\nHost: test\r\n\r\n")
         status, headers, body, _rest = _read_response(third)
         assert status == 503
@@ -401,8 +403,10 @@ def test_saturation_still_returns_503(hardened_server: int) -> None:
         assert _json(body) == {"detail": "overloaded"}
     finally:
         first.close()
-        second.close()
-        third.close()
+        if second is not None:
+            second.close()
+        if third is not None:
+            third.close()
 
 
 @pytest.mark.skipif(_GIL_ENABLED, reason="GIL mode uses bounded admission instead")
