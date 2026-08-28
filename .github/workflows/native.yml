@@ -74,18 +74,33 @@ jobs:
         include:
           - runner: ubuntu-latest
             platform: linux-x64
+            build_python: "3.12"
+            test_versions: "3.12 3.13 3.14"
           - runner: ubuntu-24.04-arm
             platform: linux-arm64
+            build_python: "3.12"
+            test_versions: "3.12 3.13 3.14"
           - runner: macos-latest
             platform: macos-arm64
+            build_python: "3.12"
+            test_versions: "3.12 3.13 3.14"
           - runner: macos-15-intel
             platform: macos-x64
+            build_python: "3.12"
+            test_versions: "3.12 3.13 3.14"
           - runner: windows-latest
             platform: windows-x64
+            build_python: "3.12"
+            test_versions: "3.12 3.13 3.14"
           - runner: windows-11-arm
             platform: windows-arm64
+            build_python: "cpython-3.12-windows-aarch64-none"
+            test_versions: "cpython-3.12-windows-aarch64-none cpython-3.13-windows-aarch64-none cpython-3.14-windows-aarch64-none"
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
+    env:
+      BUILD_PYTHON: ${{ matrix.build_python }}
+      TEST_VERSIONS: ${{ matrix.test_versions }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -97,15 +112,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          uv python install 3.12
-          python="$(uv python find 3.12)"
+          uv python install "$BUILD_PYTHON"
+          python="$(uv python find "$BUILD_PYTHON")"
           PYO3_PYTHON="$python" uvx maturin==1.15.0 build \
             --manifest-path native/Cargo.toml \
             --locked --release --features abi3 --interpreter "$python" --out native/dist
       - name: Install and test on CPython 3.12 through 3.14
+        shell: bash
         run: >-
           uv run --no-project --python 3.12 python native/scripts/test_wheel.py
-          --wheel-dir native/dist --versions 3.12 3.13 3.14 --project-root .
+          --wheel-dir native/dist --versions "$TEST_VERSIONS" --project-root .
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dexpot-native-abi3-${{ matrix.platform }}
@@ -120,18 +136,33 @@ jobs:
         include:
           - runner: ubuntu-latest
             platform: linux-x64
+            build_python: "3.14t"
+            test_versions: "3.14t"
           - runner: ubuntu-24.04-arm
             platform: linux-arm64
+            build_python: "3.14t"
+            test_versions: "3.14t"
           - runner: macos-latest
             platform: macos-arm64
+            build_python: "3.14t"
+            test_versions: "3.14t"
           - runner: macos-15-intel
             platform: macos-x64
+            build_python: "3.14t"
+            test_versions: "3.14t"
           - runner: windows-latest
             platform: windows-x64
+            build_python: "3.14t"
+            test_versions: "3.14t"
           - runner: windows-11-arm
             platform: windows-arm64
+            build_python: "cpython-3.14+freethreaded-windows-aarch64-none"
+            test_versions: "cpython-3.14+freethreaded-windows-aarch64-none"
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
+    env:
+      BUILD_PYTHON: ${{ matrix.build_python }}
+      TEST_VERSIONS: ${{ matrix.test_versions }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -143,15 +174,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          uv python install 3.14t
-          python="$(uv python find 3.14t)"
+          uv python install "$BUILD_PYTHON"
+          python="$(uv python find "$BUILD_PYTHON")"
           PYO3_PYTHON="$python" uvx maturin==1.15.0 build \
             --manifest-path native/Cargo.toml \
             --locked --release --interpreter "$python" --out native/dist
       - name: Install and test with the GIL disabled
+        shell: bash
         run: >-
           uv run --no-project --python 3.12 python native/scripts/test_wheel.py
-          --wheel-dir native/dist --versions 3.14t --project-root .
+          --wheel-dir native/dist --versions "$TEST_VERSIONS" --project-root .
       - name: Run the complete dexpot suite on 3.14t
         if: matrix.platform == 'linux-x64'
         shell: bash

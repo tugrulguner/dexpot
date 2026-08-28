@@ -23,13 +23,14 @@ def main() -> None:
     parser.add_argument("--versions", nargs="+", required=True)
     parser.add_argument("--project-root", type=Path)
     args = parser.parse_args()
+    versions = [version for value in args.versions for version in value.split()]
 
     wheels = list(args.wheel_dir.glob("*.whl"))
     if len(wheels) != 1:
         raise SystemExit(f"expected one wheel in {args.wheel_dir}, found {wheels}")
     wheel = wheels[0].resolve()
 
-    for version in args.versions:
+    for version in versions:
         with tempfile.TemporaryDirectory(prefix=f"dexpot-native-{version}-") as directory:
             venv = Path(directory) / "venv"
             subprocess.run(["uv", "venv", "--python", version, str(venv)], check=True)
@@ -44,7 +45,7 @@ def main() -> None:
                 check=True,
             )
             command = [str(python)]
-            if version.endswith("t"):
+            if version.endswith("t") or "+freethreaded" in version:
                 command.extend(["-X", "gil=0"])
             subprocess.run(
                 [*command, "-m", "pytest", str(ROOT / "native" / "tests"), "-q"],
@@ -62,13 +63,14 @@ def main() -> None:
                 env = os.environ.copy()
                 env["DEXPOT_HTTP_PARSER"] = "native"
                 env["PATH"] = str(python.parent) + os.pathsep + env.get("PATH", "")
+                integration_test = "test_e2e.py" if os.name == "nt" else "test_http_hardening.py"
                 subprocess.run(
                     [
                         *command,
                         "-m",
                         "pytest",
                         str(args.project_root / "tests" / "test_parser_backend.py"),
-                        str(args.project_root / "tests" / "test_http_hardening.py"),
+                        str(args.project_root / "tests" / integration_test),
                         "-q",
                     ],
                     check=True,
