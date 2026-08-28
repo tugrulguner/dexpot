@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dexpot"
-version = "0.1.1"
+version = "0.2.0"
 description = "A synchronous Python API framework with adaptive GIL and free-threaded execution."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -64,6 +64,9 @@ dexpot = "dexpot.cli:app"
 packages = ["src/dexpot"]
 exclude = ["**/AGENTS.md"]
 
+[tool.hatch.build.targets.sdist]
+exclude = ["/.venv*", "/dist"]
+
 [tool.towncrier]
 directory = "changelog.d"
 filename = "CHANGELOG.md"
@@ -99,7 +102,7 @@ showcontent = true
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-src = ["src", "tests"]
+src = ["src", "tests", "examples", "scripts"]
 extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
@@ -115,7 +118,7 @@ known-first-party = ["dexpot"]
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
-include = ["src", "tests"]
+include = ["src", "tests", "examples", "scripts"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

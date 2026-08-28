@@ -14,7 +14,7 @@ body:
     attributes:
       label: "dexpot version"
       description: "Run `dexpot --version` or inspect the installed package metadata."
-      placeholder: "0.1.1"
+      placeholder: "Run dexpot --version and paste the version here"
     validations:
       required: true
 

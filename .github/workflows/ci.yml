@@ -25,8 +25,8 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - run: uv sync --all-extras --locked
-      - run: uv run ruff check src/ tests/
-      - run: uv run ruff format --check src/ tests/
+      - run: uv run ruff check src/ tests/ examples/ scripts/
+      - run: uv run ruff format --check src/ tests/ examples/ scripts/
 
   typecheck:
     name: typecheck
@@ -38,7 +38,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - run: uv sync --all-extras --locked
-      - run: uv run pyright src/ tests/
+      - run: uv run pyright src/ tests/ examples/ scripts/
 
   test:
     name: test (${{ matrix.python-version }})
@@ -123,3 +123,10 @@ jobs:
 
           print(f"verified {wheels[0]} and {sdists[0]}")
           PY
+      - name: Smoke the installed wheel, CLI, and every example
+        run: |
+          set -euo pipefail
+          wheel="$(printf '%s\n' dist/*.whl)"
+          uv venv --python 3.13 .artifact-smoke
+          uv pip install --python .artifact-smoke/bin/python "${wheel}[cli]"
+          .artifact-smoke/bin/python scripts/smoke_installed_examples.py
