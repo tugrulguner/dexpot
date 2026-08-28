@@ -76,7 +76,8 @@ def test_readme_execution_diagram_is_rendered_and_editable() -> None:
     assert "FREE-THREADED CPYTHON" in source
     assert "STANDARD GIL CPYTHON" in source
     assert (
-        'src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/docs/assets/'
+        'src="https://raw.githubusercontent.com/tugrulguner/dexpot/'
+        '183a4e9b304b95d3f0986d3c06348ea65b8c2cce/docs/assets/'
         'dexpot-execution.png"' in text
     )
     assert 'width="960"' in text

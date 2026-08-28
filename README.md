@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/docs/assets/dexpot-execution.png" alt="A dexpot route compiles once into an immutable endpoint plan, then uses either a connection-owned thread on free-threaded CPython or a bounded worker pool with optional process fan-out on standard GIL CPython before both paths execute the same synchronous handler pipeline" width="960">
+  <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/183a4e9b304b95d3f0986d3c06348ea65b8c2cce/docs/assets/dexpot-execution.png" alt="A dexpot route compiles once into an immutable endpoint plan, then uses either a connection-owned thread on free-threaded CPython or a bounded worker pool with optional process fan-out on standard GIL CPython before both paths execute the same synchronous handler pipeline" width="960">
 </p>
 
 ## Why dexpot
