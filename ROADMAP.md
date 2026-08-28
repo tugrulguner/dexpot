@@ -89,12 +89,43 @@ Keep optimization evidence reproducible and correctness-equivalent:
   `sys._is_gil_enabled()` with every result.
 - Sweep GIL pool, queue, and process counts instead of selecting a flattering competitor
   configuration.
-- Profile route matching, parsing, codec use, allocations, locks, and system calls before
-  introducing native code.
+- Continue profiling route matching, parsing, codec use, allocations, locks, and system calls as
+  the HTTP contract evolves; the parser work in issue #18 established the first measured native
+  candidate.
 - Add deterministic overload tests that prove useful work stays responsive while excess
   connections receive 503.
-- Evaluate a compiled parser only after Python-level measurements identify parsing as the
-  limiting layer.
+- Preserve the issue #18 parser spike, differential corpus, and goodput accounting as prerequisite
+  evidence. Re-run the exact published release before promoting public benchmark claims or moving
+  another hot path into native code.
+
+#### Optional Rust request-head acceleration
+
+The parser spike tracked in [issue #18](https://github.com/tugrulguner/dexpot/issues/18)
+validated a narrow native seam: Rust may parse a complete, already bounded request head while
+Python retains socket ownership, deadlines, body reads, pipelining, target decoding, routing,
+handlers, scheduling, and supervision.
+
+The delivery path is deliberately staged:
+
+- Keep the Python parser as the semantic reference and unsupported-platform fallback. Default
+  backend selection is automatic: use native when a compatible separately installed extension
+  is present, otherwise Python.
+- Ship native code as a separate `dexpot-native` distribution rather than making every dexpot
+  installation platform-specific.
+- Build one `cp312-abi3` wheel per standard platform/architecture and version-specific
+  free-threaded wheels such as `cp314t`.
+- Run the direct differential corpus, deterministic mutation tests, concurrent parser stress,
+  and complete real-socket HTTP suite under Python, native, automatic, and fallback modes.
+- Publish raw goodput, errors, latency percentiles, CPU, and RSS with exact version/hardware
+  context; Docker Desktop remains directional rather than bare-metal evidence.
+- Do not make `dexpot-native` a default dependency or bundled installation until bare-metal
+  Linux and cross-platform wheel gates show repeatable parser-heavy wins without unacceptable
+  tail-latency, memory, overload, or lifecycle regressions. Installing the separate package is
+  the user's opt-in; automatic runtime detection removes the need for a second configuration
+  step.
+
+The initial spike measured large parser-only gains and directional end-to-end improvements,
+but those measurements are promotion evidence rather than README performance claims.
 
 ### 4. Production operations
 
