@@ -31,6 +31,7 @@ def test_description_tells_agents_when_to_load_skill() -> None:
         "Free-threaded",
         "bounded pool",
         "DEXPOT_WORKERS",
+        "DEXPOT_HTTP_PARSER",
         "keep-alive connection",
         "SIGINT/SIGTERM",
         "real socket server",
@@ -59,6 +60,15 @@ def test_skill_documents_current_body_binding_order() -> None:
     body = skill_body()
     assert "first non-path parameter is the body parameter" in body
     assert "default-only parameters after it" in body
+
+
+def test_skill_documents_native_parser_selection_contract() -> None:
+    body = " ".join(skill_body().split())
+    assert "defaults to `auto`" in body
+    assert "otherwise Python" in body
+    assert "`DEXPOT_HTTP_PARSER=python` forces" in body
+    assert "`native` requires the extension" in body
+    assert "does not own sockets, bodies, handlers, scheduling, or supervision" in body
 
 
 def test_skill_python_examples_compile() -> None:

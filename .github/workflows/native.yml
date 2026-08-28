@@ -1,0 +1,203 @@
+name: Native parser
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: native quality and parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Install Rust quality toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal --component clippy,rustfmt && rustup default 1.98.0
+      - run: uv sync --project native --group dev --locked
+      - run: uv run --project native ruff check native/python native/tests native/scripts
+      - run: uv run --project native ruff format --check native/python native/tests native/scripts
+      - run: uv run --project native pyright native/python native/tests native/scripts
+      - run: cargo fmt --manifest-path native/Cargo.toml --check
+      - run: cargo clippy --manifest-path native/Cargo.toml --locked --all-targets --all-features -- -D warnings
+      - name: Build and inspect the native source distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv build --project native
+          uvx twine check native/dist/*
+          sdist="$(printf '%s\n' native/dist/*.tar.gz)"
+          uv run --project native python native/scripts/check_sdist.py "$sdist"
+      - name: Build into the native development environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          native_python="$(pwd)/native/.venv/bin/python"
+          VIRTUAL_ENV="$(pwd)/native/.venv" \
+          PYO3_PYTHON="$native_python" \
+            uvx maturin==1.15.0 develop --manifest-path native/Cargo.toml --locked --release
+      - run: uv run --project native pytest native/tests -q
+      - name: Run the complete dexpot suite with the native backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv pip install --python native/.venv/bin/python -e '.[all,dev]'
+          PATH="$(pwd)/native/.venv/bin:$PATH" \
+          DEXPOT_HTTP_PARSER=native \
+            native/.venv/bin/python -m pytest tests/ -q
+      - name: Verify automatic native selection
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATH="$(pwd)/native/.venv/bin:$PATH" \
+          DEXPOT_HTTP_PARSER=auto \
+            native/.venv/bin/python -m pytest \
+              tests/test_parser_backend.py tests/test_http_hardening.py -q
+
+  abi3-wheel:
+    name: abi3 wheel (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux-x64
+            build_python: "3.12"
+            test_versions: "3.12 3.13 3.14"
+          - runner: ubuntu-24.04-arm
+            platform: linux-arm64
+            build_python: "3.12"
+            test_versions: "3.12 3.13 3.14"
+          - runner: macos-latest
+            platform: macos-arm64
+            build_python: "3.12"
+            test_versions: "3.12 3.13 3.14"
+          - runner: macos-15-intel
+            platform: macos-x64
+            build_python: "3.12"
+            test_versions: "3.12 3.13 3.14"
+          - runner: windows-latest
+            platform: windows-x64
+            build_python: "3.12"
+            test_versions: "3.12 3.13 3.14"
+          - runner: windows-11-arm
+            platform: windows-arm64
+            build_python: "cpython-3.12-windows-aarch64-none"
+            test_versions: "cpython-3.12-windows-aarch64-none cpython-3.13-windows-aarch64-none cpython-3.14-windows-aarch64-none"
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    env:
+      BUILD_PYTHON: ${{ matrix.build_python }}
+      TEST_VERSIONS: ${{ matrix.test_versions }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Install Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal && rustup default 1.98.0
+      - name: Build CPython 3.12+ stable-ABI wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv python install "$BUILD_PYTHON"
+          python="$(uv python find "$BUILD_PYTHON")"
+          PYO3_PYTHON="$python" uvx maturin==1.15.0 build \
+            --manifest-path native/Cargo.toml \
+            --locked --release --features abi3 --interpreter "$python" --out native/dist
+      - name: Install and test on CPython 3.12 through 3.14
+        shell: bash
+        run: >-
+          uv run --no-project --python 3.12 python native/scripts/test_wheel.py
+          --wheel-dir native/dist --versions "$TEST_VERSIONS" --project-root .
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dexpot-native-abi3-${{ matrix.platform }}
+          path: native/dist/*.whl
+          if-no-files-found: error
+
+  free-threaded-wheel:
+    name: cp314t wheel (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux-x64
+            build_python: "3.14t"
+            test_versions: "3.14t"
+          - runner: ubuntu-24.04-arm
+            platform: linux-arm64
+            build_python: "3.14t"
+            test_versions: "3.14t"
+          - runner: macos-latest
+            platform: macos-arm64
+            build_python: "3.14t"
+            test_versions: "3.14t"
+          - runner: macos-15-intel
+            platform: macos-x64
+            build_python: "3.14t"
+            test_versions: "3.14t"
+          - runner: windows-latest
+            platform: windows-x64
+            build_python: "3.14t"
+            test_versions: "3.14t"
+          - runner: windows-11-arm
+            platform: windows-arm64
+            build_python: "cpython-3.14+freethreaded-windows-aarch64-none"
+            test_versions: "cpython-3.14+freethreaded-windows-aarch64-none"
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    env:
+      BUILD_PYTHON: ${{ matrix.build_python }}
+      TEST_VERSIONS: ${{ matrix.test_versions }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Install Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal && rustup default 1.98.0
+      - name: Build CPython 3.14t wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv python install "$BUILD_PYTHON"
+          python="$(uv python find "$BUILD_PYTHON")"
+          PYO3_PYTHON="$python" uvx maturin==1.15.0 build \
+            --manifest-path native/Cargo.toml \
+            --locked --release --interpreter "$python" --out native/dist
+      - name: Install and test with the GIL disabled
+        shell: bash
+        run: >-
+          uv run --no-project --python 3.12 python native/scripts/test_wheel.py
+          --wheel-dir native/dist --versions "$TEST_VERSIONS" --project-root .
+      - name: Run the complete dexpot suite on 3.14t
+        if: matrix.platform == 'linux-x64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv venv --python 3.14t .native-ft-integration
+          wheel="$(printf '%s\n' native/dist/*.whl)"
+          uv pip install --python .native-ft-integration/bin/python \
+            -e '.[all,dev]' "$wheel"
+          PATH="$(pwd)/.native-ft-integration/bin:$PATH" \
+          DEXPOT_HTTP_PARSER=native \
+            .native-ft-integration/bin/python -X gil=0 -m pytest tests/ -q
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dexpot-native-cp314t-${{ matrix.platform }}
+          path: native/dist/*.whl
+          if-no-files-found: error

@@ -111,6 +111,9 @@ jobs:
 
           with tarfile.open(sdists[0]) as archive:
               names = archive.getnames()
+              assert not any("/native/" in name for name in names), (
+                  "dexpot sdist must not bundle the separate native distribution"
+              )
               for suffix in (
                   "/src/dexpot/__init__.py",
                   "/README.md",
