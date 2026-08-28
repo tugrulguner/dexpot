@@ -96,7 +96,7 @@ def test_readme_execution_diagram_is_rendered_and_editable() -> None:
     assert "Python only if absent" not in source
     assert (
         'src="https://raw.githubusercontent.com/tugrulguner/dexpot/'
-        'main/docs/assets/dexpot-execution.png"' in text
+        'main/docs/assets/dexpot-execution.png?v=99d3ec8"' in text
     )
     assert 'width="960"' in text
 
