@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import struct
 import tomllib
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -14,7 +15,10 @@ from dexpot.cli import app
 
 ROOT = Path(__file__).resolve().parent.parent
 README = ROOT / "README.md"
+ROADMAP = ROOT / "ROADMAP.md"
 HERO = ROOT / "assets" / "dexpot.png"
+EXECUTION_DIAGRAM = ROOT / "docs" / "assets" / "dexpot-execution.png"
+EXECUTION_DIAGRAM_SOURCE = ROOT / "docs" / "assets" / "dexpot-execution.svg"
 CONTRIBUTING = ROOT / "CONTRIBUTING.md"
 CHANGELOG_GUIDE = ROOT / "changelog.d" / "README.md"
 CHANGELOG_WORKFLOW = ROOT / ".github" / "workflows" / "changelog.yml"
@@ -57,6 +61,51 @@ def test_readme_hero_is_an_optimized_png() -> None:
     )
     assert 'alt="dexpot synchronous Python API framework"' in text
     assert 'width="600"' in text
+
+
+def test_readme_execution_diagram_is_rendered_and_editable() -> None:
+    data = EXECUTION_DIAGRAM.read_bytes()
+    width, height = struct.unpack(">II", data[16:24])
+    text = README.read_text()
+    source = EXECUTION_DIAGRAM_SOURCE.read_text()
+
+    assert data.startswith(b"\x89PNG\r\n\x1a\n")
+    assert (width, height) == (2400, 1350)
+    assert len(data) < 700_000
+    assert ET.fromstring(source).tag.endswith("svg")
+    assert "ONE ENDPOINT PLAN · TWO RUNTIME PATHS" in source
+    assert "FREE-THREADED CPYTHON" in source
+    assert "STANDARD GIL CPYTHON" in source
+    font_sizes = [int(size) for size in re.findall(r"font-size:\s*(\d+)px", source)]
+    assert font_sizes
+    assert min(font_sizes) >= 28
+    assert "literal + params" in source
+    assert "literal / parametric match" not in source
+    assert "bound + parse request head" in source
+    assert "compatible native" in source
+    assert "Python if absent" in source
+    assert "native if installed" not in source
+    assert "Python fallback" not in source
+    assert (
+        'src="https://raw.githubusercontent.com/tugrulguner/dexpot/'
+        'main/docs/assets/dexpot-execution.png"' in text
+    )
+    assert 'width="960"' in text
+
+
+def test_roadmap_separates_shipped_native_seam_from_promotion_gates() -> None:
+    readme = " ".join(README.read_text().split())
+    roadmap = ROADMAP.read_text()
+
+    assert "optional native request-head seam" in readme
+    assert "Remaining work is organized around four gates" in readme
+    assert roadmap.index("### 2. Optional native request-head seam") < roadmap.index(
+        "## Next milestones"
+    )
+    assert "The source subproject and its CI gates are complete" in roadmap
+    assert "The accelerator is not yet published" in roadmap
+    assert "#### Native parser promotion gates" in roadmap
+    assert "#### Optional Rust request-head acceleration" not in roadmap
 
 
 def test_public_names_documented_by_quick_start_are_importable() -> None:
@@ -114,6 +163,12 @@ def test_contributor_entry_points_are_actionable() -> None:
     assert "issues/new/choose" in readme
     assert "github.com/tugrulguner/dexpot/discussions" in readme
     assert "github.com/tugrulguner/dexpot" in readme
+    assert 'href="#community"' in readme
+    normalized_readme = " ".join(readme.split())
+    assert readme.count("https://discord.gg/u3AANZr6RG") >= 3
+    assert "shared community for dexpot, intpot, summonpot" in normalized_readme
+    assert "Use GitHub [issues]" in normalized_readme
+    assert "and Discord for exploratory design" in normalized_readme
     assert "issues/new?template=bug.yml" in contributing
     assert "issues/new?template=feature.yml" in contributing
     assert "Closes #<issue-number>" in contributing
