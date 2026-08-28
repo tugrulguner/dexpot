@@ -74,6 +74,7 @@ def test_readme_execution_diagram_is_rendered_and_editable() -> None:
     assert len(data) < 700_000
     assert ET.fromstring(source).tag.endswith("svg")
     assert "ONE ENDPOINT PLAN · TWO RUNTIME PATHS" in source
+    assert "Plain Python handlers · msgspec codecs · interpreter-aware scheduling." in source
     assert "FREE-THREADED CPYTHON" in source
     assert "STANDARD GIL CPYTHON" in source
     font_sizes = [int(size) for size in re.findall(r"font-size:\s*(\d+)px", source)]
@@ -82,15 +83,35 @@ def test_readme_execution_diagram_is_rendered_and_editable() -> None:
     assert "literal + params" in source
     assert "literal / parametric match" not in source
     assert "bound + parse request head" in source
-    assert "compatible native" in source
-    assert "Python if absent" in source
+    assert "auto: compatible Rust / PyO3" in source
+    assert "absent or forced: Python" in source
+    assert "SAME PYTHON HANDLER" in source
+    assert 'x="2235" y="565"' in source
+    assert "SAME HANDLER PATH" not in source
+    assert "compatible native" not in source
+    assert "Python if absent" not in source
     assert "native if installed" not in source
     assert "Python fallback" not in source
+    assert "msgspec I/O" not in source
+    assert "Python only if absent" not in source
     assert (
         'src="https://raw.githubusercontent.com/tugrulguner/dexpot/'
         'main/docs/assets/dexpot-execution.png"' in text
     )
     assert 'width="960"' in text
+
+
+def test_readme_surfaces_the_optional_rust_parser_before_quick_start() -> None:
+    text = README.read_text()
+    introduction, _ = text.split("## Quick start", maxsplit=1)
+
+    assert "can parse request heads in Rust through an optional PyO3 extension" in introduction
+    assert 'href="#optional-rustpyo3-parser">Rust parser</a>' in introduction
+    assert "**Optional Rust/PyO3 request-head parser.**" in introduction
+    assert "### Optional Rust/PyO3 parser" in text
+    assert "compatible native, or Python if absent" in text
+    assert "sockets, bounded accumulation,\n  deadlines, bodies" in text
+    assert "sockets, limits, bodies" not in text
 
 
 def test_roadmap_separates_shipped_native_seam_from_promotion_gates() -> None:
