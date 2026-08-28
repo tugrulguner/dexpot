@@ -17,6 +17,7 @@
   <a href="https://github.com/tugrulguner/dexpot/actions/workflows/ci.yml"><img src="https://github.com/tugrulguner/dexpot/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://pypi.org/project/dexpot/"><img src="https://img.shields.io/pypi/v/dexpot" alt="PyPI version"></a>
   <a href="https://pypi.org/project/dexpot/"><img src="https://img.shields.io/pypi/pyversions/dexpot" alt="Python versions"></a>
+  <a href="https://discord.gg/u3AANZr6RG"><img src="https://img.shields.io/badge/Discord-Join%20ModePot-5865F2?logo=discord&amp;logoColor=white" alt="Join the ModePot Discord"></a>
   <a href="https://github.com/tugrulguner/dexpot/stargazers"><img src="https://img.shields.io/github/stars/tugrulguner/dexpot?style=flat" alt="GitHub stars"></a>
   <a href="https://github.com/tugrulguner/dexpot/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a>
 </p>
@@ -26,8 +27,14 @@
   <a href="#why-dexpot">Why dexpot</a> ·
   <a href="#execution-model">Execution model</a> ·
   <a href="#current-boundaries">Boundaries</a> ·
+  <a href="#examples">Examples</a> ·
+  <a href="#community">Community</a> ·
   <a href="#roadmap">Roadmap</a> ·
   <a href="#contributing">Contributing</a>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/docs/assets/dexpot-execution.png" alt="A dexpot route compiles once into an immutable endpoint plan, then uses either a connection-owned thread on free-threaded CPython or a bounded worker pool with optional process fan-out on standard GIL CPython before both paths execute the same synchronous handler pipeline" width="960">
 </p>
 
 ## Why dexpot
@@ -224,38 +231,16 @@ The GIL supervisor restarts a worker that exits unexpectedly.
 
 ## Current architecture
 
-```text
-HTTP connection
-      |
-      v
-accept + adaptive admission
-      |
-      +-- free-threaded Python --> connection-owned thread
-      |
-      +-- GIL Python -----------> bounded worker pool
-                                      |
-                                      +-- optional SO_REUSEPORT processes
-      |
-      v
-parse request head and body
-      |
-      v
-literal lookup / compiled parametric match
-      |
-      v
-convert captures + msgspec decode/validate
-      |
-      v
-plain Python handler
-      |
-      v
-msgspec encode + one response write
-```
+A registered `Route` separates setup from traffic. It owns the immutable handler plan:
+literal or parametric matching, body and response codecs, capture conversions, and
+positional versus keyword binding. Request processing consumes that plan without
+inspecting the handler again.
 
-A registered `Route` is the boundary between setup and traffic. It owns the immutable
-handler plan: body decoder, response encoder, capture conversion metadata, and positional
-versus keyword binding. Request processing consumes that plan without inspecting the
-handler again.
+The interpreter changes admission and scheduling, not application code. Free-threaded
+CPython gives each accepted connection its own thread in one process. Standard GIL CPython
+uses a bounded pool, sheds excess work with 503, and can add POSIX process fan-out. Both
+paths enforce the same HTTP limits and execute the same compiled route, synchronous
+handler, and msgspec response pipeline shown above.
 
 ## Current boundaries
 
@@ -350,6 +335,17 @@ The remaining work is organized around three gates after the completed HTTP-hard
 
 The detailed milestones and non-goals live in [ROADMAP.md](ROADMAP.md).
 
+## Community
+
+The [ModePot Discord](https://discord.gg/u3AANZr6RG) is the shared community for dexpot,
+intpot, summonpot, and the rest of the project family. Join to discuss synchronous API
+design, free-threaded Python, implementation questions, and real application use cases.
+
+Use GitHub [issues](https://github.com/tugrulguner/dexpot/issues/new/choose) for
+reproducible bugs and scoped feature proposals. Use
+[Discussions](https://github.com/tugrulguner/dexpot/discussions) for durable project Q&A,
+and Discord for exploratory design, early ideas, and cross-project help.
+
 ## Contributing
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md), then read
@@ -379,12 +375,13 @@ User-facing changes require a Towncrier fragment. See
 
 ## Support dexpot
 
-- Ask usage questions in [GitHub Discussions](https://github.com/tugrulguner/dexpot/discussions).
-- Report reproducible failures through the
+- Run one of the checked-in examples and report any friction through the
   [issue forms](https://github.com/tugrulguner/dexpot/issues/new/choose).
-- Discuss substantial API or execution-model changes before implementation.
-- If you want to follow dexpot's progress, use the Star control on the
-  [repository](https://github.com/tugrulguner/dexpot).
+- Share a real synchronous API or free-threaded Python use case in
+  [Discussions](https://github.com/tugrulguner/dexpot/discussions) or the
+  [ModePot Discord](https://discord.gg/u3AANZr6RG).
+- If dexpot's execution model is useful to you, use the Star control on the
+  [repository](https://github.com/tugrulguner/dexpot) so other Python developers can find it.
 
 ## License
 

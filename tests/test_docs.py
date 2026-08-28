@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import struct
 import tomllib
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -15,6 +16,8 @@ from dexpot.cli import app
 ROOT = Path(__file__).resolve().parent.parent
 README = ROOT / "README.md"
 HERO = ROOT / "assets" / "dexpot.png"
+EXECUTION_DIAGRAM = ROOT / "docs" / "assets" / "dexpot-execution.png"
+EXECUTION_DIAGRAM_SOURCE = ROOT / "docs" / "assets" / "dexpot-execution.svg"
 CONTRIBUTING = ROOT / "CONTRIBUTING.md"
 CHANGELOG_GUIDE = ROOT / "changelog.d" / "README.md"
 CHANGELOG_WORKFLOW = ROOT / ".github" / "workflows" / "changelog.yml"
@@ -57,6 +60,26 @@ def test_readme_hero_is_an_optimized_png() -> None:
     )
     assert 'alt="dexpot synchronous Python API framework"' in text
     assert 'width="600"' in text
+
+
+def test_readme_execution_diagram_is_rendered_and_editable() -> None:
+    data = EXECUTION_DIAGRAM.read_bytes()
+    width, height = struct.unpack(">II", data[16:24])
+    text = README.read_text()
+    source = EXECUTION_DIAGRAM_SOURCE.read_text()
+
+    assert data.startswith(b"\x89PNG\r\n\x1a\n")
+    assert (width, height) == (2400, 1350)
+    assert len(data) < 700_000
+    assert ET.fromstring(source).tag.endswith("svg")
+    assert "ONE ENDPOINT PLAN · TWO RUNTIME PATHS" in source
+    assert "FREE-THREADED CPYTHON" in source
+    assert "STANDARD GIL CPYTHON" in source
+    assert (
+        'src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/docs/assets/'
+        'dexpot-execution.png"' in text
+    )
+    assert 'width="960"' in text
 
 
 def test_public_names_documented_by_quick_start_are_importable() -> None:
@@ -114,6 +137,12 @@ def test_contributor_entry_points_are_actionable() -> None:
     assert "issues/new/choose" in readme
     assert "github.com/tugrulguner/dexpot/discussions" in readme
     assert "github.com/tugrulguner/dexpot" in readme
+    assert 'href="#community"' in readme
+    normalized_readme = " ".join(readme.split())
+    assert readme.count("https://discord.gg/u3AANZr6RG") >= 3
+    assert "shared community for dexpot, intpot, summonpot" in normalized_readme
+    assert "Use GitHub [issues]" in normalized_readme
+    assert "and Discord for exploratory design" in normalized_readme
     assert "issues/new?template=bug.yml" in contributing
     assert "issues/new?template=feature.yml" in contributing
     assert "Closes #<issue-number>" in contributing
