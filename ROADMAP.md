@@ -40,8 +40,12 @@ The current release line provides:
 - A CLI for loading `module:attribute` applications.
 - Installable coding-agent guidance for six agent formats.
 - Python 3.12–3.14 and 3.14t CI, static checks, package builds, and real HTTP tests.
+- A pure-Python reference request-head parser plus an optional parser-only `dexpot-native`
+  source subproject with import-time automatic selection.
+- Differential parser parity, deterministic mutation and concurrency tests, `cp312-abi3`
+  standard wheels, and version-specific `cp314t` wheel CI across supported platforms.
 
-## Completed milestone
+## Completed milestones
 
 The sequence reflects safety and technical dependencies, not promised dates.
 
@@ -62,9 +66,28 @@ the framework API:
 - Test slow clients, disconnects, pipelining, oversized input, queue saturation, and drain
   deadlines with real sockets.
 
+### 2. Optional native request-head seam
+
+The repository now includes the narrow native seam validated in
+[issue #18](https://github.com/tugrulguner/dexpot/issues/18):
+
+- Keep the Python parser as the semantic reference and fallback. Import-time `auto` selection
+  uses native only when a compatible separately installed extension is present.
+- Keep Rust parser-only: Python owns sockets, limits, deadlines, body reads, pipelining,
+  target decoding, routing, handlers, scheduling, and supervision.
+- Build `dexpot-native` as a separate distribution, with one `cp312-abi3` wheel per standard
+  platform and architecture plus version-specific free-threaded wheels such as `cp314t`.
+- Run the direct differential corpus, deterministic mutation tests, concurrent parser stress,
+  clean-wheel integration, and complete HTTP suite across standard and free-threaded CPython.
+- Surface ABI, initialization, transitive-import, and parser API-version failures instead of
+  silently changing behavior through the fallback.
+
+The source subproject and its CI gates are complete. The accelerator is not yet published,
+and it is not a default dexpot dependency.
+
 ## Next milestones
 
-### 2. Complete endpoint and response contracts
+### 3. Complete endpoint and response contracts
 
 Turn the serving core into a useful application framework without inflating decorators:
 
@@ -78,7 +101,7 @@ Turn the serving core into a useful application framework without inflating deco
 - Define dependency injection around plain factories and request/application scopes, not a
   large decorator parameter surface.
 
-### 3. Performance evidence and scheduler evolution
+### 4. Performance evidence and scheduler evolution
 
 Keep optimization evidence reproducible and correctness-equivalent:
 
@@ -90,44 +113,31 @@ Keep optimization evidence reproducible and correctness-equivalent:
 - Sweep GIL pool, queue, and process counts instead of selecting a flattering competitor
   configuration.
 - Continue profiling route matching, parsing, codec use, allocations, locks, and system calls as
-  the HTTP contract evolves; the parser work in issue #18 established the first measured native
-  candidate.
+  the HTTP contract evolves.
 - Add deterministic overload tests that prove useful work stays responsive while excess
   connections receive 503.
 - Preserve the issue #18 parser spike, differential corpus, and goodput accounting as prerequisite
   evidence. Re-run the exact published release before promoting public benchmark claims or moving
   another hot path into native code.
 
-#### Optional Rust request-head acceleration
+#### Native parser promotion gates
 
-The parser spike tracked in [issue #18](https://github.com/tugrulguner/dexpot/issues/18)
-validated a narrow native seam: Rust may parse a complete, already bounded request head while
-Python retains socket ownership, deadlines, body reads, pipelining, target decoding, routing,
-handlers, scheduling, and supervision.
+The parser seam is implemented, but publication and broader installation remain evidence-gated:
 
-The delivery path is deliberately staged:
-
-- Keep the Python parser as the semantic reference and unsupported-platform fallback. Default
-  backend selection is automatic: use native when a compatible separately installed extension
-  is present, otherwise Python.
-- Ship native code as a separate `dexpot-native` distribution rather than making every dexpot
-  installation platform-specific.
-- Build one `cp312-abi3` wheel per standard platform/architecture and version-specific
-  free-threaded wheels such as `cp314t`.
-- Run the direct differential corpus, deterministic mutation tests, concurrent parser stress,
-  and complete real-socket HTTP suite under Python, native, automatic, and fallback modes.
-- Publish raw goodput, errors, latency percentiles, CPU, and RSS with exact version/hardware
-  context; Docker Desktop remains directional rather than bare-metal evidence.
-- Do not make `dexpot-native` a default dependency or bundled installation until bare-metal
-  Linux and cross-platform wheel gates show repeatable parser-heavy wins without unacceptable
-  tail-latency, memory, overload, or lifecycle regressions. Installing the separate package is
-  the user's opt-in; automatic runtime detection removes the need for a second configuration
-  step.
+- Publish raw goodput, errors, latency percentiles, CPU, and RSS with exact version and hardware
+  context; Docker Desktop results remain directional rather than bare-metal evidence.
+- Re-run Python, native, automatic, and fallback modes through the differential corpus,
+  deterministic mutation tests, concurrent stress, and complete real-socket suite for every
+  candidate release.
+- Keep `dexpot-native` separately installable. Do not make it a default dependency or bundled
+  installation until bare-metal Linux and cross-platform wheel gates show repeatable
+  parser-heavy wins without unacceptable tail-latency, memory, overload, or lifecycle
+  regressions.
 
 The initial spike measured large parser-only gains and directional end-to-end improvements,
 but those measurements are promotion evidence rather than README performance claims.
 
-### 4. Production operations
+### 5. Production operations
 
 Add operational controls while preserving the synchronous programming model:
 
@@ -142,7 +152,7 @@ Add operational controls while preserving the synchronous programming model:
 - Linux and macOS multiprocess hardening; define an honest Windows strategy before claiming
   multiprocess support there.
 
-### 5. Framework ecosystem
+### 6. Framework ecosystem
 
 Once the contract and operations are stable:
 

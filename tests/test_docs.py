@@ -15,6 +15,7 @@ from dexpot.cli import app
 
 ROOT = Path(__file__).resolve().parent.parent
 README = ROOT / "README.md"
+ROADMAP = ROOT / "ROADMAP.md"
 HERO = ROOT / "assets" / "dexpot.png"
 EXECUTION_DIAGRAM = ROOT / "docs" / "assets" / "dexpot-execution.png"
 EXECUTION_DIAGRAM_SOURCE = ROOT / "docs" / "assets" / "dexpot-execution.svg"
@@ -80,11 +81,29 @@ def test_readme_execution_diagram_is_rendered_and_editable() -> None:
     assert min(font_sizes) >= 28
     assert "literal + params" in source
     assert "literal / parametric match" not in source
+    assert "bound + parse request head" in source
+    assert "native if installed" in source
+    assert "Python fallback" in source
     assert (
         'src="https://raw.githubusercontent.com/tugrulguner/dexpot/'
         'main/docs/assets/dexpot-execution.png"' in text
     )
     assert 'width="960"' in text
+
+
+def test_roadmap_separates_shipped_native_seam_from_promotion_gates() -> None:
+    readme = " ".join(README.read_text().split())
+    roadmap = ROADMAP.read_text()
+
+    assert "optional native request-head seam" in readme
+    assert "Remaining work is organized around four gates" in readme
+    assert roadmap.index("### 2. Optional native request-head seam") < roadmap.index(
+        "## Next milestones"
+    )
+    assert "The source subproject and its CI gates are complete" in roadmap
+    assert "The accelerator is not yet published" in roadmap
+    assert "#### Native parser promotion gates" in roadmap
+    assert "#### Optional Rust request-head acceleration" not in roadmap
 
 
 def test_public_names_documented_by_quick_start_are_importable() -> None:

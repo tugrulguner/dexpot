@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/docs/assets/dexpot-execution.png" alt="A dexpot route compiles once into an immutable endpoint plan, then uses either a connection-owned thread on free-threaded CPython or a bounded worker pool with optional process fan-out on standard GIL CPython before both paths execute the same synchronous handler pipeline" width="960">
+  <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/docs/assets/dexpot-execution.png" alt="A dexpot route compiles once into an immutable endpoint plan, parses each bounded request head with dexpot-native when installed or the Python fallback, then uses either a connection-owned thread on free-threaded CPython or a bounded worker pool with optional process fan-out on standard GIL CPython before both paths execute the same synchronous handler pipeline" width="960">
 </p>
 
 ## Why dexpot
@@ -259,6 +259,10 @@ literal or parametric matching, body and response codecs, capture conversions, a
 positional versus keyword binding. Request processing consumes that plan without
 inspecting the handler again.
 
+Parser selection is orthogonal to scheduling: each bounded request head uses a compatible
+`dexpot-native` installation when present and otherwise the Python reference parser. Python
+continues to own sockets, deadlines, bodies, and routing.
+
 The interpreter changes admission and scheduling, not application code. Free-threaded
 CPython gives each accepted connection its own thread in one process. Standard GIL CPython
 uses a bounded pool, sheds excess work with 503, and can add POSIX process fan-out. Both
@@ -352,12 +356,14 @@ grow only as middleware, schemas, deployment support, and other roadmap capabili
 
 ## Roadmap
 
-The remaining work is organized around three gates after the completed HTTP-hardening gate:
+The shipped foundation now includes the HTTP-hardening gate and the optional native
+request-head seam. Remaining work is organized around four gates:
 
 1. complete the framework contract with request context, middleware, schemas, and richer
    response handling;
 2. publish reproducible GIL and free-threaded benchmarks with correctness parity; and
-3. add production operations without replacing the synchronous execution model.
+3. add production operations without replacing the synchronous execution model; and
+4. grow runnable examples, testing support, deployment guidance, and stable extension points.
 
 The detailed milestones and non-goals live in [ROADMAP.md](ROADMAP.md).
 

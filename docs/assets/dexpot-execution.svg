@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1350" viewBox="0 0 2400 1350" role="img" aria-labelledby="title desc">
   <title id="title">Dexpot compiles one endpoint plan and adapts execution to GIL or free-threaded CPython</title>
-  <desc id="desc">A typed route declaration compiles into an immutable endpoint plan. Bounded HTTP parsing feeds either a free-threaded connection-owned thread or a GIL bounded worker pool with optional process fan-out. Both execute the same synchronous handler and msgspec response path.</desc>
+  <desc id="desc">A typed route declaration compiles into an immutable endpoint plan. Each bounded request head uses the compatible native parser when installed or the Python reference fallback. Execution then uses either a free-threaded connection-owned thread or a GIL bounded worker pool with optional process fan-out. Both run the same synchronous handler and msgspec response path.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#050817"/>
@@ -134,23 +134,25 @@
 
   <!-- execution pipeline -->
   <g filter="url(#shadow)">
-    <rect x="150" y="1000" width="2100" height="220" rx="34" fill="#080d1c" stroke="#334155" stroke-width="3"/>
-    <text x="1200" y="1053" text-anchor="middle" class="sans card-label" fill="#94a3b8">BOUNDED HTTP/1.x EXECUTION</text>
+    <rect x="150" y="985" width="2100" height="250" rx="34" fill="#080d1c" stroke="#334155" stroke-width="3"/>
+    <text x="1200" y="1038" text-anchor="middle" class="sans card-label" fill="#94a3b8">BOUNDED HTTP/1.x EXECUTION</text>
 
-    <rect x="220" y="1093" width="330" height="76" rx="20" fill="#0b1727" stroke="#22d3ee" stroke-width="3"/>
-    <text x="385" y="1140" text-anchor="middle" class="sans body">parse + enforce limits</text>
-    <path d="M550 1131H680" stroke="#22d3ee" stroke-width="5" marker-end="url(#cyanArrow)"/>
+    <rect x="220" y="1073" width="430" height="126" rx="20" fill="#0b1727" stroke="#22d3ee" stroke-width="3"/>
+    <text x="435" y="1112" text-anchor="middle" class="sans body">bound + parse request head</text>
+    <text x="435" y="1150" text-anchor="middle" class="sans small" fill="#67e8f9">native if installed</text>
+    <text x="435" y="1183" text-anchor="middle" class="sans small">Python fallback</text>
+    <path d="M650 1136H690" stroke="#22d3ee" stroke-width="5" marker-end="url(#cyanArrow)"/>
 
-    <rect x="690" y="1093" width="390" height="76" rx="20" fill="#10152e" stroke="#a78bfa" stroke-width="3"/>
-    <text x="885" y="1140" text-anchor="middle" class="sans body">match + bind + decode</text>
-    <path d="M1080 1131H1210" stroke="#a78bfa" stroke-width="5" marker-end="url(#blueArrow)"/>
+    <rect x="700" y="1098" width="400" height="76" rx="20" fill="#10152e" stroke="#a78bfa" stroke-width="3"/>
+    <text x="900" y="1145" text-anchor="middle" class="sans body">match + bind + decode</text>
+    <path d="M1100 1136H1140" stroke="#a78bfa" stroke-width="5" marker-end="url(#blueArrow)"/>
 
-    <rect x="1220" y="1093" width="340" height="76" rx="20" fill="#081a1c" stroke="#34d399" stroke-width="3"/>
-    <text x="1390" y="1140" text-anchor="middle" class="sans body">plain Python handler</text>
-    <path d="M1560 1131H1690" stroke="#34d399" stroke-width="5" marker-end="url(#amberArrow)"/>
+    <rect x="1150" y="1098" width="370" height="76" rx="20" fill="#081a1c" stroke="#34d399" stroke-width="3"/>
+    <text x="1335" y="1145" text-anchor="middle" class="sans body">plain Python handler</text>
+    <path d="M1520 1136H1560" stroke="#34d399" stroke-width="5" marker-end="url(#amberArrow)"/>
 
-    <rect x="1700" y="1093" width="470" height="76" rx="20" fill="#21180a" stroke="#fbbf24" stroke-width="3"/>
-    <text x="1935" y="1140" text-anchor="middle" class="sans body">msgspec encode + response</text>
+    <rect x="1570" y="1098" width="600" height="76" rx="20" fill="#21180a" stroke="#fbbf24" stroke-width="3"/>
+    <text x="1870" y="1145" text-anchor="middle" class="sans body">msgspec encode + response</text>
   </g>
 
   <text x="1200" y="1290" text-anchor="middle" class="mono small" fill="#94a3b8">registration compiles · one live keep-alive connection owns one worker · requests execute synchronously</text>
