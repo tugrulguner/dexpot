@@ -75,10 +75,14 @@ def test_readme_execution_diagram_is_rendered_and_editable() -> None:
     assert "ONE ENDPOINT PLAN · TWO RUNTIME PATHS" in source
     assert "FREE-THREADED CPYTHON" in source
     assert "STANDARD GIL CPYTHON" in source
+    font_sizes = [int(size) for size in re.findall(r"font-size:\s*(\d+)px", source)]
+    assert font_sizes
+    assert min(font_sizes) >= 28
+    assert "literal + params" in source
+    assert "literal / parametric match" not in source
     assert (
         'src="https://raw.githubusercontent.com/tugrulguner/dexpot/'
-        "183a4e9b304b95d3f0986d3c06348ea65b8c2cce/docs/assets/"
-        'dexpot-execution.png"' in text
+        'main/docs/assets/dexpot-execution.png"' in text
     )
     assert 'width="960"' in text
 
