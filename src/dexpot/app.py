@@ -11,6 +11,7 @@ Ported from the gilpot-bench spike (micro6) with the same measured architecture:
 from __future__ import annotations
 
 import contextlib
+import http
 import inspect
 import logging
 import multiprocessing
@@ -45,25 +46,19 @@ _gil_free = not _is_gil_enabled() if _is_gil_enabled is not None else False
 POOL_SIZE = int(os.environ.get("DEXPOT_POOL", "0")) or (_cores if _gil_free else _cores * 2 + 2)
 MAX_QUEUE = int(os.environ.get("DEXPOT_MAX_QUEUE", str(POOL_SIZE * 2)))
 
-STATUS_TEXT = {
-    200: b"OK",
-    201: b"Created",
-    204: b"No Content",
-    400: b"Bad Request",
-    404: b"Not Found",
-    405: b"Method Not Allowed",
-    408: b"Request Timeout",
-    413: b"Content Too Large",
-    414: b"URI Too Long",
-    422: b"Unprocessable Entity",
-    431: b"Request Header Fields Too Large",
-    500: b"Internal Server Error",
-    503: b"Service Unavailable",
-    505: b"HTTP Version Not Supported",
-}
-
 _json_encode = msgspec.json.encode
 _logger = logging.getLogger("dexpot.error")
+_BODYLESS_STATUSES = frozenset({204, 304})
+
+
+def _handler_response(status: object, out: bytes) -> tuple[int, bytes]:
+    """Validate a final application response before it reaches the wire."""
+    if type(status) is not int or not 200 <= status <= 599:
+        raise ValueError("handler response status must be an integer from 200 to 599")
+    if status in _BODYLESS_STATUSES:
+        out = b""
+    return status, out
+
 
 _type_hints_cache: dict[Any, dict[str, Any]] = {}
 
@@ -428,9 +423,18 @@ class Dex:
                 out = _json_encode(payload)
             else:
                 status, out = 200, route.encode(result)
+            status, out = _handler_response(status, out)
         except HTTPError as exc:
-            status = exc.status
-            out = _json_encode({"detail": exc.detail})
+            try:
+                status, out = _handler_response(exc.status, _json_encode({"detail": exc.detail}))
+            except (TypeError, ValueError):
+                _logger.exception(
+                    "invalid HTTPError status while processing %s %s",
+                    request.method,
+                    request.path,
+                )
+                status = 500
+                out = _json_encode({"detail": "internal server error"})
         except Exception:
             _logger.exception(
                 "unhandled exception while processing %s %s", request.method, request.path
@@ -449,14 +453,24 @@ class Dex:
     @staticmethod
     def _send(
         conn: socket.socket,
-        status: int,
+        status: object,
         out: bytes,
         *,
         keep_alive: bool,
         version: str = "HTTP/1.1",
         extra_headers: tuple[tuple[str, str], ...] = (),
     ) -> None:
-        reason = STATUS_TEXT.get(status, b"OK")
+        if type(status) is not int or not 100 <= status <= 599:
+            _logger.error("invalid response status %r; sending 500", status)
+            status = 500
+            out = _json_encode({"detail": "internal server error"})
+            keep_alive = False
+        if 100 <= status < 200 or status in _BODYLESS_STATUSES:
+            out = b""
+        try:
+            reason = http.HTTPStatus(status).phrase.encode("ascii")
+        except ValueError:
+            reason = b""
         header = (
             b"%s %d %s\r\nContent-Type: application/json\r\n"
             b"Content-Length: %d\r\nServer: dexpot\r\nConnection: %s\r\n"

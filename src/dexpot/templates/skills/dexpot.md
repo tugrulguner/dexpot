@@ -77,13 +77,16 @@ imported, do not defer it until a request.
 ## HTTP boundary
 
 - `HttpLimits` is the one immutable policy for request-line bytes, total header bytes, header
-  count, body bytes, and idle-read seconds. Keep transport policy out of route decorators.
+  count, body bytes, idle-read seconds, and absolute head/body deadlines. Keep transport
+  policy out of route decorators.
 - HTTP/1.1 keeps valid connections alive by default; HTTP/1.0 closes by default unless the
   client requests keep-alive.
 - Dexpot rejects ambiguous `Content-Length`, transfer encodings, malformed targets, invalid
   path escapes, oversized input, and idle partial requests with stable errors and closes.
 - Paths are UTF-8 percent-decoded. Duplicate slashes and trailing slashes are distinct rather
   than normalized. A known path with the wrong method returns 405 and `Allow`.
+- Request targets are currently origin-form only (`/path?query`); absolute-form proxy targets
+  are rejected in the current alpha boundary.
 - Unexpected handler exceptions are logged server-side and return only
   `{"detail":"internal server error"}` to the client.
 

@@ -134,8 +134,9 @@ if __name__ == "__main__":
 ### HTTP limits
 
 Every connection enforces conservative defaults: an 8 KiB request line, 64 KiB request head,
-100 headers, a 16 MiB body, and a five-second idle read deadline. Override them as one typed,
-immutable policy rather than adding transport options to route decorators:
+100 headers, a 16 MiB body, a five-second idle read timeout, a ten-second absolute head
+deadline, and a thirty-second absolute body deadline. Override them as one typed, immutable
+policy rather than adding transport options to route decorators:
 
 ```python
 from dexpot import Dex, HttpLimits
@@ -147,6 +148,8 @@ app = Dex(
         header_count=64,
         body_bytes=2 * 1024 * 1024,
         idle_read_seconds=10.0,
+        head_read_seconds=15.0,
+        body_read_seconds=60.0,
     )
 )
 ```
@@ -260,8 +263,10 @@ The current alpha release has these boundaries:
 
 - HTTP/1.0 and HTTP/1.1 requests with validated `Content-Length` framing are supported;
   transfer encodings, including chunked request bodies, are rejected and the connection closes.
-- Request-line, total-header, header-count, body, and idle-read limits are enforced before
-  request data can accumulate without a bound.
+- Request-line, total-header, header-count, and body limits plus idle and absolute head/body
+  deadlines are enforced before request data can accumulate or drip indefinitely.
+- Request targets are currently origin-form only (`/path?query`); absolute-form proxy targets
+  are rejected during this alpha milestone.
 - Routing distinguishes 404 from 405, returns `Allow` for method mismatches, percent-decodes
   UTF-8 paths safely, and treats duplicate or trailing slashes as distinct paths.
 - Query strings and headers are parsed internally but are not yet injectable handler

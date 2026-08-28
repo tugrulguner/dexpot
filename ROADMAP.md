@@ -28,7 +28,7 @@ The current release line provides:
 - msgspec response encoding and `(status, payload)` handler returns.
 - HTTP/1.1 keep-alive with one connection owned by one worker until close.
 - Bounded HTTP/1.0 and HTTP/1.1 request parsing with configurable request-line, header, body,
-  and idle-read limits.
+  idle-read, and absolute head/body deadlines.
 - Fail-closed request framing, strict path decoding, explicit slash behavior, and 404/405
   method resolution.
 - Stable public parser and handler failures with server-side exception diagnostics.
@@ -50,7 +50,8 @@ The sequence reflects safety and technical dependencies, not promised dates.
 The socket core now establishes the bounded, fail-closed foundation required before broadening
 the framework API:
 
-- Bound request-line, header-count, header-size, body-size, and idle-read time.
+- Bound request-line, header-count, header-size, body-size, idle-read time, and absolute
+  head/body duration.
 - Reject malformed `Content-Length`, conflicting length headers, unsupported transfer
   encodings, invalid request targets, and incomplete bodies with stable 4xx responses.
 - Define HTTP/1.0 and HTTP/1.1 keep-alive semantics explicitly.
