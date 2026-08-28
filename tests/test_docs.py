@@ -74,6 +74,7 @@ def test_readme_execution_diagram_is_rendered_and_editable() -> None:
     assert len(data) < 700_000
     assert ET.fromstring(source).tag.endswith("svg")
     assert "ONE ENDPOINT PLAN · TWO RUNTIME PATHS" in source
+    assert "Plain Python handlers · msgspec I/O · interpreter-aware scheduling." in source
     assert "FREE-THREADED CPYTHON" in source
     assert "STANDARD GIL CPYTHON" in source
     font_sizes = [int(size) for size in re.findall(r"font-size:\s*(\d+)px", source)]
@@ -82,8 +83,13 @@ def test_readme_execution_diagram_is_rendered_and_editable() -> None:
     assert "literal + params" in source
     assert "literal / parametric match" not in source
     assert "bound + parse request head" in source
-    assert "compatible native" in source
-    assert "Python if absent" in source
+    assert "compatible Rust / PyO3" in source
+    assert "Python only if absent" in source
+    assert "SAME PYTHON HANDLER" in source
+    assert 'x="2235" y="565"' in source
+    assert "SAME HANDLER PATH" not in source
+    assert "compatible native" not in source
+    assert "Python if absent" not in source
     assert "native if installed" not in source
     assert "Python fallback" not in source
     assert (

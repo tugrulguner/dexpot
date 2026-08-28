@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/docs/assets/dexpot-execution.png" alt="A dexpot route compiles once into an immutable endpoint plan, parses each bounded request head with compatible dexpot-native or the Python reference when native is absent, then uses either a connection-owned thread on free-threaded CPython or a bounded worker pool with optional process fan-out on standard GIL CPython before both paths execute the same synchronous handler pipeline" width="960">
+  <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/docs/assets/dexpot-execution.png" alt="A dexpot route compiles once into an immutable endpoint plan, parses each bounded request head with the compatible Rust and PyO3 dexpot-native parser or the Python reference only when native is absent, then uses either a connection-owned thread on free-threaded CPython or a bounded worker pool with optional process fan-out on standard GIL CPython before both paths execute the same synchronous Python handler" width="960">
 </p>
 
 ## Why dexpot
