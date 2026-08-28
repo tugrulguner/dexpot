@@ -6,9 +6,11 @@ import argparse
 import os
 import subprocess
 import tempfile
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+NATIVE_ROOT = Path(__file__).resolve().parents[1]
 
 
 def interpreter(venv: Path) -> Path:
@@ -24,6 +26,9 @@ def main() -> None:
     parser.add_argument("--project-root", type=Path)
     args = parser.parse_args()
     versions = [version for value in args.versions for version in value.split()]
+    expected_version = tomllib.loads((NATIVE_ROOT / "pyproject.toml").read_text())["project"][
+        "version"
+    ]
 
     wheels = list(args.wheel_dir.glob("*.whl"))
     if len(wheels) != 1:
@@ -45,7 +50,8 @@ def main() -> None:
                 check=True,
             )
             command = [str(python)]
-            if version.endswith("t") or "+freethreaded" in version:
+            free_threaded = version.endswith("t") or "+freethreaded" in version
+            if free_threaded:
                 command.extend(["-X", "gil=0"])
             subprocess.run(
                 [*command, "-m", "pytest", str(ROOT / "native" / "tests"), "-q"],
@@ -53,9 +59,9 @@ def main() -> None:
             )
             verification = (
                 "import sys, dexpot_native; "
-                "assert dexpot_native.__version__ == '0.1.0'; "
+                f"assert dexpot_native.__version__ == {expected_version!r}; "
                 "assert dexpot_native.PARSER_API_VERSION == 1; "
-                + ("assert not sys._is_gil_enabled(); " if version.endswith("t") else "")
+                + ("assert not sys._is_gil_enabled(); " if free_threaded else "")
                 + "print(dexpot_native.__version__)"
             )
             subprocess.run([*command, "-c", verification], check=True)

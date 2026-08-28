@@ -72,6 +72,22 @@ fn valid_ipv_future(raw: &[u8]) -> bool {
             .all(|byte| is_unreserved(*byte) || is_sub_delim(*byte) || b":-".contains(byte))
 }
 
+fn valid_ipv6_address(raw: &[u8]) -> bool {
+    let (address, scope) = raw
+        .iter()
+        .position(|byte| *byte == b'%')
+        .map_or((raw, None), |percent| {
+            (&raw[..percent], Some(&raw[percent + 1..]))
+        });
+    if scope.is_some_and(|value| value.is_empty() || value.contains(&b'%') || value.contains(&b'/'))
+    {
+        return false;
+    }
+    std::str::from_utf8(address)
+        .ok()
+        .is_some_and(|value| Ipv6Addr::from_str(value).is_ok())
+}
+
 fn validate_host(raw: &[u8]) -> bool {
     if raw.is_empty()
         || raw.contains(&b',')
@@ -92,10 +108,7 @@ fn validate_host(raw: &[u8]) -> bool {
         if !suffix.is_empty() && (suffix[0] != b':' || !valid_port(&suffix[1..])) {
             return false;
         }
-        return valid_ipv_future(literal)
-            || std::str::from_utf8(literal)
-                .ok()
-                .is_some_and(|value| Ipv6Addr::from_str(value).is_ok());
+        return valid_ipv_future(literal) || valid_ipv6_address(literal);
     }
     if raw.iter().filter(|byte| **byte == b':').count() > 1 {
         return false;
