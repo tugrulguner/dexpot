@@ -139,8 +139,8 @@
 
     <rect x="220" y="1073" width="430" height="126" rx="20" fill="#0b1727" stroke="#22d3ee" stroke-width="3"/>
     <text x="435" y="1112" text-anchor="middle" class="sans body">bound + parse request head</text>
-    <text x="435" y="1150" text-anchor="middle" class="sans small" fill="#67e8f9">native if installed</text>
-    <text x="435" y="1183" text-anchor="middle" class="sans small">Python fallback</text>
+    <text x="435" y="1150" text-anchor="middle" class="sans small" fill="#67e8f9">compatible native</text>
+    <text x="435" y="1183" text-anchor="middle" class="sans small">Python if absent</text>
     <path d="M650 1136H690" stroke="#22d3ee" stroke-width="5" marker-end="url(#cyanArrow)"/>
 
     <rect x="700" y="1098" width="400" height="76" rx="20" fill="#10152e" stroke="#a78bfa" stroke-width="3"/>

@@ -82,8 +82,10 @@ def test_readme_execution_diagram_is_rendered_and_editable() -> None:
     assert "literal + params" in source
     assert "literal / parametric match" not in source
     assert "bound + parse request head" in source
-    assert "native if installed" in source
-    assert "Python fallback" in source
+    assert "compatible native" in source
+    assert "Python if absent" in source
+    assert "native if installed" not in source
+    assert "Python fallback" not in source
     assert (
         'src="https://raw.githubusercontent.com/tugrulguner/dexpot/'
         'main/docs/assets/dexpot-execution.png"' in text
