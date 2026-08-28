@@ -10,6 +10,23 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.2.0] - 2026-08-28
+
+### Added
+
+- Add a runnable example progression for typed routing, thread-safe CRUD, and bounded HTTP behavior, with real-server acceptance tests.
+
+### Changed
+
+- Dexpot now bounds and validates HTTP input, distinguishes 404 from 405, applies explicit HTTP/1.x connection semantics, and redacts unexpected handler failures. ([#14](https://github.com/tugrulguner/dexpot/issues/14))
+- Make contribution paths actionable with structured issue forms, a pull request template, and issue-based or unique changelog fragments.
+- Strengthen contributor onboarding with explicit intent, scope, safety, evidence, and exact-head review contracts.
+
+### Fixed
+
+- Ignore deleted changelog fragments when enforcing pull request release notes.
+
+
 ## [0.1.1] - 2026-08-26
 
 ### Added

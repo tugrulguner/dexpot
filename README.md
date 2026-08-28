@@ -326,10 +326,18 @@ pip install "dexpot[cli]"   # framework runtime + dexpot command
 
 ## Examples
 
-[`examples/minimal.py`](examples/minimal.py) is the smallest runnable application. The
-roadmap calls for examples to grow with the public framework surface: typed writes,
-operational configuration, middleware, schema generation, and production deployment will
-be added only as those capabilities ship.
+The runnable progression under [`examples/`](examples/README.md) exercises the shipped framework
+through its real socket server:
+
+- [`minimal.py`](examples/minimal.py): typed path capture and response;
+- [`typed_crud.py`](examples/typed_crud.py): thread-safe shared state, typed JSON writes, and a
+  complete create/read/update/delete lifecycle; and
+- [`bounded_api.py`](examples/bounded_api.py): custom `HttpLimits`, 413/422 failures, and 405
+  method handling.
+
+Each example runs directly with `uv run python examples/<name>.py`, and the test suite launches
+every example as a subprocess and validates its public HTTP behavior. Examples will continue to
+grow only as middleware, schemas, deployment support, and other roadmap capabilities ship.
 
 ## Roadmap
 

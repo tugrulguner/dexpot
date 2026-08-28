@@ -97,11 +97,20 @@ jobs:
           with zipfile.ZipFile(wheels[0]) as archive:
               names = archive.namelist()
               assert "dexpot/__init__.py" in names
+              assert "dexpot/_http.py" in names
+              assert "dexpot/py.typed" in names
               assert "dexpot/templates/skills/dexpot.md" in names
           with tarfile.open(sdists[0]) as archive:
               names = archive.getnames()
               assert any(name.endswith("/src/dexpot/__init__.py") for name in names)
               assert any(name.endswith("/ROADMAP.md") for name in names)
+              for suffix in (
+                  "/examples/minimal.py",
+                  "/examples/typed_crud.py",
+                  "/examples/bounded_api.py",
+                  "/scripts/smoke_installed_examples.py",
+              ):
+                  assert any(name.endswith(suffix) for name in names), suffix
           print(f"verified {wheels[0]} and {sdists[0]}")
           PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
