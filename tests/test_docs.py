@@ -64,6 +64,11 @@ def test_public_names_documented_by_quick_start_are_importable() -> None:
     assert isinstance(dexpot.__version__, str)
 
 
+def test_typed_package_ships_pep561_marker() -> None:
+    marker = Path(dexpot.__file__).with_name("py.typed")
+    assert marker.is_file()
+
+
 def test_cli_exposes_documented_topology() -> None:
     help_result = runner.invoke(app, ["--help"])
     add_result = runner.invoke(app, ["add", "--help"])

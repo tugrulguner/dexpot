@@ -113,7 +113,9 @@ def test_invalid_body_422(server):
 def test_handler_exception_500(server):
     r = httpx.get(f"{server}/boom")
     assert r.status_code == 500
-    assert "ValueError" in r.json()["detail"]
+    assert r.json() == {"detail": "internal server error"}
+    assert "ValueError" not in r.text
+    assert "kaboom" not in r.text
 
 
 def test_404(server):

@@ -49,10 +49,10 @@ dexpot is designed around that runtime instead of hiding it behind an ASGI adapt
 - **A small, owned HTTP core.** Routing, parsing, scheduling, draining, and response writes
   are dexpot code—not a wrapper around another web framework.
 
-dexpot is alpha software and is not yet recommended for untrusted production traffic. The
-serving and routing foundation is shipped; production HTTP features such as middleware,
-OpenAPI, streaming, authentication, and hardened parser limits are tracked in the
-[roadmap](ROADMAP.md).
+dexpot is alpha software and is not yet recommended for untrusted production traffic. Its
+socket core now fails closed on malformed framing and enforces request limits, but production
+operations such as access logging, metrics, trusted-proxy policy, TLS guidance, middleware,
+OpenAPI, streaming, and authentication remain on the [roadmap](ROADMAP.md).
 
 ## Quick start
 
@@ -130,6 +130,32 @@ You can also run the file directly with `app.serve()`:
 if __name__ == "__main__":
     app.serve(host="127.0.0.1", port=8000)
 ```
+
+### HTTP limits
+
+Every connection enforces conservative defaults: an 8 KiB request line, 64 KiB request head,
+100 headers, a 16 MiB body, a five-second idle read timeout, a ten-second absolute head
+deadline, and a thirty-second absolute body deadline. Override them as one typed, immutable
+policy rather than adding transport options to route decorators:
+
+```python
+from dexpot import Dex, HttpLimits
+
+app = Dex(
+    limits=HttpLimits(
+        request_line_bytes=4 * 1024,
+        header_bytes=32 * 1024,
+        header_count=64,
+        body_bytes=2 * 1024 * 1024,
+        idle_read_seconds=10.0,
+        head_read_seconds=15.0,
+        body_read_seconds=60.0,
+    )
+)
+```
+
+Values must be positive, and the total request-head allowance must exceed the request-line
+allowance. Oversized or timed-out requests receive a stable error and the connection closes.
 
 ## Route contract
 
@@ -235,17 +261,21 @@ handler again.
 
 The current alpha release has these boundaries:
 
-- HTTP/1.1 requests with `Content-Length` and keep-alive are supported; chunked request
-  bodies are not.
-- The parser does not yet enforce request-line, header, body, or idle time limits.
+- HTTP/1.0 and HTTP/1.1 requests with validated `Content-Length` framing are supported;
+  transfer encodings, including chunked request bodies, are rejected and the connection closes.
+- Request-line, total-header, header-count, and body limits plus idle and absolute head/body
+  deadlines are enforced before request data can accumulate or drip indefinitely.
+- Request targets are currently origin-form only (`/path?query`); absolute-form proxy targets
+  are rejected during this alpha milestone.
+- Routing distinguishes 404 from 405, returns `Allow` for method mismatches, percent-decodes
+  UTF-8 paths safely, and treats duplicate or trailing slashes as distinct paths.
 - Query strings and headers are parsed internally but are not yet injectable handler
   parameters.
 - There is no middleware, OpenAPI generation, authentication, TLS termination, streaming,
   WebSocket support, or proxy-header policy.
 - `response=` selects an encoder but does not validate the handler's return type.
-- Uncaught handler exception names and messages currently appear in 500 JSON responses.
-  Do not put secrets in exception messages, and place dexpot behind a trusted boundary until
-  stable public error handling lands.
+- Uncaught handler exceptions produce a stable public 500 body while the traceback is logged
+  server-side. Structured logging and request IDs remain production-operations work.
 - Multiprocess serving is POSIX-only. Windows users must use one process in the current
   release.
 
@@ -303,13 +333,12 @@ be added only as those capabilities ship.
 
 ## Roadmap
 
-The next work is organized around four gates:
+The remaining work is organized around three gates after the completed HTTP-hardening gate:
 
-1. harden HTTP parsing and public failure behavior;
-2. complete the framework contract with request context, middleware, schemas, and richer
+1. complete the framework contract with request context, middleware, schemas, and richer
    response handling;
-3. publish reproducible GIL and free-threaded benchmarks with correctness parity; and
-4. add production operations without replacing the synchronous execution model.
+2. publish reproducible GIL and free-threaded benchmarks with correctness parity; and
+3. add production operations without replacing the synchronous execution model.
 
 The detailed milestones and non-goals live in [ROADMAP.md](ROADMAP.md).
 
