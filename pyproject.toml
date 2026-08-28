@@ -65,7 +65,7 @@ packages = ["src/dexpot"]
 exclude = ["**/AGENTS.md"]
 
 [tool.hatch.build.targets.sdist]
-exclude = ["/.venv*", "/dist"]
+exclude = ["/.venv*", "/dist", "/native"]
 
 [tool.towncrier]
 directory = "changelog.d"

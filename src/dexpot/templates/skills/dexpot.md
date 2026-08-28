@@ -89,6 +89,11 @@ imported, do not defer it until a request.
   are rejected in the current alpha boundary.
 - Unexpected handler exceptions are logged server-side and return only
   `{"detail":"internal server error"}` to the client.
+- The pure-Python request-head parser is the semantic reference and fallback. Backend selection
+  defaults to `auto`: use a compatible separately installed `dexpot-native` extension when
+  present, otherwise Python. `DEXPOT_HTTP_PARSER=python` forces the reference parser and
+  `native` requires the extension. Native code does not own sockets, bodies, handlers,
+  scheduling, or supervision.
 
 ## Execution model
 

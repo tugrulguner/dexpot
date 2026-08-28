@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import importlib
 import ipaddress
 import math
+import os
 import re
 import socket
+import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import unquote_to_bytes
 
@@ -254,6 +258,81 @@ def _parse_headers(lines: list[bytes], limit: int, body_limit: int) -> tuple[dic
     return headers, int(length)
 
 
+HeadResult = tuple[str, bytes, str, dict[str, str], int, bool]
+HeadParser = Callable[[bytes, HttpLimits], HeadResult]
+
+
+def _parse_head_python(head: bytes, limits: HttpLimits) -> HeadResult:
+    lines = head.split(b"\r\n")
+    method, target, version = _validate_request_line(lines[0], limits.request_line_bytes)
+    try:
+        headers, content_length = _parse_headers(lines[1:], limits.header_count, limits.body_bytes)
+    except HTTPParseError as exc:
+        raise exc.with_version(version) from None
+    if version == "HTTP/1.1" and not headers.get("host", "").strip():
+        raise HTTPParseError(400, "missing host header", version)
+    connection_tokens = {
+        token.strip().lower() for token in headers.get("connection", "").split(",") if token.strip()
+    }
+    keep_alive = "close" not in connection_tokens and (
+        version == "HTTP/1.1" or "keep-alive" in connection_tokens
+    )
+    return method, target, version, headers, content_length, keep_alive
+
+
+def _select_head_parser() -> tuple[str, HeadParser]:
+    requested = os.environ.get("DEXPOT_HTTP_PARSER", "auto").lower()
+    if requested not in {"python", "native", "auto"}:
+        raise ValueError("DEXPOT_HTTP_PARSER must be one of: python, native, auto")
+    if requested == "python":
+        return "python", _parse_head_python
+
+    try:
+        native_package = importlib.import_module("dexpot_native")
+    except ModuleNotFoundError as exc:
+        if exc.name != "dexpot_native":
+            raise
+        if requested == "native":
+            raise RuntimeError(
+                "DEXPOT_HTTP_PARSER=native was requested, but dexpot-native is not installed"
+            ) from exc
+        return "python", _parse_head_python
+
+    if getattr(native_package, "PARSER_API_VERSION", None) != 1:
+        raise RuntimeError("incompatible dexpot-native parser API; dexpot requires API version 1")
+    native_parser = importlib.import_module("dexpot_native._parser")
+
+    def parse_native(head: bytes, limits: HttpLimits) -> HeadResult:
+        if any(
+            value > sys.maxsize
+            for value in (
+                limits.request_line_bytes,
+                limits.header_bytes,
+                limits.header_count,
+                limits.body_bytes,
+            )
+        ):
+            return _parse_head_python(head, limits)
+        try:
+            return native_parser.parse_head(
+                head,
+                limits.request_line_bytes,
+                limits.header_bytes,
+                limits.header_count,
+                limits.body_bytes,
+            )
+        except ValueError as exc:
+            if len(exc.args) != 3:
+                raise
+            status, detail, version = exc.args
+            raise HTTPParseError(status, detail, version) from None
+
+    return "native", parse_native
+
+
+PARSER_BACKEND, _parse_head = _select_head_parser()
+
+
 def read_request(
     conn: socket.socket,
     buf: bytes,
@@ -291,14 +370,7 @@ def read_request(
     rest = bytes(head_buffer[delimiter_index + len(delimiter) :])
     if len(head) > limits.header_bytes:
         raise HTTPParseError(431, "request headers too large")
-    lines = head.split(b"\r\n")
-    method, target, version = _validate_request_line(lines[0], limits.request_line_bytes)
-    try:
-        headers, content_length = _parse_headers(lines[1:], limits.header_count, limits.body_bytes)
-    except HTTPParseError as exc:
-        raise exc.with_version(version) from None
-    if version == "HTTP/1.1" and not headers.get("host", "").strip():
-        raise HTTPParseError(400, "missing host header", version)
+    method, target, version, headers, content_length, keep_alive = _parse_head(head, limits)
 
     if len(rest) >= content_length:
         body = rest[:content_length]
@@ -331,12 +403,6 @@ def read_request(
     except HTTPParseError as exc:
         raise exc.with_version(version) from None
 
-    connection_tokens = {
-        token.strip().lower() for token in headers.get("connection", "").split(",") if token.strip()
-    }
-    keep_alive = "close" not in connection_tokens and (
-        version == "HTTP/1.1" or "keep-alive" in connection_tokens
-    )
     # `_recv` tightens the socket timeout to the remaining absolute deadline.
     # Restore the normal idle timeout before response writes or the next request.
     conn.settimeout(limits.idle_read_seconds)

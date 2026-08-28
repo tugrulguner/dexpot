@@ -157,6 +157,29 @@ app = Dex(
 Values must be positive, and the total request-head allowance must exceed the request-line
 allowance. Oversized or timed-out requests receive a stable error and the connection closes.
 
+### Parser backend
+
+The pure-Python request-head parser remains the behavioral reference and fallback. An
+experimental `dexpot-native` subproject provides the same request-line, header, Host,
+framing, and keep-alive semantics through a parser-only PyO3 extension. Python still owns
+sockets, deadlines, bodies, pipelining, target decoding, routing, handlers, scheduling, and
+worker supervision.
+
+Backend selection happens once when dexpot is imported:
+
+```bash
+DEXPOT_HTTP_PARSER=python dexpot serve main:app  # force the Python reference parser
+DEXPOT_HTTP_PARSER=native dexpot serve main:app  # require dexpot-native
+DEXPOT_HTTP_PARSER=auto dexpot serve main:app    # default: native if installed, else Python
+```
+
+`native` fails clearly when the extension is unavailable. The default `auto` mode falls back
+only when the native module is absent; ABI and initialization failures remain visible. The
+accelerator is not yet published, so installing or building it remains the opt-in decision.
+Contributors can build it from
+[`native/`](native/README.md); its wheel matrix, parity suite, and promotion gates are tracked
+in [issue #18](https://github.com/tugrulguner/dexpot/issues/18).
+
 ## Route contract
 
 Use `@app.get`, `@app.post`, `@app.put`, `@app.patch`, and `@app.delete`.
@@ -267,6 +290,9 @@ The current alpha release has these boundaries:
   deadlines are enforced before request data can accumulate or drip indefinitely.
 - Request targets are currently origin-form only (`/path?query`); absolute-form proxy targets
   are rejected during this alpha milestone.
+- The optional native request-head parser is experimental. Automatic detection is the default,
+  but it activates Rust only when the separately installed extension is present; Python remains
+  the reference and fallback.
 - Routing distinguishes 404 from 405, returns `Allow` for method mismatches, percent-decodes
   UTF-8 paths safely, and treats duplicate or trailing slashes as distinct paths.
 - Query strings and headers are parsed internally but are not yet injectable handler

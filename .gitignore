@@ -1,9 +1,13 @@
 # Python
 __pycache__/
 *.py[cod]
+*.so
+*.pyd
+*.dylib
 *.egg-info/
-dist/
+/dist*/
 build/
+target/
 .venv/
 .venv-ft/
 .pytest_cache/
