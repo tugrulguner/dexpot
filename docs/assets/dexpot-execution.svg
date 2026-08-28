@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1350" viewBox="0 0 2400 1350" role="img" aria-labelledby="title desc">
-  <title id="title">Dexpot compiles one endpoint plan with msgspec I/O and adapts scheduling to CPython</title>
-  <desc id="desc">A typed route declaration compiles into an immutable endpoint plan. Each bounded request head uses the compatible Rust and PyO3 dexpot-native parser, or the Python reference only when the native module is absent; incompatible or broken native installations fail visibly. Execution then uses either a free-threaded connection-owned thread or a GIL bounded worker pool with optional process fan-out. Both run the same synchronous Python handler and msgspec response path.</desc>
+  <title id="title">Dexpot compiles one endpoint plan with msgspec codecs and adapts scheduling to CPython</title>
+  <desc id="desc">A typed route declaration compiles into an immutable endpoint plan. In automatic mode, each bounded request head uses a compatible Rust and PyO3 dexpot-native parser, or the Python reference when native is absent; Python mode forces the reference parser, and incompatible or broken native installations fail visibly. Execution then uses either a free-threaded connection-owned thread or a GIL bounded worker pool with optional process fan-out. Both run the same synchronous Python handler and msgspec response path.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#050817"/>
@@ -57,7 +57,7 @@
   <rect x="2" y="2" width="2396" height="1346" rx="40" fill="none" stroke="#334155" stroke-width="3"/>
 
   <text x="1200" y="82" text-anchor="middle" class="sans eyebrow" fill="#fbbf24">ONE ENDPOINT PLAN · TWO RUNTIME PATHS</text>
-  <text x="1200" y="158" text-anchor="middle" class="sans headline" fill="#f8fafc">Plain Python handlers · msgspec I/O · interpreter-aware scheduling.</text>
+  <text x="1200" y="158" text-anchor="middle" class="sans headline" fill="#f8fafc">Plain Python handlers · msgspec codecs · interpreter-aware scheduling.</text>
   <text x="1200" y="211" text-anchor="middle" class="sans subtitle">Registration compiles the work. Requests execute without an async bridge.</text>
 
   <!-- arrows behind cards -->
@@ -137,22 +137,22 @@
     <rect x="150" y="985" width="2100" height="250" rx="34" fill="#080d1c" stroke="#334155" stroke-width="3"/>
     <text x="1200" y="1038" text-anchor="middle" class="sans card-label" fill="#94a3b8">BOUNDED HTTP/1.x EXECUTION</text>
 
-    <rect x="220" y="1073" width="430" height="126" rx="20" fill="#0b1727" stroke="#22d3ee" stroke-width="3"/>
-    <text x="435" y="1112" text-anchor="middle" class="sans body">bound + parse request head</text>
-    <text x="435" y="1150" text-anchor="middle" class="sans small" fill="#67e8f9">compatible Rust / PyO3</text>
-    <text x="435" y="1183" text-anchor="middle" class="sans small">Python only if absent</text>
-    <path d="M650 1136H690" stroke="#22d3ee" stroke-width="5" marker-end="url(#cyanArrow)"/>
+    <rect x="180" y="1073" width="520" height="126" rx="20" fill="#0b1727" stroke="#22d3ee" stroke-width="3"/>
+    <text x="440" y="1112" text-anchor="middle" class="sans body">bound + parse request head</text>
+    <text x="440" y="1150" text-anchor="middle" class="sans small" fill="#67e8f9">auto: compatible Rust / PyO3</text>
+    <text x="440" y="1183" text-anchor="middle" class="sans small">absent or forced: Python</text>
+    <path d="M700 1136H740" stroke="#22d3ee" stroke-width="5" marker-end="url(#cyanArrow)"/>
 
-    <rect x="700" y="1098" width="400" height="76" rx="20" fill="#10152e" stroke="#a78bfa" stroke-width="3"/>
-    <text x="900" y="1145" text-anchor="middle" class="sans body">match + bind + decode</text>
-    <path d="M1100 1136H1140" stroke="#a78bfa" stroke-width="5" marker-end="url(#blueArrow)"/>
+    <rect x="750" y="1098" width="400" height="76" rx="20" fill="#10152e" stroke="#a78bfa" stroke-width="3"/>
+    <text x="950" y="1145" text-anchor="middle" class="sans body">match + bind + decode</text>
+    <path d="M1150 1136H1190" stroke="#a78bfa" stroke-width="5" marker-end="url(#blueArrow)"/>
 
-    <rect x="1150" y="1098" width="370" height="76" rx="20" fill="#081a1c" stroke="#34d399" stroke-width="3"/>
-    <text x="1335" y="1145" text-anchor="middle" class="sans body">plain Python handler</text>
-    <path d="M1520 1136H1560" stroke="#34d399" stroke-width="5" marker-end="url(#amberArrow)"/>
+    <rect x="1200" y="1098" width="370" height="76" rx="20" fill="#081a1c" stroke="#34d399" stroke-width="3"/>
+    <text x="1385" y="1145" text-anchor="middle" class="sans body">plain Python handler</text>
+    <path d="M1570 1136H1610" stroke="#34d399" stroke-width="5" marker-end="url(#amberArrow)"/>
 
-    <rect x="1570" y="1098" width="600" height="76" rx="20" fill="#21180a" stroke="#fbbf24" stroke-width="3"/>
-    <text x="1870" y="1145" text-anchor="middle" class="sans body">msgspec encode + response</text>
+    <rect x="1620" y="1098" width="580" height="76" rx="20" fill="#21180a" stroke="#fbbf24" stroke-width="3"/>
+    <text x="1910" y="1145" text-anchor="middle" class="sans body">msgspec encode + response</text>
   </g>
 
   <text x="1200" y="1290" text-anchor="middle" class="mono small" fill="#94a3b8">registration compiles · one live keep-alive connection owns one worker · requests execute synchronously</text>

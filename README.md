@@ -36,7 +36,7 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/docs/assets/dexpot-execution.png" alt="A dexpot route compiles once into an immutable endpoint plan, parses each bounded request head with the compatible Rust and PyO3 dexpot-native parser or the Python reference only when native is absent, then uses either a connection-owned thread on free-threaded CPython or a bounded worker pool with optional process fan-out on standard GIL CPython before both paths execute the same synchronous Python handler" width="960">
+  <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/docs/assets/dexpot-execution.png" alt="A dexpot route compiles once into an immutable endpoint plan. Automatic mode parses each bounded request head with a compatible Rust and PyO3 dexpot-native parser or the Python reference when native is absent; Python mode forces the reference parser. Execution then uses either a connection-owned thread on free-threaded CPython or a bounded worker pool with optional process fan-out on standard GIL CPython before both paths execute the same synchronous Python handler" width="960">
 </p>
 
 ## Why dexpot
@@ -56,8 +56,8 @@ dexpot is designed around that runtime instead of hiding it behind an ASGI adapt
 - **msgspec request bodies.** JSON decoding and validation happen together in compiled C
   codecs.
 - **Optional Rust/PyO3 request-head parser.** A compatible `dexpot-native` installation
-  accelerates request-line and header parsing while Python retains sockets, limits, bodies,
-  routing, handlers, and scheduling.
+  handles request-line and header parsing while Python retains sockets, bounded accumulation,
+  deadlines, bodies, routing, handlers, and scheduling.
 - **A small, owned HTTP core.** Routing, parsing, scheduling, draining, and response writes
   are dexpot code—not a wrapper around another web framework.
 
@@ -265,9 +265,10 @@ positional versus keyword binding. Request processing consumes that plan without
 inspecting the handler again.
 
 Parser selection is orthogonal to scheduling: each bounded request head uses a compatible
-Rust/PyO3 `dexpot-native` installation, or the Python reference only when the native module is
-absent. Incompatible or broken native installations fail visibly. Python continues to own
-sockets, deadlines, bodies, and routing.
+Rust/PyO3 `dexpot-native` installation in automatic mode, or the Python reference when the
+native module is absent or Python mode is forced. A selected native adapter also preserves the
+Python path for configured head limits beyond Rust's `usize` range. Incompatible or broken
+native installations fail visibly. Python continues to own sockets, deadlines, bodies, and routing.
 
 The interpreter changes admission and scheduling, not application code. Free-threaded
 CPython gives each accepted connection its own thread in one process. Standard GIL CPython
