@@ -10,7 +10,8 @@
 
 <p align="center">
   A synchronous Python API framework that compiles routes once, validates JSON with msgspec,
-  and adapts its concurrency model to the interpreter running it.
+  can parse request heads in Rust through an optional PyO3 extension, and adapts concurrency
+  to the interpreter running it.
 </p>
 
 <p align="center">
@@ -26,6 +27,7 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#why-dexpot">Why dexpot</a> ·
   <a href="#execution-model">Execution model</a> ·
+  <a href="#optional-rustpyo3-parser">Rust parser</a> ·
   <a href="#current-boundaries">Boundaries</a> ·
   <a href="#examples">Examples</a> ·
   <a href="#community">Community</a> ·
@@ -53,6 +55,9 @@ dexpot is designed around that runtime instead of hiding it behind an ASGI adapt
   can fan out through `SO_REUSEPORT` workers.
 - **msgspec request bodies.** JSON decoding and validation happen together in compiled C
   codecs.
+- **Optional Rust/PyO3 request-head parser.** A compatible `dexpot-native` installation
+  accelerates request-line and header parsing while Python retains sockets, limits, bodies,
+  routing, handlers, and scheduling.
 - **A small, owned HTTP core.** Routing, parsing, scheduling, draining, and response writes
   are dexpot code—not a wrapper around another web framework.
 
@@ -164,11 +169,11 @@ app = Dex(
 Values must be positive, and the total request-head allowance must exceed the request-line
 allowance. Oversized or timed-out requests receive a stable error and the connection closes.
 
-### Parser backend
+### Optional Rust/PyO3 parser
 
-The pure-Python request-head parser remains the behavioral reference and fallback. An
-experimental `dexpot-native` subproject provides the same request-line, header, Host,
-framing, and keep-alive semantics through a parser-only PyO3 extension. Python still owns
+The pure-Python request-head parser remains the behavioral reference and fallback. The
+experimental `dexpot-native` subproject implements the same request-line, header, Host,
+framing, and keep-alive semantics in Rust through a parser-only PyO3 extension. Python still owns
 sockets, deadlines, bodies, pipelining, target decoding, routing, handlers, scheduling, and
 worker supervision.
 
@@ -177,7 +182,7 @@ Backend selection happens once when dexpot is imported:
 ```bash
 DEXPOT_HTTP_PARSER=python dexpot serve main:app  # force the Python reference parser
 DEXPOT_HTTP_PARSER=native dexpot serve main:app  # require dexpot-native
-DEXPOT_HTTP_PARSER=auto dexpot serve main:app    # default: native if installed, else Python
+DEXPOT_HTTP_PARSER=auto dexpot serve main:app    # compatible native, or Python if absent
 ```
 
 `native` fails clearly when the extension is unavailable. The default `auto` mode falls back
@@ -260,8 +265,9 @@ positional versus keyword binding. Request processing consumes that plan without
 inspecting the handler again.
 
 Parser selection is orthogonal to scheduling: each bounded request head uses a compatible
-`dexpot-native` installation when present and otherwise the Python reference parser. Python
-continues to own sockets, deadlines, bodies, and routing.
+Rust/PyO3 `dexpot-native` installation, or the Python reference only when the native module is
+absent. Incompatible or broken native installations fail visibly. Python continues to own
+sockets, deadlines, bodies, and routing.
 
 The interpreter changes admission and scheduling, not application code. Free-threaded
 CPython gives each accepted connection its own thread in one process. Standard GIL CPython
@@ -280,8 +286,8 @@ The current alpha release has these boundaries:
 - Request targets are currently origin-form only (`/path?query`); absolute-form proxy targets
   are rejected during this alpha milestone.
 - The optional native request-head parser is experimental. Automatic detection is the default,
-  but it activates Rust only when the separately installed extension is present; Python remains
-  the reference and fallback.
+  but it activates Rust only when a compatible separately installed extension is present;
+  Python remains the reference and fallback.
 - Routing distinguishes 404 from 405, returns `Allow` for method mismatches, percent-decodes
   UTF-8 paths safely, and treats duplicate or trailing slashes as distinct paths.
 - Query strings and headers are parsed internally but are not yet injectable handler

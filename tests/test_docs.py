@@ -99,6 +99,17 @@ def test_readme_execution_diagram_is_rendered_and_editable() -> None:
     assert 'width="960"' in text
 
 
+def test_readme_surfaces_the_optional_rust_parser_before_quick_start() -> None:
+    text = README.read_text()
+    introduction, _ = text.split("## Quick start", maxsplit=1)
+
+    assert "can parse request heads in Rust through an optional PyO3 extension" in introduction
+    assert 'href="#optional-rustpyo3-parser">Rust parser</a>' in introduction
+    assert "**Optional Rust/PyO3 request-head parser.**" in introduction
+    assert "### Optional Rust/PyO3 parser" in text
+    assert "compatible native, or Python if absent" in text
+
+
 def test_roadmap_separates_shipped_native_seam_from_promotion_gates() -> None:
     readme = " ".join(README.read_text().split())
     roadmap = ROADMAP.read_text()
