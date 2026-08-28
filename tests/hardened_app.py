@@ -60,5 +60,15 @@ def no_content() -> tuple[int, dict[str, bool]]:
     return 204, {"ok": True}
 
 
+@app.get("/reset-content")
+def reset_content() -> tuple[int, dict[str, bool]]:
+    return 205, {"ok": True}
+
+
+@app.get("/not-modified")
+def not_modified() -> tuple[int, dict[str, bool]]:
+    return 304, {"ok": True}
+
+
 if __name__ == "__main__":
     app.serve(host="127.0.0.1", port=int(sys.argv[1]))

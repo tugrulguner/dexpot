@@ -257,6 +257,10 @@ def test_identical_duplicate_content_lengths_are_accepted(hardened_server: int) 
         (b"GET /health#fragment HTTP/1.1\r\nHost: test\r\n\r\n", 400),
         (b"GET /files/a\\b HTTP/1.1\r\nHost: test\r\n\r\n", 400),
         (b'GET /files/a"b HTTP/1.1\r\nHost: test\r\n\r\n', 400),
+        (b"GET /files/%00 HTTP/1.1\r\nHost: test\r\n\r\n", 400),
+        (b"GET /files/%0A HTTP/1.1\r\nHost: test\r\n\r\n", 400),
+        (b"GET /files/%0D%0A HTTP/1.1\r\nHost: test\r\n\r\n", 400),
+        (b"GET /files/%7F HTTP/1.1\r\nHost: test\r\n\r\n", 400),
         (b"GET /health?value=%ZZ HTTP/1.1\r\nHost: test\r\n\r\n", 400),
         (b"GET /files/%ZZ HTTP/1.1\r\nHost: test\r\n\r\n", 400),
     ],
@@ -428,7 +432,14 @@ def test_percent_decoding_and_strict_slash_policy(hardened_server: int) -> None:
 
 @pytest.mark.parametrize(
     "host",
-    [b"example.com", b"example.com:8080", b"127.0.0.1", b"[::1]", b"[v1.fe]:80"],
+    [
+        b"example.com",
+        b"example.com:8080",
+        b"127.0.0.1",
+        b"[::1]",
+        b"[v1.fe]:80",
+        b"[V1.fe]:80",
+    ],
 )
 def test_valid_host_authorities_are_accepted(hardened_server: int, host: bytes) -> None:
     status, _headers, body = _request(
@@ -527,13 +538,26 @@ def test_invalid_handler_status_becomes_sanitized_500(hardened_server: int, path
     assert _json(body) == {"detail": "internal server error"}
 
 
-def test_204_response_has_no_body(hardened_server: int) -> None:
+@pytest.mark.parametrize(
+    ("path", "expected_status", "expected_length"),
+    [
+        (b"/no-content", 204, None),
+        (b"/reset-content", 205, "0"),
+        (b"/not-modified", 304, None),
+    ],
+)
+def test_bodyless_response_framing(
+    hardened_server: int,
+    path: bytes,
+    expected_status: int,
+    expected_length: str | None,
+) -> None:
     status, headers, body = _request(
         hardened_server,
-        b"GET /no-content HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n",
+        b"GET " + path + b" HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n",
     )
-    assert status == 204
-    assert headers["content-length"] == "0"
+    assert status == expected_status
+    assert headers.get("content-length") == expected_length
     assert body == b""
 
 

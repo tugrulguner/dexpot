@@ -17,7 +17,7 @@ _SUB_DELIMS = frozenset(b"!$&'()*+,;=")
 _PCHAR = _UNRESERVED | _SUB_DELIMS | frozenset(b":@")
 _QUERY_CHAR = _PCHAR | frozenset(b"/?")
 _REG_NAME = re.compile(rb"^(?:[A-Za-z0-9._~-]|[!$&'()*+,;=]|%[0-9A-Fa-f]{2})+$")
-_IPV_FUTURE = re.compile(rb"^v[0-9A-Fa-f]+\.[A-Za-z0-9._~!$&'()*+,;=:-]+$")
+_IPV_FUTURE = re.compile(rb"^[vV][0-9A-Fa-f]+\.[A-Za-z0-9._~!$&'()*+,;=:-]+$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +153,10 @@ def _decode_path(target: bytes) -> tuple[str, str]:
         query = raw_query.decode("ascii") if separator else ""
     except UnicodeDecodeError as exc:
         raise HTTPParseError(400, "invalid request target encoding") from exc
+    # Percent escapes are syntax-checked above, but their decoded octets must
+    # not reintroduce controls into routing, handlers, or diagnostic logs.
+    if any(ord(char) < 0x20 or ord(char) == 0x7F for char in path):
+        raise HTTPParseError(400, "invalid request target")
     return path, query
 
 

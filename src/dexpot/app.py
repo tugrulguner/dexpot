@@ -48,7 +48,7 @@ MAX_QUEUE = int(os.environ.get("DEXPOT_MAX_QUEUE", str(POOL_SIZE * 2)))
 
 _json_encode = msgspec.json.encode
 _logger = logging.getLogger("dexpot.error")
-_BODYLESS_STATUSES = frozenset({204, 304})
+_BODYLESS_STATUSES = frozenset({204, 205, 304})
 
 
 def _handler_response(status: object, out: bytes) -> tuple[int, bytes]:
@@ -465,23 +465,24 @@ class Dex:
             status = 500
             out = _json_encode({"detail": "internal server error"})
             keep_alive = False
-        if 100 <= status < 200 or status in _BODYLESS_STATUSES:
+        informational = 100 <= status < 200
+        if informational or status in _BODYLESS_STATUSES:
             out = b""
         try:
             reason = http.HTTPStatus(status).phrase.encode("ascii")
         except ValueError:
             reason = b""
-        header = (
-            b"%s %d %s\r\nContent-Type: application/json\r\n"
-            b"Content-Length: %d\r\nServer: dexpot\r\nConnection: %s\r\n"
-            % (
-                version.encode("ascii"),
-                status,
-                reason,
-                len(out),
-                b"keep-alive" if keep_alive else b"close",
-            )
+        # 1xx and 204 forbid Content-Length. For 304 it would describe the
+        # selected 200 representation, which dexpot cannot infer, so omit it.
+        omit_length = informational or status in (204, 304)
+        header = b"%s %d %s\r\nServer: dexpot\r\nConnection: %s\r\n" % (
+            version.encode("ascii"),
+            status,
+            reason,
+            b"keep-alive" if keep_alive else b"close",
         )
+        if not omit_length:
+            header += b"Content-Type: application/json\r\nContent-Length: %d\r\n" % len(out)
         for name, value in extra_headers:
             header += f"{name}: {value}\r\n".encode("latin-1")
         conn.sendall(header + b"\r\n" + out)
