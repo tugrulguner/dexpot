@@ -143,15 +143,10 @@ cover at least:
 3. registration-time rejection for invalid declarations; and
 4. keep-alive behavior when connection ownership could change.
 
-For scheduler changes, test the GIL/free-threaded branch deliberately. For signal, worker
-restart, or draining, launch a subprocess and verify process exit and listener closure.
-
-Run:
-
-```bash
-make check
-make build
-```
+For scheduler changes, test the GIL/free-threaded branch deliberately and record the Python
+version plus `getattr(sys, "_is_gil_enabled", lambda: True)()` as evidence. The compatible
+probe reports the GIL as enabled on Python versions that do not expose the helper. For signal,
+worker restart, or draining, launch a subprocess and verify process exit and listener closure.
 
 ## Benchmarking
 
@@ -164,11 +159,9 @@ RPS alone when one server is shedding requests.
 
 ## Verification
 
-Before calling a dexpot change complete:
+Before calling a dexpot application change complete:
 
 - the application imports and all routes register;
-- real HTTP success and failure paths pass;
-- `make check` passes;
-- wheel and sdist build;
-- packaged skill content remains present when this guidance changes; and
-- README and roadmap describe the same shipped/planned boundary.
+- real HTTP success and failure paths pass; and
+- scheduler or concurrency claims include the Python version and
+  `getattr(sys, "_is_gil_enabled", lambda: True)()` evidence.

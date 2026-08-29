@@ -71,6 +71,26 @@ def test_skill_documents_native_parser_selection_contract() -> None:
     assert "does not own sockets, bodies, handlers, scheduling, or supervision" in body
 
 
+def test_skill_keeps_downstream_verification_separate_from_maintainer_work() -> None:
+    body = skill_body()
+
+    for application_check in (
+        "application imports and all routes register",
+        "real HTTP success and failure paths pass",
+        'getattr(sys, "_is_gil_enabled", lambda: True)()',
+    ):
+        assert application_check in body
+
+    for maintainer_check in (
+        "make check",
+        "make build",
+        "wheel and sdist",
+        "packaged skill content",
+        "README and roadmap",
+    ):
+        assert maintainer_check not in body
+
+
 def test_skill_python_examples_compile() -> None:
     blocks = re.findall(r"```python\n(.*?)```", skill_body(), re.DOTALL)
 
