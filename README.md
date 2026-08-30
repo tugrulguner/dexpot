@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>Plain handlers. Real threads. Free-threaded Python.</strong>
+  <strong>Fast Python APIs on GIL and free-threaded CPython.</strong>
 </p>
 
 <p align="center">
@@ -39,13 +39,21 @@
   <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/docs/assets/dexpot-execution.png?v=99d3ec8" alt="A dexpot route compiles once into an immutable endpoint plan. Automatic mode parses each bounded request head with a compatible Rust and PyO3 dexpot-native parser or the Python reference when native is absent; Python mode forces the reference parser. Execution then uses either a connection-owned thread on free-threaded CPython or a bounded worker pool with optional process fan-out on standard GIL CPython before both paths execute the same synchronous Python handler" width="960">
 </p>
 
+dexpot is performance-first and agent-ready. The same synchronous application adapts to
+standard GIL and free-threaded execution, can use a compatible Rust parser on the request
+hot path, and ships project-local skills so coding agents understand the framework's real
+contract and runtime boundaries.
+
 ## Why dexpot
 
 Most Python API frameworks were designed around a permanent GIL: async I/O in one process,
 or several worker processes for CPU parallelism. Free-threaded CPython changes that tradeoff.
 Threads can execute Python simultaneously and share normal in-process state.
 
-dexpot is designed around that runtime instead of hiding it behind an ASGI adapter:
+dexpot brings speed to both runtimes instead of optimizing for one and treating the other
+as a compatibility mode. It uses bounded threads and optional process fan-out on standard
+GIL builds, then uses real parallel threads in one process when the GIL is disabled. The
+application keeps the same plain synchronous handlers in both modes:
 
 - **Plain synchronous handlers.** No `async def`, event loop, or coroutine bridge.
 - **Compiled endpoint plans.** Route matching metadata, argument sources, path conversions,
