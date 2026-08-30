@@ -47,6 +47,18 @@ def test_claude_skill_has_discovery_frontmatter(tmp_path: Path) -> None:
     assert "description:" in frontmatter
 
 
+def test_installed_skill_keeps_testing_guidance_application_facing(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["add", "skills", "--agent", "claude", "--path", str(tmp_path)])
+
+    assert result.exit_code == 0
+    text = (tmp_path / ".claude/skills/dexpot/SKILL.md").read_text()
+    assert "For scheduler changes" not in text
+    assert "signal, worker restart, or draining" not in text
+    assert "Signal and supervisor tests" not in text
+    assert "application depends on its concurrency configuration" in text
+    assert 'getattr(sys, "_is_gil_enabled", lambda: True)()' in text
+
+
 @pytest.mark.parametrize("agent", ["copilot", "codex"])
 def test_shared_instruction_files_preserve_project_content(agent: str, tmp_path: Path) -> None:
     relative = EXPECTED[agent]

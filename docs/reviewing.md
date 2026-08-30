@@ -81,6 +81,11 @@ Then choose targeted evidence:
 Do not test signals by running `serve()` in a thread. Do not use a Python HTTP client as a
 headline load generator.
 
+For framework scheduler changes, deliberately exercise the GIL and free-threaded branches and
+record the Python version plus `getattr(sys, "_is_gil_enabled", lambda: True)()`. For signal
+handling, worker restart, or draining changes, launch a subprocess and verify process exit and
+listener closure.
+
 ## 5. Verify each finding
 
 Execute a reproducer when possible. Before claiming a negative check proves safety, make
