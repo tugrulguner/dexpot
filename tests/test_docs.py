@@ -189,8 +189,9 @@ def test_compiled_application_contract_is_synchronized() -> None:
     readme = " ".join(README.read_text().split())
     roadmap = " ".join(ROADMAP.read_text().split())
     skill = " ".join((ROOT / "src/dexpot/templates/skills/dexpot.md").read_text().split())
+    reviewing = " ".join((ROOT / "docs/reviewing.md").read_text().split())
 
-    for text in (readme, roadmap, skill):
+    for text in (readme, roadmap, skill, reviewing):
         assert "ApplicationPlan" in text
         assert "RouterPlan" in text
         assert "EndpointPlan" in text

@@ -36,12 +36,14 @@ Untracked files are part of the change.
 Read the touched files and their callers before judging a diff. For server changes, trace:
 
 ```text
-registration -> Route plan -> match -> decode/bind -> handler -> encode/send
-                         and
+registration -> EndpointPlan -> RouterPlan -> ApplicationPlan -> match -> decode/bind -> handler
+                                                                         -> encode/send
+and
 accept -> admission -> connection owner -> drain
 ```
 
-A diff-only review misses contracts split between registration, scheduling, and shutdown.
+A diff-only review misses contracts split between registration, immutable application freeze,
+scheduling, and shutdown.
 
 ## 3. Apply the dexpot criteria
 
@@ -70,7 +72,7 @@ Then choose targeted evidence:
 
 | Changed area | Additional verification |
 |---|---|
-| route compilation or binding | registration rejection + real HTTP path/body/keyword-only cases |
+| route compilation or binding | registration/freeze atomicity + annotation resolution + real HTTP path/body/keyword-only cases |
 | parser or response path | malformed socket input + keep-alive + disconnect cases |
 | pool or admission | saturation test proving bounded queue and 503 responses |
 | multiprocessing | subprocess liveness, worker crash/restart, SIGTERM drain, listener closure |
