@@ -176,6 +176,15 @@ def test_readme_does_not_claim_unshipped_framework_features() -> None:
     assert "are not yet injectable" in text
 
 
+def test_readme_keeps_performance_positioning_evidence_gated() -> None:
+    text = README.read_text()
+
+    assert "Fast Python APIs" not in text
+    assert "brings speed to both runtimes" not in text
+    assert "performance-first" not in text
+    assert "adapt concurrency to the interpreter" in text
+
+
 def test_contributor_entry_points_are_actionable() -> None:
     readme = README.read_text()
     contributing = CONTRIBUTING.read_text()

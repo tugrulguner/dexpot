@@ -14,6 +14,12 @@ The framework owns the HTTP server, routing, validation, scheduling, overload be
 graceful shutdown. It is not an ASGI wrapper and will not require application authors to
 maintain async and sync versions of the same endpoint.
 
+The performance strategy spans both interpreter modes: bounded concurrency and optional
+process fan-out for standard GIL builds, real parallel threads for free-threaded builds,
+compiled C-backed codecs, and evidence-gated Rust acceleration for narrow hot paths. The
+developer workflow is agent-ready too: bundled coding-agent skills track the same shipped
+route contract and runtime boundaries as the framework documentation.
+
 ## Shipped foundation
 
 The current release line provides:
@@ -157,6 +163,8 @@ Add operational controls while preserving the synchronous programming model:
 Once the contract and operations are stable:
 
 - Progressive runnable examples under `examples/` for each supported use case.
+- Keep bundled coding-agent skills synchronized with every stable route, request, response,
+  concurrency, and deployment contract.
 - Extension points with compatibility tests and a documented stability policy.
 - Framework-level database/session lifecycle integrations that remain synchronous.
 - Test clients and fixtures built on the real HTTP surface rather than a separate dispatcher.
