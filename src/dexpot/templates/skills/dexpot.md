@@ -117,8 +117,7 @@ A worker owns a keep-alive connection until close. Never requeue an idle live co
 it consumes admission capacity and can block a worker waiting for the next request.
 
 SIGINT/SIGTERM stop new admission and allow active connections up to five seconds to drain.
-Multiprocess workers restart after crashes. Signal and supervisor tests must use a real
-subprocess because signal handlers only work in the main thread.
+Multiprocess workers restart after crashes.
 
 ## Current boundaries
 
@@ -143,15 +142,11 @@ cover at least:
 3. registration-time rejection for invalid declarations; and
 4. keep-alive behavior when connection ownership could change.
 
-For scheduler changes, test the GIL/free-threaded branch deliberately. For signal, worker
-restart, or draining, launch a subprocess and verify process exit and listener closure.
-
-Run:
-
-```bash
-make check
-make build
-```
+When an application depends on its concurrency configuration, test the documented pool,
+queue, and worker settings through real requests on every supported runtime it claims. Record
+the Python version plus `getattr(sys, "_is_gil_enabled", lambda: True)()` as evidence; the
+compatible probe reports the GIL as enabled on Python versions that do not expose the helper.
+Verify successful responses and expected 503 overload behavior where applicable.
 
 ## Benchmarking
 
@@ -164,11 +159,9 @@ RPS alone when one server is shedding requests.
 
 ## Verification
 
-Before calling a dexpot change complete:
+Before calling a dexpot application change complete:
 
 - the application imports and all routes register;
-- real HTTP success and failure paths pass;
-- `make check` passes;
-- wheel and sdist build;
-- packaged skill content remains present when this guidance changes; and
-- README and roadmap describe the same shipped/planned boundary.
+- real HTTP success and failure paths pass; and
+- scheduler or concurrency claims include the Python version and
+  `getattr(sys, "_is_gil_enabled", lambda: True)()` evidence.

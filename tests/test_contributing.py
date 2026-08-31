@@ -9,6 +9,8 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
+AGENT_GUIDANCE = ROOT / "AGENTS.md"
+CLAUDE_GUIDANCE = ROOT / "CLAUDE.md"
 CONTRIBUTING = ROOT / "CONTRIBUTING.md"
 REVIEWING = ROOT / "docs" / "reviewing.md"
 ISSUE_FORMS = ROOT / ".github" / "ISSUE_TEMPLATE"
@@ -19,6 +21,24 @@ CHANGELOG_WORKFLOW = ROOT / ".github" / "workflows" / "changelog.yml"
 
 def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def test_internal_agent_guidance_points_to_authoritative_maintainer_rules() -> None:
+    guidance = _text(AGENT_GUIDANCE)
+
+    assert "maintaining Dexpot itself" in guidance
+    assert "CONTRIBUTING.md" in guidance
+    assert "docs/reviewing.md" in guidance
+    assert "make check" in guidance
+    assert "dexpot add skills" in guidance
+    assert "downstream" in guidance
+    assert "src/dexpot/templates/skills/dexpot.md" in guidance
+
+
+def test_claude_guidance_is_an_alias_of_cross_agent_guidance() -> None:
+    assert CLAUDE_GUIDANCE.is_symlink()
+    assert CLAUDE_GUIDANCE.readlink() == Path("AGENTS.md")
+    assert _text(CLAUDE_GUIDANCE) == _text(AGENT_GUIDANCE)
 
 
 def test_bug_form_collects_runtime_and_contributor_context() -> None:
