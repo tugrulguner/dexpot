@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from dataclasses import FrozenInstanceError
 
 import pytest
@@ -83,6 +84,60 @@ def test_registration_fails_after_application_compilation() -> None:
         @app.get("/after")
         def after() -> dict[str, bool]:
             return {"after": True}
+
+
+def test_compilation_waits_for_registration_already_in_progress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = Dex()
+    registration_entered = threading.Event()
+    release_registration = threading.Event()
+    compilation_finished = threading.Event()
+    errors: list[BaseException] = []
+    real_endpoint_plan = app_module.EndpointPlan
+
+    def blocking_endpoint_plan(*args: object, **kwargs: object) -> object:
+        registration_entered.set()
+        if not release_registration.wait(timeout=2):
+            raise TimeoutError("registration was not released")
+        return real_endpoint_plan(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(app_module, "EndpointPlan", blocking_endpoint_plan)
+
+    def register() -> None:
+        try:
+
+            @app.get("/late")
+            def late() -> dict[str, bool]:
+                return {"late": True}
+        except BaseException as exc:
+            errors.append(exc)
+
+    compiled: list[object] = []
+
+    def compile_app() -> None:
+        try:
+            compiled.append(app._compile())
+        except BaseException as exc:
+            errors.append(exc)
+        finally:
+            compilation_finished.set()
+
+    registration_thread = threading.Thread(target=register)
+    compilation_thread = threading.Thread(target=compile_app)
+    registration_thread.start()
+    assert registration_entered.wait(timeout=2)
+    compilation_thread.start()
+
+    assert not compilation_finished.wait(timeout=0.05)
+    release_registration.set()
+    registration_thread.join(timeout=2)
+    compilation_thread.join(timeout=2)
+
+    assert not registration_thread.is_alive()
+    assert not compilation_thread.is_alive()
+    assert errors == []
+    assert [endpoint.path for endpoint in compiled[0].endpoints] == ["/late"]  # type: ignore[attr-defined]
 
 
 def test_serve_compiles_before_opening_a_listener(monkeypatch: pytest.MonkeyPatch) -> None:

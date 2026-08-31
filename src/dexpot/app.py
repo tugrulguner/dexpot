@@ -84,6 +84,7 @@ class Dex:
         self._parametric: list[tuple[str, list[str], EndpointPlan]] = []
         self._endpoints: list[EndpointPlan] = []
         self._plan: ApplicationPlan | None = None
+        self._declaration_lock = threading.RLock()
         self._work: deque[tuple[socket.socket, bytes]] = deque()
         self._cond = threading.Condition()
         self._stopping = threading.Event()
@@ -92,6 +93,12 @@ class Dex:
     # ---- route registration ----
 
     def _register(self, method: str, path: str, fn: Callable[..., Any]) -> Callable[..., Any]:
+        with self._declaration_lock:
+            return self._register_locked(method, path, fn)
+
+    def _register_locked(
+        self, method: str, path: str, fn: Callable[..., Any]
+    ) -> Callable[..., Any]:
         if self._plan is not None:
             raise RuntimeError("application is compiled; routes can no longer be registered")
         if not path.startswith("/") or "?" in path or "#" in path:
@@ -181,14 +188,18 @@ class Dex:
 
     def _compile(self) -> ApplicationPlan:
         """Compile declarations once into the immutable plan used by traffic."""
-        if self._plan is None:
+        plan = self._plan
+        if plan is not None:
+            return plan
+        with self._declaration_lock:
+            if self._plan is not None:
+                return self._plan
             router = RouterPlan.compile(self._literal, self._parametric)
             self._plan = ApplicationPlan(
                 endpoints=tuple(self._endpoints),
                 router=router,
             )
-
-        return self._plan
+            return self._plan
 
     def _match(
         self, method: str, path: str
