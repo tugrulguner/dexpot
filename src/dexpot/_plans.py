@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import inspect
 import typing
 from collections.abc import Callable, Mapping, Sequence
@@ -15,6 +14,10 @@ import msgspec
 _json_encode = msgspec.json.encode
 
 _type_hints_cache: dict[Any, dict[str, Any]] = {}
+
+
+class _ApplicationCompilationDuringRegistration(RuntimeError):
+    """Keep registration-control failures visible during annotation evaluation."""
 
 
 def _type_hints(fn: Any) -> dict[str, Any]:
@@ -31,8 +34,12 @@ def _type_hints(fn: Any) -> dict[str, Any]:
         cells = dict(zip(cell_names, (cell.cell_contents for cell in closure), strict=True))
         for name, annotation in raw.items():
             if isinstance(annotation, str):
-                with contextlib.suppress(Exception):
+                try:
                     annotation = eval(annotation, dict(typing.__dict__), {**globalns, **cells})
+                except _ApplicationCompilationDuringRegistration:
+                    raise
+                except Exception:
+                    pass
             resolved[name] = annotation
         hints = resolved
         _type_hints_cache[fn] = hints

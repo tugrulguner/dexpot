@@ -28,7 +28,12 @@ from typing import Any
 import msgspec
 
 from ._http import ClientDisconnected, HttpLimits, HTTPParseError, read_request
-from ._plans import ApplicationPlan, EndpointPlan, RouterPlan
+from ._plans import (
+    ApplicationPlan,
+    EndpointPlan,
+    RouterPlan,
+    _ApplicationCompilationDuringRegistration,
+)
 
 # "fork" is safe here because dexpot forks workers before starting any threads
 # (the supervisor process never starts pools/reactors). It preserves the
@@ -198,7 +203,7 @@ class Dex:
             return plan
         with self._declaration_lock:
             if self._registration_depth:
-                raise RuntimeError(
+                raise _ApplicationCompilationDuringRegistration(
                     "application cannot be compiled while route registration is in progress"
                 )
             if self._plan is not None:

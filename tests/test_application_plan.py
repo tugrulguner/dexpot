@@ -153,16 +153,17 @@ def test_reentrant_compilation_during_annotation_resolution_cannot_publish_parti
 
     monkeypatch.setitem(globals(), "freeze_during_annotation", freeze_during_annotation)
 
-    @app.get("/items/{item_id}")
-    def item(item_id: freeze_during_annotation()) -> dict[str, int]:  # type: ignore[name-defined]
-        return {"item_id": item_id}
+    with pytest.raises(RuntimeError, match="route registration is in progress"):
 
-    plan = app._compile()
-    endpoint, _captures, _allowed = plan.router.match("GET", "/items/7")
+        @app.get("/items/{item_id}")
+        def item(item_id: freeze_during_annotation()) -> dict[str, int]:  # type: ignore[name-defined]
+            return {"item_id": item_id}
 
     assert compilation_attempts == [True]
-    assert [registered.path for registered in plan.endpoints] == ["/items/{item_id}"]
-    assert endpoint is not None
+    assert app._endpoints == []
+    assert app._literal == {}
+    assert app._parametric == []
+    assert app._plan is None
 
 
 def test_serve_compiles_before_opening_a_listener(monkeypatch: pytest.MonkeyPatch) -> None:
