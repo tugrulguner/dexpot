@@ -185,6 +185,19 @@ def test_readme_keeps_performance_positioning_evidence_gated() -> None:
     assert "adapt concurrency to the interpreter" in text
 
 
+def test_compiled_application_contract_is_synchronized() -> None:
+    readme = " ".join(README.read_text().split())
+    roadmap = " ".join(ROADMAP.read_text().split())
+    skill = " ".join((ROOT / "src/dexpot/templates/skills/dexpot.md").read_text().split())
+
+    for text in (readme, roadmap, skill):
+        assert "ApplicationPlan" in text
+        assert "RouterPlan" in text
+        assert "EndpointPlan" in text
+    assert "before opening a listener" in readme
+    assert "Late route registration fails" in skill
+
+
 def test_contributor_entry_points_are_actionable() -> None:
     readme = README.read_text()
     contributing = CONTRIBUTING.read_text()

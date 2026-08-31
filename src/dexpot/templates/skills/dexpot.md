@@ -1,8 +1,9 @@
 # dexpot applications
 
-dexpot is a synchronous Python API framework with an owned socket server. Handlers are
-plain functions. Route bindings and msgspec codecs compile at registration; traffic runs
-through real threads selected for GIL or free-threaded CPython.
+dexpot is a synchronous Python API framework with an owned socket server. Handlers are plain
+functions. Registration builds immutable `EndpointPlan` objects; serving freezes them into one
+`ApplicationPlan` and `RouterPlan` before the listener opens. Traffic runs through real threads
+selected for GIL or free-threaded CPython.
 
 ## When to use
 
@@ -70,6 +71,8 @@ The runtime package is `dexpot`; the command requires `dexpot[cli]`.
 - Every path capture must have a matching handler parameter.
 - Two routes with one method and the same structural shape conflict: `/users/{id}` and
   `/users/{name}` cannot coexist.
+- Late route registration fails after application compilation. Declare every route before
+  calling `serve()`; do not mutate the application while traffic is running.
 
 Prefer errors at registration. If a declaration can be proven invalid while the module is
 imported, do not defer it until a request.

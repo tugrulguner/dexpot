@@ -267,10 +267,14 @@ The GIL supervisor restarts a worker that exits unexpectedly.
 
 ## Current architecture
 
-A registered `Route` separates setup from traffic. It owns the immutable handler plan:
-literal or parametric matching, body and response codecs, capture conversions, and
-positional versus keyword binding. Request processing consumes that plan without
-inspecting the handler again.
+Registration builds immutable `EndpointPlan` objects for handler binding, capture conversion,
+and body and response codecs. When serving starts, dexpot freezes those endpoints into one
+`ApplicationPlan` and a `RouterPlan` grouped by path length with parameter positions already
+classified. Compilation happens before opening a listener, and late route registration fails
+instead of silently diverging from the plan used by traffic.
+
+Request processing consumes the same plan for literal and parameterized matching, 404/405
+resolution, argument binding, and response encoding without inspecting the handler again.
 
 Parser selection is orthogonal to scheduling: each bounded request head uses a compatible
 Rust/PyO3 `dexpot-native` installation in automatic mode, or the Python reference when the

@@ -28,6 +28,7 @@ from typing import Any
 import msgspec
 
 from ._http import ClientDisconnected, HttpLimits, HTTPParseError, read_request
+from ._plans import ApplicationPlan, EndpointPlan, RouterPlan
 
 # "fork" is safe here because dexpot forks workers before starting any threads
 # (the supervisor process never starts pools/reactors). It preserves the
@@ -60,166 +61,12 @@ def _handler_response(status: object, out: bytes) -> tuple[int, bytes]:
     return status, out
 
 
-_type_hints_cache: dict[Any, dict[str, Any]] = {}
-
-
-def _type_hints(fn: Callable[..., Any]) -> dict[str, Any]:
-    hints = _type_hints_cache.get(fn)
-    if hints is None:
-        import inspect
-        import typing
-
-        raw = {n: p.annotation for n, p in inspect.signature(fn).parameters.items()}
-        # resolve string annotations (from __future__ import annotations)
-        resolved: dict[str, Any] = {}
-        globalns = getattr(fn, "__globals__", {})
-        closure = fn.__closure__ or ()
-        cell_names = fn.__code__.co_freevars
-        cells = dict(zip(cell_names, (c.cell_contents for c in closure), strict=True))
-        for n, ann in raw.items():
-            if isinstance(ann, str):
-                with contextlib.suppress(Exception):
-                    ann = eval(ann, dict(typing.__dict__), {**globalns, **cells})
-            resolved[n] = ann
-        hints = resolved
-        _type_hints_cache[fn] = hints
-    return hints
-
-
 class HTTPError(Exception):
     """Raise from a handler to return an error status with a JSON detail."""
 
     def __init__(self, status: int, detail: str) -> None:
         self.status = status
         self.detail = detail
-
-
-class Route:
-    """Compiled, immutable endpoint plan. Built once at registration.
-
-    The binder preserves Python signature semantics: each handler parameter
-    resolves to a source (path capture by name, body, or default) regardless
-    of the order path segments appear in or where the body parameter sits.
-    """
-
-    __slots__ = (
-        "bind",
-        "body_decoder",
-        "body_type",
-        "handler",
-        "int_captures",
-        "path_names",
-        "resp_encoder",
-        "resp_type",
-        "summary",
-    )
-
-    def __init__(
-        self,
-        handler: Callable[..., Any],
-        body_type: Any,
-        resp_type: Any,
-        summary: str,
-        path_names: list[str],
-    ) -> None:
-        self.handler = handler
-        self.body_type = body_type
-        self.resp_type = resp_type
-        self.summary = summary
-        self.path_names = path_names
-        self.body_decoder = msgspec.json.Decoder(body_type) if body_type is not None else None
-        self.resp_encoder = msgspec.json.Encoder() if resp_type is not None else None
-
-        # --- compile the binder in signature order ---
-        hints = _type_hints(handler)
-        sig = inspect.signature(handler)
-        captures_by_name = {n: i for i, n in enumerate(path_names)}
-
-        sources: list[tuple[Any, str, str, Any]] = []
-        int_captures: list[tuple[int, str]] = []  # (capture_index, param_name)
-        used_captures: set[int] = set()
-        body_param_seen = False
-
-        for name, param in sig.parameters.items():
-            if param.kind in (
-                inspect.Parameter.VAR_POSITIONAL,
-                inspect.Parameter.VAR_KEYWORD,
-            ):
-                raise TypeError(
-                    f"handler parameter '{name}' uses unsupported "
-                    f"{param.kind.description}; *args/**kwargs cannot be compiled"
-                )
-
-            ann = hints.get(name)
-            if name in captures_by_name:
-                idx = captures_by_name[name]
-                if ann is int:
-                    int_captures.append((idx, name))
-                sources.append((param.kind, name, "capture", idx))
-                used_captures.add(idx)
-            elif body_type is not None and not body_param_seen:
-                body_param_seen = True
-                sources.append((param.kind, name, "body", None))
-            elif param.default is not inspect.Parameter.empty:
-                sources.append((param.kind, name, "default", param.default))
-            else:
-                raise TypeError(
-                    f"handler parameter '{name}' on route "
-                    f"cannot be bound: no matching path segment, body, or default"
-                )
-
-        self.int_captures = tuple(int_captures)
-
-        # Build positional and keyword-only invokers in signature order.
-        # Common routes allocate no kwargs dict; keyword-only routes do.
-        positional_sources = [
-            (source, payload)
-            for kind, _name, source, payload in sources
-            if kind
-            in (
-                inspect.Parameter.POSITIONAL_ONLY,
-                inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            )
-        ]
-        keyword_sources = [
-            (name, source, payload)
-            for kind, name, source, payload in sources
-            if kind is inspect.Parameter.KEYWORD_ONLY
-        ]
-
-        def resolve(source: str, payload: Any, captures: list[Any], body: Any) -> Any:
-            if source == "capture":
-                return captures[payload]
-            if source == "body":
-                return body
-            return payload
-
-        def bind(captures: list[Any], body: Any) -> tuple[list[Any], dict[str, Any] | None]:
-            args = [
-                resolve(source, payload, captures, body) for source, payload in positional_sources
-            ]
-            kwargs = (
-                {
-                    name: resolve(source, payload, captures, body)
-                    for name, source, payload in keyword_sources
-                }
-                if keyword_sources
-                else None
-            )
-            return args, kwargs
-
-        self.bind = bind  # type: ignore[assignment]
-
-        # every path segment must be consumed by a handler parameter
-        unconsumed = [path_names[i] for i in range(len(path_names)) if i not in used_captures]
-        if unconsumed:
-            raise TypeError(f"path parameter(s) {unconsumed} are not accepted by the handler")
-
-    def encode(self, result: Any) -> bytes:
-        """Encode a successful result using the route's response contract."""
-        if self.resp_encoder is not None and type(result) is self.resp_type:
-            return self.resp_encoder.encode(result)
-        return _json_encode(result)
 
 
 def _path_segments(path: str) -> list[str]:
@@ -233,8 +80,10 @@ class Dex:
 
     def __init__(self, *, limits: HttpLimits | None = None) -> None:
         self.limits = limits or HttpLimits()
-        self._literal: dict[tuple[str, str], Route] = {}
-        self._parametric: list[tuple[str, list[str], Route]] = []
+        self._literal: dict[tuple[str, str], EndpointPlan] = {}
+        self._parametric: list[tuple[str, list[str], EndpointPlan]] = []
+        self._endpoints: list[EndpointPlan] = []
+        self._plan: ApplicationPlan | None = None
         self._work: deque[tuple[socket.socket, bytes]] = deque()
         self._cond = threading.Condition()
         self._stopping = threading.Event()
@@ -243,6 +92,8 @@ class Dex:
     # ---- route registration ----
 
     def _register(self, method: str, path: str, fn: Callable[..., Any]) -> Callable[..., Any]:
+        if self._plan is not None:
+            raise RuntimeError("application is compiled; routes can no longer be registered")
         if not path.startswith("/") or "?" in path or "#" in path:
             raise ValueError("route paths must be absolute paths without a query or fragment")
         body_type = getattr(fn, "__dexpot_body__", None)
@@ -250,7 +101,15 @@ class Dex:
         path_names = [
             s[1:-1] for s in _path_segments(path) if s.startswith("{") and s.endswith("}")
         ]
-        route = Route(fn, body_type, resp_type, (fn.__doc__ or "").strip(), path_names)
+        route = EndpointPlan(
+            method,
+            path,
+            fn,
+            body_type,
+            resp_type,
+            (fn.__doc__ or "").strip(),
+            path_names,
+        )
         key = (method, path)
         if "{" in path:
             # structural shape: literal segments kept, params normalized to {},
@@ -270,6 +129,7 @@ class Dex:
             if key in self._literal:
                 raise ValueError(f"duplicate route: {method} {path}")
             self._literal[key] = route
+        self._endpoints.append(route)
         return fn
 
     def get(
@@ -319,34 +179,28 @@ class Dex:
 
     # ---- matching ----
 
+    def _compile(self) -> ApplicationPlan:
+        """Compile declarations once into the immutable plan used by traffic."""
+        if self._plan is None:
+            router = RouterPlan.compile(self._literal, self._parametric)
+            self._plan = ApplicationPlan(
+                endpoints=tuple(self._endpoints),
+                router=router,
+            )
+
+        return self._plan
+
     def _match(
         self, method: str, path: str
-    ) -> tuple[Route | None, list[Any] | None, tuple[str, ...]]:
-        hit = self._literal.get((method, path))
+    ) -> tuple[EndpointPlan | None, list[Any] | None, tuple[str, ...]]:
+        plan = self._plan
+        if plan is None:
+            plan = self._compile()
+        router = plan.router
+        hit = router.literal.get((method, path))
         if hit is not None:
             return hit, [], ()
-        allowed = {
-            registered_method
-            for registered_method, registered_path in self._literal
-            if registered_path == path
-        }
-        segs = _path_segments(path)
-        for registered_method, pattern, route in self._parametric:
-            if len(pattern) != len(segs):
-                continue
-            captures: list[Any] = []
-            ok = True
-            for expected, actual in zip(pattern, segs, strict=True):
-                if expected.startswith("{") and expected.endswith("}"):
-                    captures.append(actual)
-                elif expected != actual:
-                    ok = False
-                    break
-            if ok:
-                if registered_method == method:
-                    return route, captures, ()
-                allowed.add(registered_method)
-        return None, None, tuple(sorted(allowed))
+        return router.match_after_literal_miss(method, path)
 
     # ---- request processing ----
 
@@ -569,6 +423,7 @@ class Dex:
         return srv
 
     def serve(self, host: str = "127.0.0.1", port: int = 8000) -> None:
+        self._compile()
         workers_env = os.environ.get("DEXPOT_WORKERS", "")
         n_workers = max(1, int(workers_env)) if workers_env.isdigit() else 0
 

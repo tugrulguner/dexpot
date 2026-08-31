@@ -28,6 +28,8 @@ The current release line provides:
 - Literal and parameterized routes with structural duplicate detection.
 - Registration-time compilation of path, body, default, positional, and keyword-only
   handler bindings.
+- Serving-time freeze into an immutable `ApplicationPlan`, length-indexed `RouterPlan`, and
+  complete `EndpointPlan` metadata before a listener opens.
 - Registration-time rejection of unbound captures and variadic handlers.
 - Integer path conversion with 422 failures.
 - msgspec JSON body decoding and validation into `Struct` types.
@@ -97,6 +99,8 @@ and it is not a default dexpot dependency.
 
 Turn the serving core into a useful application framework without inflating decorators:
 
+- Extend the shipped `ApplicationPlan`, `RouterPlan`, and `EndpointPlan` kernel rather than
+  introducing a second dispatcher or live route mutation.
 - Make request context available through a small typed API: method, path, path parameters,
   query parameters, headers, validated body, and client metadata.
 - Add typed query/header/cookie binding with registration-time validation.
