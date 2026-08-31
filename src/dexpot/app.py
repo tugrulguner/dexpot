@@ -85,6 +85,7 @@ class Dex:
         self._endpoints: list[EndpointPlan] = []
         self._plan: ApplicationPlan | None = None
         self._declaration_lock = threading.RLock()
+        self._registration_depth = 0
         self._work: deque[tuple[socket.socket, bytes]] = deque()
         self._cond = threading.Condition()
         self._stopping = threading.Event()
@@ -94,7 +95,11 @@ class Dex:
 
     def _register(self, method: str, path: str, fn: Callable[..., Any]) -> Callable[..., Any]:
         with self._declaration_lock:
-            return self._register_locked(method, path, fn)
+            self._registration_depth += 1
+            try:
+                return self._register_locked(method, path, fn)
+            finally:
+                self._registration_depth -= 1
 
     def _register_locked(
         self, method: str, path: str, fn: Callable[..., Any]
@@ -192,6 +197,10 @@ class Dex:
         if plan is not None:
             return plan
         with self._declaration_lock:
+            if self._registration_depth:
+                raise RuntimeError(
+                    "application cannot be compiled while route registration is in progress"
+                )
             if self._plan is not None:
                 return self._plan
             router = RouterPlan.compile(self._literal, self._parametric)

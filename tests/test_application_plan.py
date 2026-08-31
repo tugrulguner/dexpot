@@ -140,6 +140,31 @@ def test_compilation_waits_for_registration_already_in_progress(
     assert [endpoint.path for endpoint in compiled[0].endpoints] == ["/late"]  # type: ignore[attr-defined]
 
 
+def test_reentrant_compilation_during_annotation_resolution_cannot_publish_partial_plan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = Dex()
+    compilation_attempts: list[bool] = []
+
+    def freeze_during_annotation() -> type[int]:
+        compilation_attempts.append(True)
+        app._compile()
+        return int
+
+    monkeypatch.setitem(globals(), "freeze_during_annotation", freeze_during_annotation)
+
+    @app.get("/items/{item_id}")
+    def item(item_id: freeze_during_annotation()) -> dict[str, int]:  # type: ignore[name-defined]
+        return {"item_id": item_id}
+
+    plan = app._compile()
+    endpoint, _captures, _allowed = plan.router.match("GET", "/items/7")
+
+    assert compilation_attempts == [True]
+    assert [registered.path for registered in plan.endpoints] == ["/items/{item_id}"]
+    assert endpoint is not None
+
+
 def test_serve_compiles_before_opening_a_listener(monkeypatch: pytest.MonkeyPatch) -> None:
     app = Dex()
 
