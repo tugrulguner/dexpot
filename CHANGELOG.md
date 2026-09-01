@@ -10,6 +10,25 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.3.0] - 2026-09-01
+
+### Added
+
+- Add an automatically detected optional Rust request-head parser backend with a pure-Python fallback, differential parity tests, and standard/free-threaded wheel builds. ([#20](https://github.com/tugrulguner/dexpot/issues/20))
+
+### Changed
+
+- Clarify dexpot's performance strategy across GIL and free-threaded CPython, optional Rust acceleration, and coding-agent skills.
+- Compile registered endpoints into one immutable application and router plan before serving traffic, and reject late route registration.
+- Keep the execution diagram's shared Python-handler label inside its card, identify the optional Rust/PyO3 request-head parser explicitly, and surface that parser prominently in the README.
+- Refresh the README and roadmap with the visual execution map, native parser path, and shared ModePot community links.
+- Refresh the execution-diagram URL so GitHub displays the corrected generated image instead of its cached predecessor.
+
+### Fixed
+
+- Keep installed Dexpot application guidance focused on downstream usage and verification instead of repository maintenance.
+
+
 ## [0.2.0] - 2026-08-28
 
 ### Added
