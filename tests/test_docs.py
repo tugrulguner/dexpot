@@ -195,6 +195,17 @@ def test_compiled_application_contract_is_synchronized() -> None:
         assert "ApplicationPlan" in text
         assert "RouterPlan" in text
         assert "EndpointPlan" in text
+    assert "declaration: registration -> EndpointPlan" in reviewing
+    assert (
+        "freeze: EndpointPlan declarations -> RouterPlan.compile(...) "
+        "-> ApplicationPlan(router=RouterPlan)"
+    ) in reviewing
+    assert (
+        "request: ApplicationPlan.router -> RouterPlan.match(...) -> EndpointPlan "
+        "-> decode/bind -> handler -> encode/send"
+    ) in reviewing
+    assert "registration/freeze atomicity" in reviewing
+    assert "annotation resolution" in reviewing
     assert "before opening a listener" in readme
     assert "Late route registration fails" in skill
 

@@ -33,13 +33,16 @@ Untracked files are part of the change.
 
 ## 2. Understand the current architecture
 
-Read the touched files and their callers before judging a diff. For server changes, trace:
+Read the touched files and their callers before judging a diff. For route changes, trace
+declaration and freeze separately from request execution:
 
 ```text
-registration -> EndpointPlan -> RouterPlan -> ApplicationPlan -> match -> decode/bind -> handler
-                                                                         -> encode/send
-and
-accept -> admission -> connection owner -> drain
+declaration: registration -> EndpointPlan
+freeze: EndpointPlan declarations -> RouterPlan.compile(...) -> ApplicationPlan(router=RouterPlan)
+request: ApplicationPlan.router -> RouterPlan.match(...) -> EndpointPlan -> decode/bind -> handler
+                                                                              -> encode/send
+
+connection: accept -> admission -> connection owner -> drain
 ```
 
 A diff-only review misses contracts split between registration, immutable application freeze,
