@@ -189,11 +189,23 @@ def test_compiled_application_contract_is_synchronized() -> None:
     readme = " ".join(README.read_text().split())
     roadmap = " ".join(ROADMAP.read_text().split())
     skill = " ".join((ROOT / "src/dexpot/templates/skills/dexpot.md").read_text().split())
+    reviewing = " ".join((ROOT / "docs/reviewing.md").read_text().split())
 
-    for text in (readme, roadmap, skill):
+    for text in (readme, roadmap, skill, reviewing):
         assert "ApplicationPlan" in text
         assert "RouterPlan" in text
         assert "EndpointPlan" in text
+    assert "declaration: registration -> EndpointPlan" in reviewing
+    assert (
+        "freeze: EndpointPlan declarations -> RouterPlan.compile(...) "
+        "-> ApplicationPlan(router=RouterPlan)"
+    ) in reviewing
+    assert (
+        "request: ApplicationPlan.router -> RouterPlan.match(...) -> EndpointPlan "
+        "-> decode/bind -> handler -> encode/send"
+    ) in reviewing
+    assert "registration/freeze atomicity" in reviewing
+    assert "annotation resolution" in reviewing
     assert "before opening a listener" in readme
     assert "Late route registration fails" in skill
 
