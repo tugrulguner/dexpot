@@ -102,7 +102,17 @@ Turn the serving core into a useful application framework without inflating deco
 - Extend the shipped `ApplicationPlan`, `RouterPlan`, and `EndpointPlan` kernel rather than
   introducing a second dispatcher or live route mutation.
 - Make request context available through a small typed API: method, path, path parameters,
-  query parameters, headers, validated body, and client metadata.
+  query parameters, headers, cookies, raw and validated body, and client metadata.
+- Compile an endpoint-specific `invoke` callable into every `EndpointPlan` so common handler
+  shapes execute as direct calls without traffic-time source interpretation, argument-list
+  construction, keyword-dictionary construction, or `CALL_FUNCTION_EX`.
+- Begin the request implementation with one frozen, GC-tracked `msgspec.Struct`, constructed
+  positionally from parser output. Reuse that object as the public `Request` where retention and
+  middleware semantics permit, so Request-aware handlers add no facade allocation and handlers
+  that do not request it incur no incremental Request allocation.
+- Keep already parsed wire values eager and shared. Build decoded query, cookie, and path-parameter
+  views lazily, cache each at most once, and reuse the endpoint's already validated body rather
+  than decoding or copying it again.
 - Add typed query/header/cookie binding with registration-time validation.
 - Enforce declared response types instead of treating `response=` as an encoder hint.
 - Add first-class status codes, response headers, empty responses, and stable error types.
@@ -110,6 +120,32 @@ Turn the serving core into a useful application framework without inflating deco
 - Add middleware and lifecycle hooks with explicit ordering and no hidden async bridge.
 - Define dependency injection around plain factories and request/application scopes, not a
   large decorator parameter surface.
+
+#### Request execution spike findings
+
+The completed local Request representation and invocation spike compared manual slots, tracked and
+untracked `msgspec.Struct` state, and a separate public facade on CPython 3.12, 3.14, and
+free-threaded 3.14t:
+
+- Generated direct invokers reduced the isolated call layer by 51–56% for no-argument handlers
+  and 62–67% for one-path-parameter handlers.
+- Positional tracked msgspec construction was approximately 90% cheaper than the current
+  keyword-constructed frozen dataclass in the isolated benchmark.
+- Five-round response-validating HTTP campaigns found no material default-route regression. The
+  tracked and untracked msgspec variants led or tied the Request-aware free-threaded cells, while
+  standard-CPython differences remained within campaign noise.
+- A facade preserved a stricter public/internal boundary but added a second object on
+  Request-aware routes and did not establish an end-to-end advantage.
+- `gc=False` remains rejected for the initial implementation: its small constructor win was not
+  consistent end to end and does not yet justify future cycle risk.
+- Request construction and handler injection remain Python-owned. No Rust/PyO3 work is planned
+  for this layer without a profile identifying a narrow native seam and equivalent-workload
+  end-to-end evidence that it wins.
+
+These macOS measurements select the first production candidate; they are not public performance
+claims. Promotion still requires the complete contract, native-parser parity, allocation and
+retention profiling, longer bare-metal Linux campaigns, and unchanged 404/405, overload, memory,
+and shutdown behavior.
 
 ### 4. Performance evidence and scheduler evolution
 
