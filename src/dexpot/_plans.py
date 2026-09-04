@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import inspect
 import typing
+import unicodedata
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from types import MappingProxyType
+from functools import lru_cache
+from threading import Lock
+from types import CodeType, FunctionType, MappingProxyType
 from typing import Any
 
 import msgspec
@@ -14,6 +17,10 @@ import msgspec
 _json_encode = msgspec.json.encode
 
 _type_hints_cache: dict[Any, dict[str, Any]] = {}
+
+_Source = tuple[Any, str, str, Any]
+_INVOKER_GLOBALS: dict[str, Any] = {}
+_INVOKER_CODE_LOCK = Lock()
 
 
 class _ApplicationCompilationDuringRegistration(RuntimeError):
@@ -46,15 +53,78 @@ def _type_hints(fn: Any) -> dict[str, Any]:
     return hints
 
 
+@lru_cache(maxsize=256)
+def _invoker_code(parameters: str, arguments: str) -> CodeType:
+    source = f"def invoke({parameters}):\n    return _handler({arguments})\n"
+    module = compile(source, "<dexpot-endpoint-invoker>", "exec")
+    return next(
+        constant
+        for constant in module.co_consts
+        if isinstance(constant, CodeType) and constant.co_name == "invoke"
+    )
+
+
+def _shared_invoker_code(parameters: str, arguments: str) -> CodeType:
+    with _INVOKER_CODE_LOCK:
+        return _invoker_code(parameters, arguments)
+
+
+def _compile_invoker(handler: Callable[..., Any], sources: list[_Source]) -> Callable[..., Any]:
+    """Compile a direct handler call from registration-time binding sources."""
+    positional: list[str] = []
+    keyword_sources: list[tuple[str, str]] = []
+    bound_names = ["_handler"]
+    bound_values: list[Any] = [handler]
+
+    for index, (kind, name, source, payload) in enumerate(sources):
+        if source == "capture":
+            expression = f"captures[{payload}]"
+        elif source == "body":
+            expression = "body"
+        else:
+            expression = f"_default_{index}"
+            bound_names.append(expression)
+            bound_values.append(payload)
+
+        if kind in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        ):
+            positional.append(expression)
+        else:
+            keyword_sources.append((name, expression))
+
+    if all(unicodedata.normalize("NFKC", name) == name for name, _ in keyword_sources):
+        keyword = [f"{name}={expression}" for name, expression in keyword_sources]
+    else:
+        entries: list[str] = []
+        for index, (name, expression) in enumerate(keyword_sources):
+            key_name = f"_keyword_{index}"
+            bound_names.append(key_name)
+            bound_values.append(name)
+            entries.append(f"{key_name}: {expression}")
+        keyword = [f"**{{{', '.join(entries)}}}"]
+
+    # Values and non-NFKC-stable names become function defaults, never source.
+    arguments = ", ".join((*positional, *keyword))
+    parameters = ", ".join(("captures", "body", *bound_names))
+    return FunctionType(
+        _shared_invoker_code(parameters, arguments),
+        _INVOKER_GLOBALS,
+        "invoke",
+        tuple(bound_values),
+    )
+
+
 @dataclass(frozen=True, slots=True, init=False)
 class EndpointPlan:
     """Compiled immutable handler binding and codec plan."""
 
-    bind: Any
     body_decoder: Any
     body_type: Any
     handler: Callable[..., Any]
     int_captures: tuple[tuple[int, str], ...]
+    invoke: Callable[[list[Any], Any], Any]
     method: str
     path: str
     path_names: tuple[str, ...]
@@ -93,7 +163,7 @@ class EndpointPlan:
         hints = _type_hints(handler)
         signature = inspect.signature(handler)
         captures_by_name = {name: index for index, name in enumerate(path_names)}
-        sources: list[tuple[Any, str, str, Any]] = []
+        sources: list[_Source] = []
         int_captures: list[tuple[int, str]] = []
         used_captures: set[int] = set()
         body_param_seen = False
@@ -127,48 +197,12 @@ class EndpointPlan:
                 )
 
         object.__setattr__(self, "int_captures", tuple(int_captures))
-        positional_sources = [
-            (source, payload)
-            for kind, _name, source, payload in sources
-            if kind
-            in (
-                inspect.Parameter.POSITIONAL_ONLY,
-                inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            )
-        ]
-        keyword_sources = [
-            (name, source, payload)
-            for kind, name, source, payload in sources
-            if kind is inspect.Parameter.KEYWORD_ONLY
-        ]
-
-        def resolve(source: str, payload: Any, captures: list[Any], body: Any) -> Any:
-            if source == "capture":
-                return captures[payload]
-            if source == "body":
-                return body
-            return payload
-
-        def bind(captures: list[Any], body: Any) -> tuple[list[Any], dict[str, Any] | None]:
-            args = [
-                resolve(source, payload, captures, body) for source, payload in positional_sources
-            ]
-            kwargs = (
-                {
-                    name: resolve(source, payload, captures, body)
-                    for name, source, payload in keyword_sources
-                }
-                if keyword_sources
-                else None
-            )
-            return args, kwargs
-
-        object.__setattr__(self, "bind", bind)
         unconsumed = [
             path_names[index] for index in range(len(path_names)) if index not in used_captures
         ]
         if unconsumed:
             raise TypeError(f"path parameter(s) {unconsumed} are not accepted by the handler")
+        object.__setattr__(self, "invoke", _compile_invoker(handler, sources))
 
     def encode(self, result: Any) -> bytes:
         """Encode a successful result using the endpoint response contract."""

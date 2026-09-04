@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import builtins
+import dis
+import inspect
 import threading
+import time
 from dataclasses import FrozenInstanceError
 
 import pytest
 
+import dexpot._plans as plans
 import dexpot.app as app_module
 from dexpot import Dex
 
@@ -56,6 +61,123 @@ def test_application_plan_retains_endpoint_contracts() -> None:
         ("GET", "/health"),
         ("POST", "/users/{user_id}"),
     ]
+
+
+def test_endpoint_precompiles_direct_invoker_for_supported_shapes() -> None:
+    app = Dex()
+    default_marker = object()
+
+    @app.post("/parents/{parent_id}/children/{child_id}", body=dict[str, str])
+    def create_child(
+        child_id: int,
+        /,
+        payload: dict[str, str],
+        marker: object = default_marker,
+        *,
+        parent_id: int,
+        enabled: bool = True,
+    ) -> tuple[int, dict[str, str], object, int, bool]:
+        return child_id, payload, marker, parent_id, enabled
+
+    endpoint = app._compile().endpoints[0]
+
+    assert endpoint.invoke([11, 22], {"tag": "compiled"}) == (
+        22,
+        {"tag": "compiled"},
+        default_marker,
+        11,
+        True,
+    )
+
+
+def test_endpoint_invoker_avoids_generic_argument_containers() -> None:
+    app = Dex()
+
+    @app.get("/items/{item_id}")
+    def item(*, item_id: int) -> int:
+        return item_id
+
+    endpoint = app._compile().endpoints[0]
+    opnames = {instruction.opname for instruction in dis.get_instructions(endpoint.invoke)}
+
+    assert endpoint.invoke([7], None) == 7
+    assert "BUILD_LIST" not in opnames
+    assert "BUILD_MAP" not in opnames
+    assert "CALL_FUNCTION_EX" not in opnames
+    assert "LOAD_GLOBAL" not in opnames
+
+
+def test_endpoint_invoker_preserves_non_normalized_keyword_names() -> None:
+    app = Dex()
+
+    def handler(**kwargs: int) -> dict[str, int]:
+        return kwargs
+
+    fullwidth_x = "\uff58"
+    handler.__signature__ = inspect.Signature(  # type: ignore[attr-defined]
+        [inspect.Parameter(fullwidth_x, inspect.Parameter.KEYWORD_ONLY, annotation=int)]
+    )
+    app.get(f"/items/{{{fullwidth_x}}}")(handler)
+
+    endpoint = app._compile().endpoints[0]
+
+    assert endpoint.invoke([7], None) == {fullwidth_x: 7}
+
+
+def test_endpoints_with_the_same_call_shape_share_compiled_code() -> None:
+    app = Dex()
+
+    @app.get("/first")
+    def first() -> int:
+        return 1
+
+    @app.get("/second")
+    def second() -> int:
+        return 2
+
+    first_endpoint, second_endpoint = app._compile().endpoints
+
+    assert first_endpoint.invoke.__code__ is second_endpoint.invoke.__code__
+    assert first_endpoint.invoke.__globals__ is second_endpoint.invoke.__globals__
+    assert first_endpoint.invoke.__globals__ == {}
+    assert first_endpoint.invoke([], None) == 1
+    assert second_endpoint.invoke([], None) == 2
+
+
+def test_concurrent_cold_misses_share_one_compiled_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    real_compile = builtins.compile
+    compile_calls = 0
+    count_lock = threading.Lock()
+
+    def slow_invoker_compile(*args: object, **kwargs: object):
+        nonlocal compile_calls
+        if len(args) > 1 and args[1] == "<dexpot-endpoint-invoker>":
+            with count_lock:
+                compile_calls += 1
+            time.sleep(0.05)
+        return real_compile(*args, **kwargs)  # type: ignore[call-overload]
+
+    plans._invoker_code.cache_clear()
+    monkeypatch.setattr(builtins, "compile", slow_invoker_compile)
+    invokers = []
+
+    def compile_endpoint() -> None:
+        app = Dex()
+
+        @app.get("/health")
+        def health() -> int:
+            return 1
+
+        invokers.append(app._compile().endpoints[0].invoke)
+
+    threads = [threading.Thread(target=compile_endpoint) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert compile_calls == 1
+    assert len({id(invoker.__code__) for invoker in invokers}) == 1
 
 
 def test_router_precompiles_parameter_segments() -> None:

@@ -266,8 +266,7 @@ class Dex:
             return request.keep_alive, buf
 
         try:
-            # compiled binder: convert typed captures, then build args in
-            # signature order (path by name, body, defaults)
+            # Convert typed captures before the endpoint's compiled direct call.
             for cap_idx, pname in route.int_captures:
                 try:
                     captures_list[cap_idx] = int(captures_list[cap_idx])
@@ -295,8 +294,7 @@ class Dex:
                     )
                     return request.keep_alive, buf
 
-            args, kwargs = route.bind(captures_list, body_arg)
-            result = route.handler(*args, **kwargs) if kwargs else route.handler(*args)
+            result = route.invoke(captures_list, body_arg)
             if isinstance(result, tuple):
                 status, payload = result
                 out = _json_encode(payload)
