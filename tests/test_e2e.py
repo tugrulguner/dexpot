@@ -5,6 +5,8 @@ from __future__ import annotations
 import socket
 import threading
 import time
+from dataclasses import dataclass
+from enum import Enum
 
 import httpx
 import msgspec
@@ -92,6 +94,15 @@ def server():
     def nested_request_response(container: str, request: Request) -> object:
         if container == "dict":
             return {"debug": request}
+        if container == "dataclass":
+
+            @dataclass
+            class Envelope:
+                context: Request
+
+            return Envelope(request)
+        if container == "enum":
+            return Enum("Envelope", {"CONTEXT": request}).CONTEXT
         return [request]
 
     port = _free_port()
@@ -151,7 +162,7 @@ def test_request_context_cannot_be_serialized_as_a_response(server):
     assert "must-not-leak" not in r.text
 
 
-@pytest.mark.parametrize("container", ["dict", "list"])
+@pytest.mark.parametrize("container", ["dict", "list", "dataclass", "enum"])
 def test_nested_request_context_cannot_be_serialized_as_a_response(server, container):
     r = httpx.get(
         f"{server}/nested-request-response/{container}",

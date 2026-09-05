@@ -6,7 +6,8 @@ import inspect
 import typing
 import unicodedata
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, is_dataclass
+from enum import Enum
 from functools import lru_cache
 from threading import Lock
 from types import CodeType, FunctionType, MappingProxyType
@@ -237,12 +238,19 @@ def _contains_request(value: Any, seen: set[int]) -> bool:
     """Find a Request nested in response shapes supported by msgspec JSON."""
     if isinstance(value, Request):
         return True
-    if not isinstance(value, (Mapping, list, tuple, set, frozenset, msgspec.Struct)):
+    dataclass_instance = is_dataclass(value) and not isinstance(value, type)
+    if not dataclass_instance and not isinstance(
+        value, (Mapping, list, tuple, set, frozenset, msgspec.Struct, Enum)
+    ):
         return False
     identity = id(value)
     if identity in seen:
         return False
     seen.add(identity)
+    if isinstance(value, Enum):
+        return _contains_request(value.value, seen)
+    if is_dataclass(value) and not isinstance(value, type):
+        return any(_contains_request(getattr(value, field.name), seen) for field in fields(value))
     if isinstance(value, Mapping):
         return any(_contains_request(item, seen) for pair in value.items() for item in pair)
     if isinstance(value, msgspec.Struct):
@@ -250,7 +258,9 @@ def _contains_request(value: Any, seen: set[int]) -> bool:
             _contains_request(getattr(value, field.name), seen)
             for field in msgspec.structs.fields(type(value))
         )
-    return any(_contains_request(item, seen) for item in value)
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return any(_contains_request(item, seen) for item in value)
+    return False
 
 
 @dataclass(frozen=True, slots=True)
