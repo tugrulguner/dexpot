@@ -10,6 +10,17 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.4.0] - 2026-09-05
+
+### Added
+
+- Add typed Request injection with parsed metadata, raw path parameters, raw body bytes, and the validated body object. Route decorators accept explicit `annotation_locals` for postponed factory-local aliases without borrowing caller scope.
+
+### Changed
+
+- Precompile endpoint invokers so supported handlers avoid per-request argument-container construction.
+
+
 ## [0.3.0] - 2026-09-01
 
 ### Added
