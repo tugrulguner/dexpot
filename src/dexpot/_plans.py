@@ -14,6 +14,8 @@ from typing import Any
 
 import msgspec
 
+from .requests import Request
+
 _json_encode = msgspec.json.encode
 
 _type_hints_cache: dict[Any, dict[str, Any]] = {}
@@ -81,6 +83,8 @@ def _compile_invoker(handler: Callable[..., Any], sources: list[_Source]) -> Cal
             expression = f"captures[{payload}]"
         elif source == "body":
             expression = "body"
+        elif source == "request":
+            expression = "request"
         else:
             expression = f"_default_{index}"
             bound_names.append(expression)
@@ -107,7 +111,8 @@ def _compile_invoker(handler: Callable[..., Any], sources: list[_Source]) -> Cal
 
     # Values and non-NFKC-stable names become function defaults, never source.
     arguments = ", ".join((*positional, *keyword))
-    parameters = ", ".join(("captures", "body", *bound_names))
+    request_parameters = ("request",) if any(source[2] == "request" for source in sources) else ()
+    parameters = ", ".join(("captures", "body", *request_parameters, *bound_names))
     return FunctionType(
         _shared_invoker_code(parameters, arguments),
         _INVOKER_GLOBALS,
@@ -124,8 +129,9 @@ class EndpointPlan:
     body_type: Any
     handler: Callable[..., Any]
     int_captures: tuple[tuple[int, str], ...]
-    invoke: Callable[[list[Any], Any], Any]
+    invoke: Callable[..., Any]
     method: str
+    needs_request: bool
     path: str
     path_names: tuple[str, ...]
     resp_encoder: Any
@@ -142,6 +148,8 @@ class EndpointPlan:
         summary: str,
         path_names: list[str],
     ) -> None:
+        if body_type is Request:
+            raise TypeError("Request is handler context and cannot be used as a body type")
         object.__setattr__(self, "method", method)
         object.__setattr__(self, "path", path)
         object.__setattr__(self, "handler", handler)
@@ -167,6 +175,7 @@ class EndpointPlan:
         int_captures: list[tuple[int, str]] = []
         used_captures: set[int] = set()
         body_param_seen = False
+        needs_request = False
 
         for name, parameter in signature.parameters.items():
             if parameter.kind in (
@@ -180,11 +189,16 @@ class EndpointPlan:
 
             annotation = hints.get(name)
             if name in captures_by_name:
+                if annotation is Request:
+                    raise TypeError(f"path parameter '{name}' cannot also be annotated as Request")
                 index = captures_by_name[name]
                 if annotation is int:
                     int_captures.append((index, name))
                 sources.append((parameter.kind, name, "capture", index))
                 used_captures.add(index)
+            elif annotation is Request:
+                needs_request = True
+                sources.append((parameter.kind, name, "request", None))
             elif body_type is not None and not body_param_seen:
                 body_param_seen = True
                 sources.append((parameter.kind, name, "body", None))
@@ -197,6 +211,7 @@ class EndpointPlan:
                 )
 
         object.__setattr__(self, "int_captures", tuple(int_captures))
+        object.__setattr__(self, "needs_request", needs_request)
         unconsumed = [
             path_names[index] for index in range(len(path_names)) if index not in used_captures
         ]
@@ -206,6 +221,8 @@ class EndpointPlan:
 
     def encode(self, result: Any) -> bytes:
         """Encode a successful result using the endpoint response contract."""
+        if isinstance(result, Request):
+            raise TypeError("Request context cannot be serialized as a response")
         if self.resp_encoder is not None and type(result) is self.resp_type:
             return self.resp_encoder.encode(result)
         return _json_encode(result)

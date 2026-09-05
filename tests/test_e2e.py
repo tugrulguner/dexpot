@@ -10,7 +10,7 @@ import httpx
 import msgspec
 import pytest
 
-from dexpot import Dex
+from dexpot import Dex, Request
 
 
 def _free_port() -> int:
@@ -72,6 +72,22 @@ def server():
     def keyword_body(*, item: Body, item_id: int) -> dict:
         return {"item_id": item_id, "tag": item.tag}
 
+    @app.post("/request/{item_id}", body=Body)
+    def request_context(item: Body, item_id: int, *, request: Request) -> dict:
+        return {
+            "method": request.method,
+            "path": request.path,
+            "params": request.params,
+            "query": request.query,
+            "header": request.headers["x-context"],
+            "raw_body": msgspec.json.decode(request.raw_body),
+            "same_body": request.body is item,
+        }
+
+    @app.get("/request-response")
+    def request_response(request: Request) -> tuple[int, Request]:
+        return 200, request
+
     port = _free_port()
     t = threading.Thread(target=app.serve, kwargs={"host": "127.0.0.1", "port": port}, daemon=True)
     t.start()
@@ -116,6 +132,17 @@ def test_handler_exception_500(server):
     assert r.json() == {"detail": "internal server error"}
     assert "ValueError" not in r.text
     assert "kaboom" not in r.text
+
+
+def test_request_context_cannot_be_serialized_as_a_response(server):
+    r = httpx.get(
+        f"{server}/request-response",
+        headers={"Authorization": "Bearer must-not-leak"},
+    )
+
+    assert r.status_code == 500
+    assert r.json() == {"detail": "internal server error"}
+    assert "must-not-leak" not in r.text
 
 
 def test_404(server):
@@ -186,6 +213,25 @@ def test_keyword_only_body_and_path_binding(server):
     r = httpx.post(f"{server}/keyword-body/9", json={"tag": "kw"})
     assert r.status_code == 200
     assert r.json() == {"item_id": 9, "tag": "kw"}
+
+
+def test_typed_request_context_exposes_metadata_and_reuses_validated_body(server):
+    r = httpx.post(
+        f"{server}/request/9?expanded=true",
+        json={"tag": "context"},
+        headers={"X-Context": "available"},
+    )
+
+    assert r.status_code == 200
+    assert r.json() == {
+        "method": "POST",
+        "path": "/request/9",
+        "params": {"item_id": "9"},
+        "query": "expanded=true",
+        "header": "available",
+        "raw_body": {"tag": "context"},
+        "same_body": True,
+    }
 
 
 def test_variadic_handler_rejected():

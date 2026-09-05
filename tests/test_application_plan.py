@@ -2,16 +2,19 @@ from __future__ import annotations
 
 import builtins
 import dis
+import gc
 import inspect
+import socket
 import threading
 import time
 from dataclasses import FrozenInstanceError
 
+import msgspec
 import pytest
 
 import dexpot._plans as plans
 import dexpot.app as app_module
-from dexpot import Dex
+from dexpot import Dex, Request
 
 
 def test_application_compiles_once_into_an_immutable_plan() -> None:
@@ -88,6 +91,208 @@ def test_endpoint_precompiles_direct_invoker_for_supported_shapes() -> None:
         11,
         True,
     )
+
+
+def test_request_is_frozen_gc_tracked_public_context() -> None:
+    minimal = Request("GET", "/", {}, "", {})
+    validated = object()
+    request = Request(
+        "GET",
+        "/items/7",
+        {"item_id": "7"},
+        "expanded=true",
+        {"host": "example.test"},
+        b"",
+        validated,
+    )
+
+    assert minimal.raw_body == b""
+    assert minimal.body is None
+    assert isinstance(request, msgspec.Struct)
+    assert gc.is_tracked(request)
+    assert request.raw_body == b""
+    assert request.body is validated
+    with pytest.raises(AttributeError, match="immutable"):
+        request.method = "POST"  # type: ignore[misc]
+
+
+def test_endpoint_injects_request_by_annotation_through_direct_invoker() -> None:
+    app = Dex()
+
+    @app.post("/items/{item_id}", body=dict[str, str])
+    def create_item(
+        payload: dict[str, str], /, *, request: Request, item_id: int
+    ) -> tuple[object, int, dict[str, str]]:
+        return request, item_id, payload
+
+    endpoint = app._compile().endpoints[0]
+    request = Request("POST", "/items/7", {"item_id": "7"}, "", {}, b"{}")
+    payload = {"name": "compiled"}
+    opnames = {instruction.opname for instruction in dis.get_instructions(endpoint.invoke)}
+
+    assert endpoint.needs_request is True
+    assert endpoint.invoke([7], payload, request) == (request, 7, payload)
+    assert "BUILD_LIST" not in opnames
+    assert "BUILD_MAP" not in opnames
+    assert "CALL_FUNCTION_EX" not in opnames
+    assert "LOAD_GLOBAL" not in opnames
+
+
+def test_unannotated_request_name_remains_an_ordinary_default() -> None:
+    app = Dex()
+
+    @app.get("/default")
+    def default(request: object = None) -> object:
+        return request
+
+    endpoint = app._compile().endpoints[0]
+    assert endpoint.needs_request is False
+    assert endpoint.invoke([], None) is None
+
+
+def test_request_annotation_is_not_inferred_as_a_json_body() -> None:
+    app = Dex()
+
+    @app.post("/request")
+    def inspect_request(request: Request) -> str:
+        return request.method
+
+    endpoint = app._compile().endpoints[0]
+
+    assert endpoint.body_decoder is None
+    assert endpoint.needs_request is True
+
+
+def test_request_defaults_and_parameter_kinds_receive_the_same_context() -> None:
+    app = Dex()
+
+    @app.get("/request-kinds")
+    def inspect_request(
+        request: Request = None,  # type: ignore[assignment]
+        /,
+        *,
+        second: Request = None,  # type: ignore[assignment]
+    ) -> tuple[Request, Request]:
+        return request, second
+
+    endpoint = app._compile().endpoints[0]
+    context = Request("GET", "/request-kinds", {}, "", {})
+
+    assert endpoint.invoke([], None, context) == (context, context)
+
+
+def test_request_and_inferred_payload_select_the_payload_body_type() -> None:
+    app = Dex()
+
+    class Payload(msgspec.Struct):
+        value: int
+
+    def handler(request: Request, payload: Payload) -> int:
+        return request.body.value + payload.value
+
+    handler.__annotations__ = {"request": Request, "payload": Payload, "return": int}
+    app.post("/inferred")(handler)
+
+    endpoint = app._compile().endpoints[0]
+
+    assert endpoint.body_type is Payload
+    assert endpoint.needs_request is True
+
+
+def test_request_rejects_conflicting_path_and_body_declarations() -> None:
+    app = Dex()
+
+    with pytest.raises(TypeError, match="cannot also be annotated as Request"):
+
+        @app.get("/items/{request}")
+        def conflicting_path(request: Request) -> str:
+            return request.path
+
+    with pytest.raises(TypeError, match="cannot be used as a body type"):
+
+        @app.post("/body-request", body=Request)
+        def conflicting_body(request: Request) -> str:
+            return request.path
+
+
+def test_requestless_processing_does_not_construct_public_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = Dex()
+
+    @app.get("/health")
+    def health() -> dict[str, bool]:
+        return {"ok": True}
+
+    app._compile()
+
+    def fail_request(*args: object, **kwargs: object) -> Request:
+        raise AssertionError("requestless route constructed public Request")
+
+    monkeypatch.setattr(app_module, "Request", fail_request)
+    client, server = socket.socketpair()
+    try:
+        client.sendall(b"GET /health HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n")
+        keep_alive, remaining = app._process(server, b"")
+        response = client.recv(4096)
+    finally:
+        client.close()
+        server.close()
+
+    assert keep_alive is False
+    assert remaining == b""
+    assert response.startswith(b"HTTP/1.1 200")
+
+
+def test_request_is_constructed_once_only_after_body_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = Dex()
+
+    class Payload(msgspec.Struct):
+        value: int
+
+    @app.post("/context", body=Payload)
+    def context(payload: Payload, request: Request) -> dict[str, bool]:
+        return {"same_body": request.body is payload}
+
+    app._compile()
+    original_request = app_module.Request
+    calls = 0
+
+    def count_request(
+        method: str,
+        path: str,
+        params: dict[str, str],
+        query: str,
+        headers: dict[str, str],
+        raw_body: bytes = b"",
+        body: object = None,
+    ) -> Request:
+        nonlocal calls
+        calls += 1
+        return original_request(method, path, params, query, headers, raw_body, body)
+
+    def process(body: bytes) -> bytes:
+        client, server = socket.socketpair()
+        try:
+            client.sendall(
+                b"POST /context HTTP/1.1\r\nHost: test\r\nConnection: close\r\n"
+                + f"Content-Length: {len(body)}\r\n\r\n".encode()
+                + body
+            )
+            app._process(server, b"")
+            return client.recv(4096)
+        finally:
+            client.close()
+            server.close()
+
+    monkeypatch.setattr(app_module, "Request", count_request)
+
+    assert process(b'{"value":"invalid"}').startswith(b"HTTP/1.1 422")
+    assert calls == 0
+    assert process(b'{"value":7}').startswith(b"HTTP/1.1 200")
+    assert calls == 1
 
 
 def test_endpoint_invoker_avoids_generic_argument_containers() -> None:

@@ -86,12 +86,19 @@ def test_minimal_example_serves_typed_path_response() -> None:
 def test_typed_crud_example_runs_complete_lifecycle() -> None:
     with _run_example("typed_crud.py") as base:
         initial = httpx.get(f"{base}/items/1")
+        context = httpx.get(f"{base}/context/7?source=example")
         created = httpx.post(f"{base}/items", json={"name": "keyboard", "price": 79.0})
         replaced = httpx.put(f"{base}/items/2", json={"name": "keyboard-pro", "price": 99.0})
         deleted = httpx.delete(f"{base}/items/2")
         missing = httpx.get(f"{base}/items/2")
 
     assert initial.json() == {"id": 1, "name": "starter", "price": 9.99}
+    assert context.json() == {
+        "method": "GET",
+        "path": "/context/7",
+        "params": {"item_id": "7"},
+        "query": "source=example",
+    }
     assert created.status_code == 201
     assert created.json() == {"id": 2, "name": "keyboard", "price": 79.0}
     assert replaced.json() == {"id": 2, "name": "keyboard-pro", "price": 99.0}

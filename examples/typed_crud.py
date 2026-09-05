@@ -7,7 +7,7 @@ import threading
 
 import msgspec
 
-from dexpot import Dex
+from dexpot import Dex, Request
 
 app = Dex()
 
@@ -35,6 +35,16 @@ def get_item(item_id: int) -> Item | tuple[int, dict[str, str]]:
     if item is None:
         return 404, {"detail": "item not found"}
     return item
+
+
+@app.get("/context/{item_id}")
+def request_context(item_id: int, request: Request) -> dict[str, object]:
+    return {
+        "method": request.method,
+        "path": request.path,
+        "params": request.params,
+        "query": request.query,
+    }
 
 
 @app.post("/items", body=ItemIn, response=Item)

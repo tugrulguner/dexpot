@@ -34,6 +34,7 @@ from ._plans import (
     RouterPlan,
     _ApplicationCompilationDuringRegistration,
 )
+from .requests import Request
 
 # "fork" is safe here because dexpot forks workers before starting any threads
 # (the supervisor process never starts pools/reactors). It preserves the
@@ -183,7 +184,11 @@ class Dex:
                 # fall back to live annotation object if present (no __future__ import)
                 hints = {n: p.annotation for n, p in inspect.signature(fn).parameters.items()}
                 for ann in hints.values():
-                    if isinstance(ann, type) and issubclass(ann, msgspec.Struct):
+                    if (
+                        ann is not Request
+                        and isinstance(ann, type)
+                        and issubclass(ann, msgspec.Struct)
+                    ):
                         body_type = ann
                         break
             if body_type is not None:
@@ -266,6 +271,11 @@ class Dex:
             return request.keep_alive, buf
 
         try:
+            request_params = (
+                dict(zip(route.path_names, captures_list, strict=True))
+                if route.needs_request
+                else None
+            )
             # Convert typed captures before the endpoint's compiled direct call.
             for cap_idx, pname in route.int_captures:
                 try:
@@ -294,10 +304,23 @@ class Dex:
                     )
                     return request.keep_alive, buf
 
-            result = route.invoke(captures_list, body_arg)
+            if route.needs_request:
+                assert request_params is not None
+                context = Request(
+                    request.method,
+                    request.path,
+                    request_params,
+                    request.query,
+                    request.headers,
+                    request.body,
+                    body_arg,
+                )
+                result = route.invoke(captures_list, body_arg, context)
+            else:
+                result = route.invoke(captures_list, body_arg)
             if isinstance(result, tuple):
                 status, payload = result
-                out = _json_encode(payload)
+                out = route.encode(payload)
             else:
                 status, out = 200, route.encode(result)
             status, out = _handler_response(status, out)

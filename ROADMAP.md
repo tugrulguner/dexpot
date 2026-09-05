@@ -26,13 +26,16 @@ The current release line provides:
 
 - `GET`, `POST`, `PUT`, `PATCH`, and `DELETE` route decorators.
 - Literal and parameterized routes with structural duplicate detection.
-- Registration-time compilation of path, body, default, positional, and keyword-only
-  handler bindings.
+- Registration-time compilation of path, body, default, positional, keyword-only, and Request
+  bindings into endpoint-specific direct `invoke` callables.
 - Serving-time freeze into an immutable `ApplicationPlan`, length-indexed `RouterPlan`, and
   complete `EndpointPlan` metadata before a listener opens.
 - Registration-time rejection of unbound captures and variadic handlers.
 - Integer path conversion with 422 failures.
 - msgspec JSON body decoding and validation into `Struct` types.
+- Typed public `Request` injection through endpoint-specific direct invokers. A frozen, GC-tracked
+  msgspec object is constructed only for Request-aware endpoints and exposes method, path, raw path
+  parameters, raw query, headers, raw body, and the already validated body without a facade.
 - msgspec response encoding and `(status, payload)` handler returns.
 - HTTP/1.1 keep-alive with one connection owned by one worker until close.
 - Bounded HTTP/1.0 and HTTP/1.1 request parsing with configurable request-line, header, body,
@@ -101,18 +104,9 @@ Turn the serving core into a useful application framework without inflating deco
 
 - Extend the shipped `ApplicationPlan`, `RouterPlan`, and `EndpointPlan` kernel rather than
   introducing a second dispatcher or live route mutation.
-- Make request context available through a small typed API: method, path, path parameters,
-  query parameters, headers, cookies, raw and validated body, and client metadata.
-- Compile an endpoint-specific `invoke` callable into every `EndpointPlan` so common handler
-  shapes execute as direct calls without traffic-time source interpretation, argument-list
-  construction, keyword-dictionary construction, or `CALL_FUNCTION_EX`.
-- Begin the request implementation with one frozen, GC-tracked `msgspec.Struct`, constructed
-  positionally from parser output. Reuse that object as the public `Request` where retention and
-  middleware semantics permit, so Request-aware handlers add no facade allocation and handlers
-  that do not request it incur no incremental Request allocation.
-- Keep already parsed wire values eager and shared. Build decoded query, cookie, and path-parameter
-  views lazily, cache each at most once, and reuse the endpoint's already validated body rather
-  than decoding or copying it again.
+- Extend the shipped request context with decoded query parameters, cookies, and client metadata.
+- Preserve conditional Request construction and its zero-facade path. Keep already parsed wire
+  values shared; build decoded query and cookie views lazily and cache each at most once.
 - Add typed query/header/cookie binding with registration-time validation.
 - Enforce declared response types instead of treating `response=` as an encoder hint.
 - Add first-class status codes, response headers, empty responses, and stable error types.

@@ -74,6 +74,28 @@ The runtime package is `dexpot`; the command requires `dexpot[cli]`.
 - Late route registration fails after application compilation. Declare every route before
   calling `serve()`; do not mutate the application while traffic is running.
 
+Inject parsed request context by annotating a parameter with `Request`; the parameter name and
+position are unrestricted:
+
+```python
+from dexpot import Request
+
+
+@app.post("/items/{item_id}", body=ItemIn)
+def update(item: ItemIn, item_id: int, *, request: Request) -> dict[str, object]:
+    return {
+        "item_id": request.params["item_id"],
+        "query": request.query,
+        "same_body": request.body is item,
+    }
+```
+
+The frozen, GC-tracked object exposes `method`, `path`, raw string `params`, the raw `query`
+string, lowercase-name `headers`, received `raw_body` bytes, and the validated `body`. Handlers
+without a `Request` annotation do not allocate the public context object. Freezing is shallow:
+contained dictionaries and body values remain request-local application objects. Do not return
+the context; Dexpot rejects it rather than serializing request headers and body data.
+
 Prefer errors at registration. If a declaration can be proven invalid while the module is
 imported, do not defer it until a request.
 

@@ -39,8 +39,8 @@ declaration and freeze separately from request execution:
 ```text
 declaration: registration -> EndpointPlan
 freeze: EndpointPlan declarations -> RouterPlan.compile(...) -> ApplicationPlan(router=RouterPlan)
-request: ApplicationPlan.router -> RouterPlan.match(...) -> EndpointPlan -> decode/bind -> handler
-                                                                              -> encode/send
+request: ApplicationPlan.router -> RouterPlan.match(...) -> EndpointPlan
+        -> decode/request-bind -> EndpointPlan.invoke(...) -> encode/send
 
 connection: accept -> admission -> connection owner -> drain
 ```
