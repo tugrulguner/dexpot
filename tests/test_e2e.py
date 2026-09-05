@@ -88,6 +88,12 @@ def server():
     def request_response(request: Request) -> tuple[int, Request]:
         return 200, request
 
+    @app.get("/nested-request-response/{container}")
+    def nested_request_response(container: str, request: Request) -> object:
+        if container == "dict":
+            return {"debug": request}
+        return [request]
+
     port = _free_port()
     t = threading.Thread(target=app.serve, kwargs={"host": "127.0.0.1", "port": port}, daemon=True)
     t.start()
@@ -143,6 +149,18 @@ def test_request_context_cannot_be_serialized_as_a_response(server):
     assert r.status_code == 500
     assert r.json() == {"detail": "internal server error"}
     assert "must-not-leak" not in r.text
+
+
+@pytest.mark.parametrize("container", ["dict", "list"])
+def test_nested_request_context_cannot_be_serialized_as_a_response(server, container):
+    r = httpx.get(
+        f"{server}/nested-request-response/{container}",
+        headers={"Authorization": "Bearer nested-must-not-leak"},
+    )
+
+    assert r.status_code == 500
+    assert r.json() == {"detail": "internal server error"}
+    assert "nested-must-not-leak" not in r.text
 
 
 def test_404(server):

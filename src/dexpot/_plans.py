@@ -29,7 +29,7 @@ class _ApplicationCompilationDuringRegistration(RuntimeError):
     """Keep registration-control failures visible during annotation evaluation."""
 
 
-def _type_hints(fn: Any) -> dict[str, Any]:
+def _type_hints(fn: Any, localns: Mapping[str, Any] | None = None) -> dict[str, Any]:
     hints = _type_hints_cache.get(fn)
     if hints is None:
         raw = {
@@ -44,7 +44,11 @@ def _type_hints(fn: Any) -> dict[str, Any]:
         for name, annotation in raw.items():
             if isinstance(annotation, str):
                 try:
-                    annotation = eval(annotation, dict(typing.__dict__), {**globalns, **cells})
+                    annotation = eval(
+                        annotation,
+                        dict(typing.__dict__),
+                        {**globalns, **cells, **(localns or {})},
+                    )
                 except _ApplicationCompilationDuringRegistration:
                     raise
                 except Exception:
@@ -147,6 +151,7 @@ class EndpointPlan:
         resp_type: Any,
         summary: str,
         path_names: list[str],
+        annotation_locals: Mapping[str, Any] | None = None,
     ) -> None:
         if body_type is Request:
             raise TypeError("Request is handler context and cannot be used as a body type")
@@ -168,7 +173,7 @@ class EndpointPlan:
             msgspec.json.Encoder() if resp_type is not None else None,
         )
 
-        hints = _type_hints(handler)
+        hints = _type_hints(handler, annotation_locals)
         signature = inspect.signature(handler)
         captures_by_name = {name: index for index, name in enumerate(path_names)}
         sources: list[_Source] = []
@@ -221,11 +226,31 @@ class EndpointPlan:
 
     def encode(self, result: Any) -> bytes:
         """Encode a successful result using the endpoint response contract."""
-        if isinstance(result, Request):
+        if isinstance(result, Request) or (self.needs_request and _contains_request(result, set())):
             raise TypeError("Request context cannot be serialized as a response")
         if self.resp_encoder is not None and type(result) is self.resp_type:
             return self.resp_encoder.encode(result)
         return _json_encode(result)
+
+
+def _contains_request(value: Any, seen: set[int]) -> bool:
+    """Find a Request nested in response shapes supported by msgspec JSON."""
+    if isinstance(value, Request):
+        return True
+    if not isinstance(value, (Mapping, list, tuple, set, frozenset, msgspec.Struct)):
+        return False
+    identity = id(value)
+    if identity in seen:
+        return False
+    seen.add(identity)
+    if isinstance(value, Mapping):
+        return any(_contains_request(item, seen) for pair in value.items() for item in pair)
+    if isinstance(value, msgspec.Struct):
+        return any(
+            _contains_request(getattr(value, field.name), seen)
+            for field in msgspec.structs.fields(type(value))
+        )
+    return any(_contains_request(item, seen) for item in value)
 
 
 @dataclass(frozen=True, slots=True)

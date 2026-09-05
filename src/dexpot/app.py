@@ -22,7 +22,7 @@ import sys
 import threading
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 import msgspec
@@ -99,16 +99,26 @@ class Dex:
 
     # ---- route registration ----
 
-    def _register(self, method: str, path: str, fn: Callable[..., Any]) -> Callable[..., Any]:
+    def _register(
+        self,
+        method: str,
+        path: str,
+        fn: Callable[..., Any],
+        annotation_locals: Mapping[str, Any] | None = None,
+    ) -> Callable[..., Any]:
         with self._declaration_lock:
             self._registration_depth += 1
             try:
-                return self._register_locked(method, path, fn)
+                return self._register_locked(method, path, fn, annotation_locals)
             finally:
                 self._registration_depth -= 1
 
     def _register_locked(
-        self, method: str, path: str, fn: Callable[..., Any]
+        self,
+        method: str,
+        path: str,
+        fn: Callable[..., Any],
+        annotation_locals: Mapping[str, Any] | None = None,
     ) -> Callable[..., Any]:
         if self._plan is not None:
             raise RuntimeError("application is compiled; routes can no longer be registered")
@@ -127,6 +137,7 @@ class Dex:
             resp_type,
             (fn.__doc__ or "").strip(),
             path_names,
+            annotation_locals,
         )
         key = (method, path)
         if "{" in path:
@@ -179,6 +190,12 @@ class Dex:
         self, method: str, path: str, body: Any, response: Any
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
+            frame = inspect.currentframe()
+            try:
+                caller = frame.f_back if frame is not None else None
+                annotation_locals = dict(caller.f_locals) if caller is not None else {}
+            finally:
+                del frame
             body_type = body
             if body_type is None:
                 # fall back to live annotation object if present (no __future__ import)
@@ -195,7 +212,7 @@ class Dex:
                 fn.__dexpot_body__ = body_type  # type: ignore[attr-defined]
             if response is not None:
                 fn.__dexpot_resp__ = response  # type: ignore[attr-defined]
-            return self._register(method, path, fn)
+            return self._register(method, path, fn, annotation_locals)
 
         return deco
 

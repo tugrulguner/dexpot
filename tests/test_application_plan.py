@@ -163,6 +163,25 @@ def test_request_annotation_is_not_inferred_as_a_json_body() -> None:
     assert endpoint.needs_request is True
 
 
+def test_postponed_local_request_alias_is_resolved_during_registration() -> None:
+    def build() -> Dex:
+        from dexpot import Request as LocalRequest
+
+        app = Dex()
+
+        @app.get("/local-request")
+        def inspect_request(request: LocalRequest) -> str:
+            return request.method
+
+        return app
+
+    endpoint = build()._compile().endpoints[0]
+    request = Request("GET", "/local-request", {}, "", {})
+
+    assert endpoint.needs_request is True
+    assert endpoint.invoke([], None, request) == "GET"
+
+
 def test_request_defaults_and_parameter_kinds_receive_the_same_context() -> None:
     app = Dex()
 
