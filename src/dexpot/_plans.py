@@ -38,9 +38,10 @@ def _type_hints(fn: Any, localns: Mapping[str, Any] | None = None) -> dict[str, 
             for name, parameter in inspect.signature(fn).parameters.items()
         }
         resolved: dict[str, Any] = {}
-        globalns = getattr(fn, "__globals__", {})
-        closure = fn.__closure__ or ()
-        cell_names = fn.__code__.co_freevars
+        owner = inspect.unwrap(fn, stop=lambda f: hasattr(f, "__signature__"))
+        globalns = getattr(owner, "__globals__", {})
+        closure = owner.__closure__ or ()
+        cell_names = owner.__code__.co_freevars
         cells = dict(zip(cell_names, (cell.cell_contents for cell in closure), strict=True))
         for name, annotation in raw.items():
             if isinstance(annotation, str):

@@ -190,6 +190,7 @@ class Dex:
         self, method: str, path: str, body: Any, response: Any
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
+            annotation_owner = inspect.unwrap(fn, stop=lambda f: hasattr(f, "__signature__"))
             frame = inspect.currentframe()
             caller = None
             try:
@@ -198,8 +199,8 @@ class Dex:
                 # app.get(path)(imported_handler) has an unrelated caller scope.
                 defining_scope = (
                     caller is not None
-                    and caller.f_globals is fn.__globals__
-                    and any(code is fn.__code__ for code in caller.f_code.co_consts)
+                    and caller.f_globals is annotation_owner.__globals__
+                    and any(code is annotation_owner.__code__ for code in caller.f_code.co_consts)
                 )
                 annotation_locals = dict(caller.f_locals) if defining_scope and caller else {}
             finally:

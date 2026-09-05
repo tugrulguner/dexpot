@@ -182,6 +182,32 @@ def test_postponed_local_request_alias_is_resolved_during_registration() -> None
     assert endpoint.invoke([], None, request) == "GET"
 
 
+def test_wrapped_factory_handler_resolves_local_request_alias() -> None:
+    from functools import wraps
+
+    def passthrough(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            return fn(*args, **kwargs)
+
+        return wrapper
+
+    def build() -> Dex:
+        from dexpot import Request as Alias
+
+        app = Dex()
+
+        @app.get("/wrapped")
+        @passthrough
+        def handler(request: Alias) -> str:
+            return request.method
+
+        return app
+
+    endpoint = build()._compile().endpoints[0]
+    assert endpoint.invoke([], None, Request("GET", "/wrapped", {}, "", {})) == "GET"
+
+
 def test_registration_locals_do_not_override_existing_handler_scope() -> None:
     def handler(request: Request, item_id: int) -> tuple[str, int]:
         return request.method, item_id
