@@ -202,12 +202,31 @@ def test_compiled_application_contract_is_synchronized() -> None:
     ) in reviewing
     assert (
         "request: ApplicationPlan.router -> RouterPlan.match(...) -> EndpointPlan "
-        "-> decode/bind -> handler -> encode/send"
+        "-> decode/request-bind -> EndpointPlan.invoke(...) -> encode/send"
     ) in reviewing
     assert "registration/freeze atomicity" in reviewing
     assert "annotation resolution" in reviewing
     assert "before opening a listener" in readme
     assert "Late route registration fails" in skill
+
+
+def test_annotation_namespace_contract_is_documented() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    for name in ("README.md", "ROADMAP.md", "src/dexpot/templates/skills/dexpot.md"):
+        text = (root / name).read_text()
+        assert "annotation_locals" in text
+        assert "caller" in text
+
+
+def test_readme_documents_typed_request_context() -> None:
+    text = README.read_text()
+
+    assert "from dexpot import Request" in text
+    assert "request: Request" in text
+    for field in ("method", "path", "params", "query", "headers", "raw_body", "body"):
+        assert f"`request.{field}`" in text
 
 
 def test_contributor_entry_points_are_actionable() -> None:

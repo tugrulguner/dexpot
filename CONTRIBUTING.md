@@ -141,3 +141,14 @@ logs before posting them publicly.
 
 For substantial API or scheduler changes, open an issue and align on the contract before
 implementation.
+
+### Explicit annotation namespaces
+
+Route decorators accept keyword-only `annotation_locals={"Alias": OriginalType}` for
+factory/class annotation-only aliases and delayed registration. They never infer bindings
+from caller locals. The mapping is shallow-copied at decorator creation; original closure
+bindings override it. Module-global and concrete annotations need no extra option.
+Unresolved parameter annotations fail at registration, including defaulted parameters;
+explicit `body=` binding remains authoritative for its body parameter. Use only needed
+bindings rather than retaining all factory locals. Wrapped handlers use their original
+annotation scope. Test repeated factory calls and per-registration namespace isolation.
