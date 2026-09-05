@@ -182,6 +182,25 @@ def test_postponed_local_request_alias_is_resolved_during_registration() -> None
     assert endpoint.invoke([], None, request) == "GET"
 
 
+def test_registration_locals_do_not_override_existing_handler_scope() -> None:
+    def handler(request: Request, item_id: int) -> tuple[str, int]:
+        return request.method, item_id
+
+    def register() -> Dex:
+        Request = str
+        int = str
+        assert Request is int  # Unrelated registration-site names, not annotations.
+        app = Dex()
+        app.get("/items/{item_id}")(handler)
+        return app
+
+    endpoint = register()._compile().endpoints[0]
+    assert endpoint.needs_request
+    assert endpoint.int_captures == ((0, "item_id"),)
+    request = Request("GET", "/items/7", {}, "", {})
+    assert endpoint.invoke([7], None, request) == ("GET", 7)
+
+
 def test_request_defaults_and_parameter_kinds_receive_the_same_context() -> None:
     app = Dex()
 

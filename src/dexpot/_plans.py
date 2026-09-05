@@ -48,7 +48,7 @@ def _type_hints(fn: Any, localns: Mapping[str, Any] | None = None) -> dict[str, 
                     annotation = eval(
                         annotation,
                         dict(typing.__dict__),
-                        {**globalns, **cells, **(localns or {})},
+                        {**globalns, **(localns or {}), **cells},
                     )
                 except _ApplicationCompilationDuringRegistration:
                     raise

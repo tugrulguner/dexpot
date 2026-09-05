@@ -191,11 +191,20 @@ class Dex:
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
             frame = inspect.currentframe()
+            caller = None
             try:
                 caller = frame.f_back if frame is not None else None
-                annotation_locals = dict(caller.f_locals) if caller is not None else {}
+                # Only the frame that defines this code can supply lexical locals.
+                # app.get(path)(imported_handler) has an unrelated caller scope.
+                defining_scope = (
+                    caller is not None
+                    and caller.f_globals is fn.__globals__
+                    and any(code is fn.__code__ for code in caller.f_code.co_consts)
+                )
+                annotation_locals = dict(caller.f_locals) if defining_scope and caller else {}
             finally:
                 del frame
+                del caller
             body_type = body
             if body_type is None:
                 # fall back to live annotation object if present (no __future__ import)
