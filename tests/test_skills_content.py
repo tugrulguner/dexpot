@@ -61,8 +61,9 @@ def test_skill_documents_current_body_binding_order() -> None:
     body = skill_body()
     assert "first non-path, non-Request parameter is the body parameter" in body
     assert body.index("### Explicit annotation namespaces") < body.index("## HTTP boundary")
-    assert "On Request-aware routes" in body
-    assert "outside this guard" in body
+    assert "rejects a directly returned Request" in body
+    assert "nested Request values" in body
+    assert "outside the recursive guard" in body
     assert "default-only parameters after it" in body
 
 

@@ -261,6 +261,9 @@ def test_request_and_inferred_payload_select_the_payload_body_type() -> None:
 
     assert endpoint.body_type is Payload
     assert endpoint.needs_request is True
+    payload = endpoint.body_decoder.decode(b'{"value": 7}')
+    request = Request("POST", "/inferred", {}, "", {}, b'{"value": 7}', payload)
+    assert endpoint.invoke([], payload, request) == 14
 
 
 def test_request_rejects_conflicting_path_and_body_declarations() -> None:
