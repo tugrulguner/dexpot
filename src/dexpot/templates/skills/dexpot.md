@@ -66,7 +66,7 @@ The runtime package is `dexpot`; the command requires `dexpot[cli]`.
 - Path captures bind by parameter name, not by handler position.
 - An `int` path annotation converts the capture and returns 422 when conversion fails.
 - Path parameters may appear in any valid signature order because they bind by name.
-- The first non-path parameter is the body parameter. Put default-only parameters after it.
+- The first non-path, non-Request parameter is the body parameter. Put default-only parameters after it.
 - Keyword-only parameters work. `*args` and `**kwargs` are rejected at registration.
 - Every path capture must have a matching handler parameter.
 - Two routes with one method and the same structural shape conflict: `/users/{id}` and
@@ -94,10 +94,23 @@ The frozen, GC-tracked object exposes `method`, `path`, raw string `params`, the
 string, lowercase-name `headers`, received `raw_body` bytes, and the validated `body`. Handlers
 without a `Request` annotation do not allocate the public context object. Freezing is shallow:
 contained dictionaries and body values remain request-local application objects. Do not return
-the context; Dexpot rejects it rather than serializing request headers and body data.
+the context. On Request-aware routes, Dexpot rejects direct and nested Request values in
+supported response containers. Explicit extraction of sensitive fields and manually created
+contexts returned by requestless handlers are outside this guard.
 
 Prefer errors at registration. If a declaration can be proven invalid while the module is
 imported, do not defer it until a request.
+
+### Explicit annotation namespaces
+
+Route decorators accept keyword-only `annotation_locals={"Alias": OriginalType}` for
+factory/class annotation-only aliases and delayed registration. They never infer bindings
+from caller locals. The mapping is shallow-copied at decorator creation; original closure
+bindings override it. Module-global and concrete annotations need no extra option.
+Unresolved parameter annotations fail at registration, including defaulted parameters;
+explicit `body=` binding remains authoritative for its body parameter. Use only needed
+bindings rather than retaining all factory locals. Wrapped handlers use their original
+annotation scope. Test repeated factory calls and per-registration namespace isolation.
 
 ## HTTP boundary
 
@@ -190,14 +203,3 @@ Before calling a dexpot application change complete:
 - real HTTP success and failure paths pass; and
 - scheduler or concurrency claims include the Python version and
   `getattr(sys, "_is_gil_enabled", lambda: True)()` evidence.
-
-### Explicit annotation namespaces
-
-Route decorators accept keyword-only `annotation_locals={"Alias": OriginalType}` for
-factory/class annotation-only aliases and delayed registration. They never infer bindings
-from caller locals. The mapping is shallow-copied at decorator creation; original closure
-bindings override it. Module-global and concrete annotations need no extra option.
-Unresolved parameter annotations fail at registration, including defaulted parameters;
-explicit `body=` binding remains authoritative for its body parameter. Use only needed
-bindings rather than retaining all factory locals. Wrapped handlers use their original
-annotation scope. Test repeated factory calls and per-registration namespace isolation.

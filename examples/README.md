@@ -46,10 +46,13 @@ when handlers execute concurrently.
 
 ## `bounded_api.py`
 
-Customizes `HttpLimits` and demonstrates the fail-closed HTTP boundary.
+Customizes `HttpLimits` and demonstrates the fail-closed HTTP boundary. The `/context`
+route also demonstrates typed Request injection with an explicit factory-local
+`annotation_locals` binding.
 
 ```bash
 curl -s http://127.0.0.1:8000/health
+curl -s http://127.0.0.1:8000/context  # {"method":"GET"}
 curl -s -X POST http://127.0.0.1:8000/echo \
   -H 'Content-Type: application/json' \
   -d '{"text":"hello"}'
