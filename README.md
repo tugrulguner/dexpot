@@ -215,7 +215,7 @@ def create_for_account(item: ItemIn, account_id: int) -> ItemOut:
 ```
 
 The handler signature does not have to mirror URL order. dexpot binds path captures by name,
-treats the first non-path parameter as the declared body, preserves Python signature order,
+treats the first non-path, non-Request parameter as the declared body, preserves Python signature order,
 and supports keyword-only parameters. Put default-only parameters after that body parameter.
 Registration fails before serving when:
 
@@ -288,8 +288,10 @@ query string and `request.headers` contains lowercase header names. `request.raw
 the received bytes; `request.body` is the same validated object passed to the declared body
 parameter. The request object is frozen and GC-tracked. Handlers without a `Request` annotation
 do not allocate one. Freezing prevents attribute reassignment; it does not deep-freeze the
-request-local `params`, `headers`, or validated body values. Returning the context itself is
-rejected rather than serializing request headers and body data into a response.
+request-local `params`, `headers`, or validated body values. On Request-aware routes, returning
+a Request directly or nested in supported response containers is rejected rather than exposing
+its headers and body. This guard does not cover explicit extraction of sensitive fields or
+manually created contexts returned by requestless handlers.
 
 ## Execution model
 
@@ -426,8 +428,8 @@ through its real socket server:
 - [`minimal.py`](examples/minimal.py): typed path capture and response;
 - [`typed_crud.py`](examples/typed_crud.py): thread-safe shared state, typed JSON writes, and a
   complete create/read/update/delete lifecycle; and
-- [`bounded_api.py`](examples/bounded_api.py): custom `HttpLimits`, 413/422 failures, and 405
-  method handling.
+- [`bounded_api.py`](examples/bounded_api.py): custom `HttpLimits`, 413/422 failures, 405
+  method handling, and `/context` with an explicit factory-local annotation namespace.
 
 Each example runs directly with `uv run python examples/<name>.py`, and the test suite launches
 every example as a subprocess and validates its public HTTP behavior. Examples will continue to
@@ -438,8 +440,8 @@ grow only as middleware, schemas, deployment support, and other roadmap capabili
 The shipped foundation now includes the HTTP-hardening gate and the optional native
 request-head seam. Remaining work is organized around four gates:
 
-1. complete the framework contract with request context, middleware, schemas, and richer
-   response handling;
+1. extend the shipped request context with decoded query parameters, cookies, and client
+   metadata, and complete middleware, schemas, and richer response handling;
 2. publish reproducible GIL and free-threaded benchmarks with correctness parity; and
 3. add production operations without replacing the synchronous execution model; and
 4. grow runnable examples, testing support, deployment guidance, and stable extension points.

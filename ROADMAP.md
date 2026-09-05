@@ -136,10 +136,11 @@ free-threaded 3.14t:
   for this layer without a profile identifying a narrow native seam and equivalent-workload
   end-to-end evidence that it wins.
 
-These macOS measurements select the first production candidate; they are not public performance
-claims. Promotion still requires the complete contract, native-parser parity, allocation and
-retention profiling, longer bare-metal Linux campaigns, and unchanged 404/405, overload, memory,
-and shutdown behavior.
+These macOS measurements informed the direct invokers and conditional, GC-tracked Request
+construction shipped in v0.4.0; they are not public performance claims. Broader performance
+claims and native promotion remain gated on complete contract and native-parser parity checks,
+allocation and retention profiling, longer bare-metal Linux campaigns, and unchanged 404/405,
+overload, memory, and shutdown behavior.
 
 ### 4. Performance evidence and scheduler evolution
 
