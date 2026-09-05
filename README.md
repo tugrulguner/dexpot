@@ -288,10 +288,10 @@ query string and `request.headers` contains lowercase header names. `request.raw
 the received bytes; `request.body` is the same validated object passed to the declared body
 parameter. The request object is frozen and GC-tracked. Handlers without a `Request` annotation
 do not allocate one. Freezing prevents attribute reassignment; it does not deep-freeze the
-request-local `params`, `headers`, or validated body values. On Request-aware routes, returning
-a Request directly or nested in supported response containers is rejected rather than exposing
-its headers and body. This guard does not cover explicit extraction of sensitive fields or
-manually created contexts returned by requestless handlers.
+request-local `params`, `headers`, or validated body values. Returning a Request directly is
+always rejected. On Request-aware routes, nested Request values in supported response containers
+are also rejected. Explicit extraction of sensitive fields and nested, manually created Request
+values returned by requestless handlers are outside the recursive guard.
 
 ## Execution model
 
