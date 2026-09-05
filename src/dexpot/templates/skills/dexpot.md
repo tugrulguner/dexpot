@@ -190,3 +190,14 @@ Before calling a dexpot application change complete:
 - real HTTP success and failure paths pass; and
 - scheduler or concurrency claims include the Python version and
   `getattr(sys, "_is_gil_enabled", lambda: True)()` evidence.
+
+### Explicit annotation namespaces
+
+Route decorators accept keyword-only `annotation_locals={"Alias": OriginalType}` for
+factory/class annotation-only aliases and delayed registration. They never infer bindings
+from caller locals. The mapping is shallow-copied at decorator creation; original closure
+bindings override it. Module-global and concrete annotations need no extra option.
+Unresolved parameter annotations fail at registration, including defaulted parameters;
+explicit `body=` binding remains authoritative for its body parameter. Use only needed
+bindings rather than retaining all factory locals. Wrapped handlers use their original
+annotation scope. Test repeated factory calls and per-registration namespace isolation.

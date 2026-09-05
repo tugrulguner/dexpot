@@ -231,6 +231,38 @@ A handler may return a JSON-encodable value, a msgspec struct, or `(status, payl
 `response=` precompiles the successful-response encoder, but the current release does not
 yet enforce the returned type at runtime.
 
+### Annotation namespaces
+
+Route decorators never read caller locals. Postponed annotations resolve against the
+original handler's module globals and captured closure bindings, including handlers using
+`functools.wraps`. For annotation-only aliases local to a factory or class, pass an explicit
+namespace on any route decorator:
+
+```python
+from __future__ import annotations
+from dexpot import Dex
+
+
+def build():
+    from dexpot import Request as Context
+
+    app = Dex()
+
+    @app.get("/context", annotation_locals={"Context": Context})
+    def context(request: Context):
+        return {"method": request.method}
+
+    return app
+```
+
+`annotation_locals` is shallow-copied when the decorator is created. Pass only the needed
+bindings, not an entire frame's `locals()`. For delayed registration, retain and pass the
+original alias bindings; Python does not preserve annotation-only locals after a factory
+returns. Captured closure bindings take precedence over the supplied namespace, which takes
+precedence over module globals. Unresolved parameter annotations fail registration with an
+`annotation_locals` error, even when the parameter has a default. An explicit `body=` schema
+continues to bind the first non-path, non-Request parameter without needing its annotation.
+
 ### Request context
 
 Annotate a handler parameter with the public `Request` type to receive the parsed request

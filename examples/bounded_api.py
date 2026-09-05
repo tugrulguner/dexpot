@@ -35,6 +35,17 @@ def echo(message: Message) -> Message:
     return message
 
 
+def register_context() -> None:
+    from dexpot import Request as Context
+
+    @app.get("/context", annotation_locals={"Context": Context})
+    def context(request: Context) -> dict[str, str]:
+        return {"method": request.method}
+
+
+register_context()
+
+
 if __name__ == "__main__":
     app.serve(
         host=os.environ.get("DEXPOT_EXAMPLE_HOST", "127.0.0.1"),

@@ -110,6 +110,9 @@ def test_typed_crud_example_runs_complete_lifecycle() -> None:
 def test_bounded_api_example_validates_success_and_failure_paths() -> None:
     with _run_example("bounded_api.py") as base:
         health = httpx.get(f"{base}/health")
+        context = httpx.get(f"{base}/context")
+        assert context.status_code == 200
+        assert context.json() == {"method": "GET"}
         echoed = httpx.post(f"{base}/echo", json={"text": "hello"})
         malformed = httpx.post(
             f"{base}/echo",

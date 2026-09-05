@@ -210,6 +210,16 @@ def test_compiled_application_contract_is_synchronized() -> None:
     assert "Late route registration fails" in skill
 
 
+def test_annotation_namespace_contract_is_documented() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    for name in ("README.md", "ROADMAP.md", "src/dexpot/templates/skills/dexpot.md"):
+        text = (root / name).read_text()
+        assert "annotation_locals" in text
+        assert "caller" in text
+
+
 def test_readme_documents_typed_request_context() -> None:
     text = README.read_text()
 

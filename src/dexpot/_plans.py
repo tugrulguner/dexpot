@@ -31,7 +31,7 @@ class _ApplicationCompilationDuringRegistration(RuntimeError):
 
 
 def _type_hints(fn: Any, localns: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    hints = _type_hints_cache.get(fn)
+    hints = _type_hints_cache.get(fn) if localns is None else None
     if hints is None:
         raw = {
             name: parameter.annotation
@@ -57,7 +57,8 @@ def _type_hints(fn: Any, localns: Mapping[str, Any] | None = None) -> dict[str, 
                     pass
             resolved[name] = annotation
         hints = resolved
-        _type_hints_cache[fn] = hints
+        if localns is None:
+            _type_hints_cache[fn] = hints
     return hints
 
 
@@ -195,6 +196,13 @@ class EndpointPlan:
                 )
 
             annotation = hints.get(name)
+            if isinstance(annotation, str) and not (
+                body_type is not None and not body_param_seen and name not in captures_by_name
+            ):
+                raise TypeError(
+                    f"cannot resolve annotation for '{name}'; supply annotation_locals "
+                    "with the original bindings or use concrete annotations"
+                )
             if name in captures_by_name:
                 if annotation is Request:
                     raise TypeError(f"path parameter '{name}' cannot also be annotated as Request")

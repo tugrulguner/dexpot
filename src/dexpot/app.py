@@ -162,50 +162,57 @@ class Dex:
         return fn
 
     def get(
-        self, path: str, response: Any = None
+        self, path: str, response: Any = None, *, annotation_locals: Mapping[str, Any] | None = None
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        return self._method_decorator("GET", path, None, response)
+        return self._method_decorator("GET", path, None, response, annotation_locals)
 
     def post(
-        self, path: str, body: Any = None, response: Any = None
+        self,
+        path: str,
+        body: Any = None,
+        response: Any = None,
+        *,
+        annotation_locals: Mapping[str, Any] | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        return self._method_decorator("POST", path, body, response)
+        return self._method_decorator("POST", path, body, response, annotation_locals)
 
     def put(
-        self, path: str, body: Any = None, response: Any = None
+        self,
+        path: str,
+        body: Any = None,
+        response: Any = None,
+        *,
+        annotation_locals: Mapping[str, Any] | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        return self._method_decorator("PUT", path, body, response)
+        return self._method_decorator("PUT", path, body, response, annotation_locals)
 
     def patch(
-        self, path: str, body: Any = None, response: Any = None
+        self,
+        path: str,
+        body: Any = None,
+        response: Any = None,
+        *,
+        annotation_locals: Mapping[str, Any] | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        return self._method_decorator("PATCH", path, body, response)
+        return self._method_decorator("PATCH", path, body, response, annotation_locals)
 
     def delete(
-        self, path: str, response: Any = None
+        self, path: str, response: Any = None, *, annotation_locals: Mapping[str, Any] | None = None
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        return self._method_decorator("DELETE", path, None, response)
+        return self._method_decorator("DELETE", path, None, response, annotation_locals)
 
     def _method_decorator(
-        self, method: str, path: str, body: Any, response: Any
+        self,
+        method: str,
+        path: str,
+        body: Any,
+        response: Any,
+        annotation_locals: Mapping[str, Any] | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        # Snapshot explicit bindings, never infer provenance from a caller frame.
+        namespace = dict(annotation_locals) if annotation_locals is not None else None
+
         def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
-            annotation_owner = inspect.unwrap(fn, stop=lambda f: hasattr(f, "__signature__"))
-            frame = inspect.currentframe()
-            caller = None
-            try:
-                caller = frame.f_back if frame is not None else None
-                # Only the frame that defines this code can supply lexical locals.
-                # app.get(path)(imported_handler) has an unrelated caller scope.
-                defining_scope = (
-                    caller is not None
-                    and caller.f_globals is annotation_owner.__globals__
-                    and any(code is annotation_owner.__code__ for code in caller.f_code.co_consts)
-                )
-                annotation_locals = dict(caller.f_locals) if defining_scope and caller else {}
-            finally:
-                del frame
-                del caller
             body_type = body
             if body_type is None:
                 # fall back to live annotation object if present (no __future__ import)
@@ -222,7 +229,7 @@ class Dex:
                 fn.__dexpot_body__ = body_type  # type: ignore[attr-defined]
             if response is not None:
                 fn.__dexpot_resp__ = response  # type: ignore[attr-defined]
-            return self._register(method, path, fn, annotation_locals)
+            return self._register(method, path, fn, namespace)
 
         return deco
 

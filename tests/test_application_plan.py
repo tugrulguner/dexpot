@@ -169,7 +169,7 @@ def test_postponed_local_request_alias_is_resolved_during_registration() -> None
 
         app = Dex()
 
-        @app.get("/local-request")
+        @app.get("/local-request", annotation_locals={"LocalRequest": LocalRequest})
         def inspect_request(request: LocalRequest) -> str:
             return request.method
 
@@ -197,7 +197,7 @@ def test_wrapped_factory_handler_resolves_local_request_alias() -> None:
 
         app = Dex()
 
-        @app.get("/wrapped")
+        @app.get("/wrapped", annotation_locals={"Alias": Alias})
         @passthrough
         def handler(request: Alias) -> str:
             return request.method

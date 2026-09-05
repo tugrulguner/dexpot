@@ -238,3 +238,14 @@ silently weaken overload and shutdown behavior.
 
 Roadmap work should get a focused issue before implementation. Start with
 [CONTRIBUTING.md](CONTRIBUTING.md) and include a real-user HTTP test for behavior changes.
+
+### Explicit annotation namespaces
+
+Route decorators accept keyword-only `annotation_locals={"Alias": OriginalType}` for
+factory/class annotation-only aliases and delayed registration. They never infer bindings
+from caller locals. The mapping is shallow-copied at decorator creation; original closure
+bindings override it. Module-global and concrete annotations need no extra option.
+Unresolved parameter annotations fail at registration, including defaulted parameters;
+explicit `body=` binding remains authoritative for its body parameter. Use only needed
+bindings rather than retaining all factory locals. Wrapped handlers use their original
+annotation scope. Test repeated factory calls and per-registration namespace isolation.
