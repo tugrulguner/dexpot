@@ -22,7 +22,7 @@ import sys
 import threading
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 import msgspec
@@ -34,6 +34,7 @@ from ._plans import (
     RouterPlan,
     _ApplicationCompilationDuringRegistration,
 )
+from .requests import Request
 
 # "fork" is safe here because dexpot forks workers before starting any threads
 # (the supervisor process never starts pools/reactors). It preserves the
@@ -98,16 +99,26 @@ class Dex:
 
     # ---- route registration ----
 
-    def _register(self, method: str, path: str, fn: Callable[..., Any]) -> Callable[..., Any]:
+    def _register(
+        self,
+        method: str,
+        path: str,
+        fn: Callable[..., Any],
+        annotation_locals: Mapping[str, Any] | None = None,
+    ) -> Callable[..., Any]:
         with self._declaration_lock:
             self._registration_depth += 1
             try:
-                return self._register_locked(method, path, fn)
+                return self._register_locked(method, path, fn, annotation_locals)
             finally:
                 self._registration_depth -= 1
 
     def _register_locked(
-        self, method: str, path: str, fn: Callable[..., Any]
+        self,
+        method: str,
+        path: str,
+        fn: Callable[..., Any],
+        annotation_locals: Mapping[str, Any] | None = None,
     ) -> Callable[..., Any]:
         if self._plan is not None:
             raise RuntimeError("application is compiled; routes can no longer be registered")
@@ -126,6 +137,7 @@ class Dex:
             resp_type,
             (fn.__doc__ or "").strip(),
             path_names,
+            annotation_locals,
         )
         key = (method, path)
         if "{" in path:
@@ -150,47 +162,74 @@ class Dex:
         return fn
 
     def get(
-        self, path: str, response: Any = None
+        self, path: str, response: Any = None, *, annotation_locals: Mapping[str, Any] | None = None
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        return self._method_decorator("GET", path, None, response)
+        return self._method_decorator("GET", path, None, response, annotation_locals)
 
     def post(
-        self, path: str, body: Any = None, response: Any = None
+        self,
+        path: str,
+        body: Any = None,
+        response: Any = None,
+        *,
+        annotation_locals: Mapping[str, Any] | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        return self._method_decorator("POST", path, body, response)
+        return self._method_decorator("POST", path, body, response, annotation_locals)
 
     def put(
-        self, path: str, body: Any = None, response: Any = None
+        self,
+        path: str,
+        body: Any = None,
+        response: Any = None,
+        *,
+        annotation_locals: Mapping[str, Any] | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        return self._method_decorator("PUT", path, body, response)
+        return self._method_decorator("PUT", path, body, response, annotation_locals)
 
     def patch(
-        self, path: str, body: Any = None, response: Any = None
+        self,
+        path: str,
+        body: Any = None,
+        response: Any = None,
+        *,
+        annotation_locals: Mapping[str, Any] | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        return self._method_decorator("PATCH", path, body, response)
+        return self._method_decorator("PATCH", path, body, response, annotation_locals)
 
     def delete(
-        self, path: str, response: Any = None
+        self, path: str, response: Any = None, *, annotation_locals: Mapping[str, Any] | None = None
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        return self._method_decorator("DELETE", path, None, response)
+        return self._method_decorator("DELETE", path, None, response, annotation_locals)
 
     def _method_decorator(
-        self, method: str, path: str, body: Any, response: Any
+        self,
+        method: str,
+        path: str,
+        body: Any,
+        response: Any,
+        annotation_locals: Mapping[str, Any] | None = None,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        # Snapshot explicit bindings, never infer provenance from a caller frame.
+        namespace = dict(annotation_locals) if annotation_locals is not None else None
+
         def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
             body_type = body
             if body_type is None:
                 # fall back to live annotation object if present (no __future__ import)
                 hints = {n: p.annotation for n, p in inspect.signature(fn).parameters.items()}
                 for ann in hints.values():
-                    if isinstance(ann, type) and issubclass(ann, msgspec.Struct):
+                    if (
+                        ann is not Request
+                        and isinstance(ann, type)
+                        and issubclass(ann, msgspec.Struct)
+                    ):
                         body_type = ann
                         break
             if body_type is not None:
                 fn.__dexpot_body__ = body_type  # type: ignore[attr-defined]
             if response is not None:
                 fn.__dexpot_resp__ = response  # type: ignore[attr-defined]
-            return self._register(method, path, fn)
+            return self._register(method, path, fn, namespace)
 
         return deco
 
@@ -266,6 +305,11 @@ class Dex:
             return request.keep_alive, buf
 
         try:
+            request_params = (
+                dict(zip(route.path_names, captures_list, strict=True))
+                if route.needs_request
+                else None
+            )
             # Convert typed captures before the endpoint's compiled direct call.
             for cap_idx, pname in route.int_captures:
                 try:
@@ -294,10 +338,23 @@ class Dex:
                     )
                     return request.keep_alive, buf
 
-            result = route.invoke(captures_list, body_arg)
+            if route.needs_request:
+                assert request_params is not None
+                context = Request(
+                    request.method,
+                    request.path,
+                    request_params,
+                    request.query,
+                    request.headers,
+                    request.body,
+                    body_arg,
+                )
+                result = route.invoke(captures_list, body_arg, context)
+            else:
+                result = route.invoke(captures_list, body_arg)
             if isinstance(result, tuple):
                 status, payload = result
-                out = _json_encode(payload)
+                out = route.encode(payload)
             else:
                 status, out = 200, route.encode(result)
             status, out = _handler_response(status, out)

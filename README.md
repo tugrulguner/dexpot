@@ -231,6 +231,66 @@ A handler may return a JSON-encodable value, a msgspec struct, or `(status, payl
 `response=` precompiles the successful-response encoder, but the current release does not
 yet enforce the returned type at runtime.
 
+### Annotation namespaces
+
+Route decorators never read caller locals. Postponed annotations resolve against the
+original handler's module globals and captured closure bindings, including handlers using
+`functools.wraps`. For annotation-only aliases local to a factory or class, pass an explicit
+namespace on any route decorator:
+
+```python
+from __future__ import annotations
+from dexpot import Dex
+
+
+def build():
+    from dexpot import Request as Context
+
+    app = Dex()
+
+    @app.get("/context", annotation_locals={"Context": Context})
+    def context(request: Context):
+        return {"method": request.method}
+
+    return app
+```
+
+`annotation_locals` is shallow-copied when the decorator is created. Pass only the needed
+bindings, not an entire frame's `locals()`. For delayed registration, retain and pass the
+original alias bindings; Python does not preserve annotation-only locals after a factory
+returns. Captured closure bindings take precedence over the supplied namespace, which takes
+precedence over module globals. Unresolved parameter annotations fail registration with an
+`annotation_locals` error, even when the parameter has a default. An explicit `body=` schema
+continues to bind the first non-path, non-Request parameter without needing its annotation.
+
+### Request context
+
+Annotate a handler parameter with the public `Request` type to receive the parsed request
+through the endpoint's precompiled direct-call path:
+
+```python
+from dexpot import Request
+
+
+@app.post("/accounts/{account_id}/items", body=ItemIn)
+def create_with_context(item: ItemIn, account_id: int, *, request: Request) -> dict:
+    return {
+        "account_id": request.params["account_id"],
+        "method": request.method,
+        "query": request.query,
+        "same_body": request.body is item,
+    }
+```
+
+`request.method` and `request.path` are decoded routing values. `request.params` contains the
+decoded path-capture strings before handler type conversion, while `request.query` is the raw
+query string and `request.headers` contains lowercase header names. `request.raw_body` retains
+the received bytes; `request.body` is the same validated object passed to the declared body
+parameter. The request object is frozen and GC-tracked. Handlers without a `Request` annotation
+do not allocate one. Freezing prevents attribute reassignment; it does not deep-freeze the
+request-local `params`, `headers`, or validated body values. Returning the context itself is
+rejected rather than serializing request headers and body data into a response.
+
 ## Execution model
 
 dexpot chooses its scheduler once when the module is imported.
@@ -274,7 +334,7 @@ classified. Compilation happens before opening a listener, and late route regist
 instead of silently diverging from the plan used by traffic.
 
 Request processing consumes the same plan for literal and parameterized matching, 404/405
-resolution, argument binding, and response encoding without inspecting the handler again.
+resolution, direct handler invocation, and response encoding without inspecting the handler again.
 
 Parser selection is orthogonal to scheduling: each bounded request head uses a compatible
 Rust/PyO3 `dexpot-native` installation in automatic mode, or the Python reference when the

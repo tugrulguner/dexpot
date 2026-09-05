@@ -25,6 +25,7 @@ def test_description_tells_agents_when_to_load_skill() -> None:
     [
         "msgspec",
         "response=",
+        "request: Request",
         "Keyword-only",
         "*args",
         "structural shape",

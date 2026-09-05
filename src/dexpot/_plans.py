@@ -6,13 +6,16 @@ import inspect
 import typing
 import unicodedata
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, is_dataclass
+from enum import Enum
 from functools import lru_cache
 from threading import Lock
 from types import CodeType, FunctionType, MappingProxyType
 from typing import Any
 
 import msgspec
+
+from .requests import Request
 
 _json_encode = msgspec.json.encode
 
@@ -27,29 +30,35 @@ class _ApplicationCompilationDuringRegistration(RuntimeError):
     """Keep registration-control failures visible during annotation evaluation."""
 
 
-def _type_hints(fn: Any) -> dict[str, Any]:
-    hints = _type_hints_cache.get(fn)
+def _type_hints(fn: Any, localns: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    hints = _type_hints_cache.get(fn) if localns is None else None
     if hints is None:
         raw = {
             name: parameter.annotation
             for name, parameter in inspect.signature(fn).parameters.items()
         }
         resolved: dict[str, Any] = {}
-        globalns = getattr(fn, "__globals__", {})
-        closure = fn.__closure__ or ()
-        cell_names = fn.__code__.co_freevars
+        owner = inspect.unwrap(fn, stop=lambda f: hasattr(f, "__signature__"))
+        globalns = getattr(owner, "__globals__", {})
+        closure = owner.__closure__ or ()
+        cell_names = owner.__code__.co_freevars
         cells = dict(zip(cell_names, (cell.cell_contents for cell in closure), strict=True))
         for name, annotation in raw.items():
             if isinstance(annotation, str):
                 try:
-                    annotation = eval(annotation, dict(typing.__dict__), {**globalns, **cells})
+                    annotation = eval(
+                        annotation,
+                        dict(typing.__dict__),
+                        {**globalns, **(localns or {}), **cells},
+                    )
                 except _ApplicationCompilationDuringRegistration:
                     raise
                 except Exception:
                     pass
             resolved[name] = annotation
         hints = resolved
-        _type_hints_cache[fn] = hints
+        if localns is None:
+            _type_hints_cache[fn] = hints
     return hints
 
 
@@ -81,6 +90,8 @@ def _compile_invoker(handler: Callable[..., Any], sources: list[_Source]) -> Cal
             expression = f"captures[{payload}]"
         elif source == "body":
             expression = "body"
+        elif source == "request":
+            expression = "request"
         else:
             expression = f"_default_{index}"
             bound_names.append(expression)
@@ -107,7 +118,8 @@ def _compile_invoker(handler: Callable[..., Any], sources: list[_Source]) -> Cal
 
     # Values and non-NFKC-stable names become function defaults, never source.
     arguments = ", ".join((*positional, *keyword))
-    parameters = ", ".join(("captures", "body", *bound_names))
+    request_parameters = ("request",) if any(source[2] == "request" for source in sources) else ()
+    parameters = ", ".join(("captures", "body", *request_parameters, *bound_names))
     return FunctionType(
         _shared_invoker_code(parameters, arguments),
         _INVOKER_GLOBALS,
@@ -124,8 +136,9 @@ class EndpointPlan:
     body_type: Any
     handler: Callable[..., Any]
     int_captures: tuple[tuple[int, str], ...]
-    invoke: Callable[[list[Any], Any], Any]
+    invoke: Callable[..., Any]
     method: str
+    needs_request: bool
     path: str
     path_names: tuple[str, ...]
     resp_encoder: Any
@@ -141,7 +154,10 @@ class EndpointPlan:
         resp_type: Any,
         summary: str,
         path_names: list[str],
+        annotation_locals: Mapping[str, Any] | None = None,
     ) -> None:
+        if body_type is Request:
+            raise TypeError("Request is handler context and cannot be used as a body type")
         object.__setattr__(self, "method", method)
         object.__setattr__(self, "path", path)
         object.__setattr__(self, "handler", handler)
@@ -160,13 +176,14 @@ class EndpointPlan:
             msgspec.json.Encoder() if resp_type is not None else None,
         )
 
-        hints = _type_hints(handler)
+        hints = _type_hints(handler, annotation_locals)
         signature = inspect.signature(handler)
         captures_by_name = {name: index for index, name in enumerate(path_names)}
         sources: list[_Source] = []
         int_captures: list[tuple[int, str]] = []
         used_captures: set[int] = set()
         body_param_seen = False
+        needs_request = False
 
         for name, parameter in signature.parameters.items():
             if parameter.kind in (
@@ -179,12 +196,24 @@ class EndpointPlan:
                 )
 
             annotation = hints.get(name)
+            if isinstance(annotation, str) and not (
+                body_type is not None and not body_param_seen and name not in captures_by_name
+            ):
+                raise TypeError(
+                    f"cannot resolve annotation for '{name}'; supply annotation_locals "
+                    "with the original bindings or use concrete annotations"
+                )
             if name in captures_by_name:
+                if annotation is Request:
+                    raise TypeError(f"path parameter '{name}' cannot also be annotated as Request")
                 index = captures_by_name[name]
                 if annotation is int:
                     int_captures.append((index, name))
                 sources.append((parameter.kind, name, "capture", index))
                 used_captures.add(index)
+            elif annotation is Request:
+                needs_request = True
+                sources.append((parameter.kind, name, "request", None))
             elif body_type is not None and not body_param_seen:
                 body_param_seen = True
                 sources.append((parameter.kind, name, "body", None))
@@ -197,6 +226,7 @@ class EndpointPlan:
                 )
 
         object.__setattr__(self, "int_captures", tuple(int_captures))
+        object.__setattr__(self, "needs_request", needs_request)
         unconsumed = [
             path_names[index] for index in range(len(path_names)) if index not in used_captures
         ]
@@ -206,9 +236,40 @@ class EndpointPlan:
 
     def encode(self, result: Any) -> bytes:
         """Encode a successful result using the endpoint response contract."""
+        if isinstance(result, Request) or (self.needs_request and _contains_request(result, set())):
+            raise TypeError("Request context cannot be serialized as a response")
         if self.resp_encoder is not None and type(result) is self.resp_type:
             return self.resp_encoder.encode(result)
         return _json_encode(result)
+
+
+def _contains_request(value: Any, seen: set[int]) -> bool:
+    """Find a Request nested in response shapes supported by msgspec JSON."""
+    if isinstance(value, Request):
+        return True
+    dataclass_instance = is_dataclass(value) and not isinstance(value, type)
+    if not dataclass_instance and not isinstance(
+        value, (Mapping, list, tuple, set, frozenset, msgspec.Struct, Enum)
+    ):
+        return False
+    identity = id(value)
+    if identity in seen:
+        return False
+    seen.add(identity)
+    if isinstance(value, Enum):
+        return _contains_request(value.value, seen)
+    if is_dataclass(value) and not isinstance(value, type):
+        return any(_contains_request(getattr(value, field.name), seen) for field in fields(value))
+    if isinstance(value, Mapping):
+        return any(_contains_request(item, seen) for pair in value.items() for item in pair)
+    if isinstance(value, msgspec.Struct):
+        return any(
+            _contains_request(getattr(value, field.name), seen)
+            for field in msgspec.structs.fields(type(value))
+        )
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return any(_contains_request(item, seen) for item in value)
+    return False
 
 
 @dataclass(frozen=True, slots=True)
