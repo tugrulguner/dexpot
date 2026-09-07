@@ -20,6 +20,38 @@ compiled C-backed codecs, and evidence-gated Rust acceleration for narrow hot pa
 developer workflow is agent-ready too: bundled coding-agent skills track the same shipped
 route contract and runtime boundaries as the framework documentation.
 
+## Performance and simplicity objective
+
+Dexpot aims to be the fastest, most resource-efficient Python API framework on both
+GIL-enabled and free-threaded CPython while keeping the implementation and public API small.
+This is an engineering objective, not a claim of current benchmark leadership. Compare
+successful equivalent workloads, tail latency, CPU and memory in both modes; neither fast
+errors nor constructor-only measurements establish end-to-end performance.
+
+Keep registration-time direct calls, conditional Request construction, one immutable serving
+plan, and the parser-only native boundary. Prefer removing shared state and duplicate work
+over adding abstraction layers. Optimizations must preserve HTTP correctness and overload
+behavior and earn their complexity through measurements.
+
+### Audit-driven delivery sequence
+
+1. Harden protocol boundaries and validate scheduler settings. Keep the hot-path invoker and
+   scheduler architecture unchanged; test fragmented limits and persistent HEAD framing.
+2. Remove function-owned route metadata and the global annotation-result cache. Resolve
+   annotations per registration and publish complete immutable declarations atomically.
+3. Establish repeatable request-aware/requestless, response-size, route-count, keep-alive and
+   overload benchmarks on GIL and free-threaded Python. Investigate Python/native Connection
+   token whitespace parity before broader native promotion.
+4. Consolidate response and error handling, including field-level output validation. Compare
+   the full cost of recursive response scanning against alternative non-serializable context
+   representations before changing the existing Request type.
+5. Extend lazy request views and typed input sources, then derive OpenAPI from those same
+   endpoint contracts. Add explicit lifecycle ownership before middleware and scoped factories.
+
+Connection budgets, queue waiting time, startup readiness and process-local state semantics
+remain production-readiness work. Do not hide these behind a larger framework API or a Rust
+runtime rewrite.
+
 ## Shipped foundation
 
 The current release line provides:

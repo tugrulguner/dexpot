@@ -84,6 +84,89 @@ def hardened_server() -> Iterator[int]:
             process.wait(timeout=2)
 
 
+@pytest.mark.parametrize("path", ["/health", "/missing"])
+def test_head_errors_preserve_pipeline_framing(hardened_server: int, path: str) -> None:
+    with _connect(hardened_server) as sock:
+        sock.sendall(
+            f"HEAD {path} HTTP/1.1\r\nHost: test\r\n\r\n".encode()
+            + b"GET /health HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n"
+        )
+        head = b""
+        while not head.endswith(b"\r\n\r\n"):
+            chunk = sock.recv(1)
+            assert chunk
+            head += chunk
+        assert head.startswith((b"HTTP/1.1 404", b"HTTP/1.1 405"))
+        status, _headers, body, _rest = _read_response(sock)
+        assert status == 200
+        assert json.loads(body) == {"ok": True}
+
+
+@pytest.mark.parametrize("headers", [b"Bad Header: value\r\n", b"Content-Length: 3\r\n"])
+def test_head_parse_errors_have_no_body(hardened_server: int, headers: bytes) -> None:
+    with _connect(hardened_server) as sock:
+        sock.sendall(b"HEAD /health HTTP/1.1\r\nHost: test\r\n" + headers + b"\r\n")
+        sock.shutdown(socket.SHUT_WR)
+        data = b""
+        while chunk := sock.recv(4096):
+            data += chunk
+        assert data.startswith(b"HTTP/1.1 400")
+        assert data.partition(b"\r\n\r\n")[2] == b""
+
+
+@pytest.mark.parametrize("boundary", ["line", "head"])
+def test_fragmented_exact_limit_accepts_partial_delimiter(boundary: str) -> None:
+    limits = HttpLimits(request_line_bytes=128, header_bytes=256)
+    if boundary == "line":
+        line = b"GET /" + b"a" * (128 - len(b"GET / HTTP/1.1")) + b" HTTP/1.1"
+        initial, remaining = line + b"\r", b"\nHost: test\r\n\r\n"
+    else:
+        head = b"GET / HTTP/1.1\r\nHost: test\r\nX: "
+        head += b"a" * (256 - len(head))
+        initial, remaining = head + b"\r\n\r", b"\n"
+    left, right = socket.socketpair()
+    try:
+        right.sendall(remaining)
+        request, rest = read_request(left, initial, limits)
+        assert request.method == "GET"
+        assert rest == b""
+    finally:
+        left.close()
+        right.close()
+
+
+def test_expect_is_rejected_before_waiting_for_body(hardened_server: int) -> None:
+    with _connect(hardened_server) as sock:
+        sock.settimeout(5)
+        sock.sendall(
+            b"POST /echo HTTP/1.1\r\nHost: test\r\nContent-Length: 13\r\n"
+            b"Expect: 100-continue\r\n\r\n"
+        )
+        status, headers, _body, _rest = _read_response(sock)
+        assert status == 417
+        assert headers["connection"] == "close"
+
+
+@pytest.mark.parametrize(
+    ("setting", "value"),
+    [("DEXPOT_POOL", "-1"), ("DEXPOT_MAX_QUEUE", "0"), ("DEXPOT_MAX_QUEUE", "-1")],
+)
+def test_invalid_scheduler_settings_fail_before_serving(setting: str, value: str) -> None:
+    env = os.environ.copy()
+    env.update(DEXPOT_POOL="1", DEXPOT_MAX_QUEUE="1", PYTHONPATH=str(ROOT / "src"))
+    env[setting] = value
+    result = subprocess.run(
+        [sys.executable, "-c", "from dexpot import Dex; print('ready')"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode != 0
+    assert setting in result.stderr
+    assert "ready" not in result.stdout
+
+
 def _connect(port: int) -> socket.socket:
     sock = socket.create_connection(("127.0.0.1", port), timeout=2)
     sock.settimeout(2)

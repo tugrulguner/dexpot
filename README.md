@@ -350,6 +350,16 @@ uses a bounded pool, sheds excess work with 503, and can add POSIX process fan-o
 paths enforce the same HTTP limits and execute the same compiled route, synchronous
 handler, and msgspec response pipeline shown above.
 
+### Protocol and configuration policy
+
+HEAD responses never include body bytes, including errors; automatic GET-to-HEAD routing
+is not provided. Requests with an `Expect` header are rejected with 417 and connection close
+before reading their body. Retry without `Expect` when appropriate.
+
+`DEXPOT_POOL=0` retains automatic sizing. Negative pool sizes and nonpositive
+`DEXPOT_MAX_QUEUE` values fail at import, before a listener can open; zero queue is not a
+supported no-wait mode. These validation rules apply in both interpreter modes.
+
 ## Current boundaries
 
 The current alpha release has these boundaries:
