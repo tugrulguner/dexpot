@@ -20,6 +20,19 @@ compiled C-backed codecs, and evidence-gated Rust acceleration for narrow hot pa
 developer workflow is agent-ready too: bundled coding-agent skills track the same shipped
 route contract and runtime boundaries as the framework documentation.
 
+## Performance and simplicity objective
+
+The goal is to become the fastest, most resource-efficient modern Python API framework on
+both GIL-enabled and free-threaded CPython, with the smallest practical API and execution
+model. This is an engineering objective, not a claim of current benchmark leadership.
+Measure correct useful throughput within declared latency and resource budgets; neither fast
+rejections nor unchecked responses establish equivalent performance.
+
+Keep ordinary synchronous functions, registration-time direct calls, immutable serving plans,
+conditional feature allocation, and the parser-only native boundary. Prefer removing shared
+state and duplicate work over adding abstraction layers. New complexity must earn its place
+through representative measurements on both interpreter modes.
+
 ## Shipped foundation
 
 The current release line provides:
@@ -98,22 +111,89 @@ and it is not a default dexpot dependency.
 
 ## Next milestones
 
+The research-backed sequence below separates reproduced correctness/simplicity concerns from
+optimization hypotheses. Benchmark baselines, protocol maintenance, and resource limits run
+alongside these milestones, not only after feature expansion. An open implementation or a
+local experiment does not make a planned contract part of the shipped foundation.
+
 ### 3. Complete endpoint and response contracts
 
-Turn the serving core into a useful application framework without inflating decorators:
+Extend the existing `ApplicationPlan`, `RouterPlan`, and `EndpointPlan` kernel without a
+second dispatcher, live route mutation, or a larger decorator language. Deliver this work in
+focused stages:
 
-- Extend the shipped `ApplicationPlan`, `RouterPlan`, and `EndpointPlan` kernel rather than
-  introducing a second dispatcher or live route mutation.
-- Extend the shipped request context with decoded query parameters, cookies, and client metadata.
-- Preserve conditional Request construction and its zero-facade path. Keep already parsed wire
-  values shared; build decoded query and cookie views lazily and cache each at most once.
-- Add typed query/header/cookie binding with registration-time validation.
-- Enforce declared response types instead of treating `response=` as an encoder hint.
-- Add first-class status codes, response headers, empty responses, and stable error types.
-- Generate OpenAPI from the same compiled endpoint plans used by traffic.
-- Add middleware and lifecycle hooks with explicit ordering and no hidden async bridge.
-- Define dependency injection around plain factories and request/application scopes, not a
-  large decorator parameter surface.
+#### 3.1 Registration ownership and diagnostics
+
+- Pass route-local body/response options directly into endpoint declarations rather than
+  storing them on shared user functions; publish only complete registrations.
+- Remove the process-global annotation-result cache and resolve annotations per registration.
+  Preserve the separately bounded generated-call-shape cache and direct-invocation path.
+- Preserve explicit annotation namespaces. Handle eager, stringified, and Python 3.14 deferred
+  annotations deliberately; do not revive caller-frame guessing.
+- Reject detectable unsupported coroutine handlers and signatures before serving.
+
+Exit evidence: reuse across applications, failed-registration atomicity, retention and stale
+annotation regressions, wrapped/local aliases, concurrent registration, and unchanged HTTP
+binding behavior on both interpreter modes.
+
+#### 3.2 Request-aware response handling and output policy
+
+Local response-size and HTTP experiments identify recursive Request-aware response traversal
+as a priority bottleneck, including poor free-threaded scaling in the tested cases. These are
+diagnostic findings, not a competitor ranking or a qualified replacement design. Earlier
+constructor measurements do not settle complete request/response cost.
+
+- Compare an experimental specialized traversal intended to preserve compatibility with a
+  GC-enabled opaque context prototype. Keep Request allocation conditional and already parsed
+  wire values shared within their request lifetime.
+- Test dictionaries and typed Structs, fresh and shared payloads, response sizes, and thread
+  counts. Profile generic inspection and shared-object costs before attributing FT contention.
+- Require nested-container, custom-hook, cycle, logging, and compatibility tests before changing
+  Request representation. Do not remove protections or disable GC simply to improve a score.
+- Define response validation, coercion, public-field projection, and serialization separately.
+  A malformed same-type or nested Struct must not bypass a promised checked contract.
+- Consolidate status codes, headers, empty responses, sanitized errors, and explicit raw-output
+  escape hatches. Preserve or explicitly migrate existing tuple-response behavior.
+
+Exit evidence: full response-contract corpus, a representation/migration decision, no
+requestless allocation regression, and repeatable GIL/FT end-to-end results. Opaque context and
+specialized traversal remain hypotheses until these gates pass.
+
+#### 3.3 Paired lifecycle and typed input sources
+
+- Add one synchronous paired acquisition/cleanup mechanism with reverse-order teardown and
+  partial-startup rollback before accepting traffic.
+- Distinguish process/application, worker/thread, connection, and request lifetimes. A leased
+  database connection need not have the sharing rules of its pool; a process-local singleton
+  is not shared state across workers.
+- Extend request context with lazy decoded query/cookie views and explicitly sourced client
+  metadata. Define repeated values, missing versus null, and trusted-proxy behavior.
+- Add typed query/header/cookie binding with explicit ambiguity resolution and registration-time
+  validation, keeping ordinary Python functions and annotations central.
+- Generate OpenAPI from the same normalized endpoint metadata and msgspec schemas used by
+  traffic, not a second introspection pipeline.
+
+Exit evidence: runnable examples under `examples/` for typed CRUD, pagination/repeated values,
+header authentication, transaction failure, outbound blocking I/O, custom response headers,
+and invalid outputs; runtime/schema agreement and exact acquire/use/cleanup traces.
+
+#### 3.4 Optional hooks and scoped factories
+
+- Start with ordinary factories and closures; add scoped dependency machinery only when real
+  examples demonstrate a need.
+- Compile applicable hook chains and any required dependency graph at registration. Keep
+  no-hook/no-dependency routes free of generic runtime machinery and allocate cleanup state
+  only where needed.
+- Define request-local memoization, ordering, overrides, and cleanup on handler/encoding failure.
+  Commit failures that must affect HTTP success need to occur before response transmission.
+- Reset ambient request context per request, including keep-alive and worker reuse. Do not
+  depend on different GIL/FT thread-context inheritance defaults.
+- Keep async bridges, large provider hierarchies, and per-route threading switches out of the
+  ordinary application model. Disconnecting a socket does not safely cancel a Python thread.
+
+Exit evidence: exact resource/cleanup traces, actionable diagnostics, real examples, and
+measured zero-feature cost. Streaming requires its own lifetime/backpressure contract before
+being included in these guarantees.
 
 #### Request execution spike findings
 
@@ -123,7 +203,7 @@ free-threaded 3.14t:
 
 - Generated direct invokers reduced the isolated call layer by 51–56% for no-argument handlers
   and 62–67% for one-path-parameter handlers.
-- Positional tracked msgspec construction was approximately 90% cheaper than the current
+- Positional tracked msgspec construction was approximately 90% cheaper than the then-current
   keyword-constructed frozen dataclass in the isolated benchmark.
 - Five-round response-validating HTTP campaigns found no material default-route regression. The
   tracked and untracked msgspec variants led or tied the Request-aware free-threaded cells, while
@@ -144,22 +224,48 @@ overload, memory, and shutdown behavior.
 
 ### 4. Performance evidence and scheduler evolution
 
-Keep optimization evidence reproducible and correctness-equivalent:
+Start the baseline before optimizing or broadening contracts, then repeat it as contracts evolve:
 
-- Publish a versioned `benchmarks/` harness using `wrk`, fixed request mixes, and equivalent
-  validation and response behavior across frameworks.
-- Report successful responses, errors, p50/p95/p99 latency, and CPU/memory—not RPS alone.
-- Benchmark native GIL and free-threaded interpreters in separate environments and record
-  `sys._is_gil_enabled()` with every result.
-- Sweep GIL pool, queue, and process counts instead of selecting a flattering competitor
-  configuration.
-- Continue profiling route matching, parsing, codec use, allocations, locks, and system calls as
-  the HTTP contract evolves.
-- Add deterministic overload tests that prove useful work stays responsive while excess
-  connections receive 503.
-- Preserve the issue #18 parser spike, differential corpus, and goodput accounting as prerequisite
-  evidence. Re-run the exact published release before promoting public benchmark claims or moving
-  another hot path into native code.
+- Separate normal product facilities, equivalent-feature services, controlled-codec experiments,
+  and best deployable stacks. Do not compare unchecked encoding to validated/filtered output
+  without identifying the contract difference.
+- Include FastAPI, Starlette, Litestar, Falcon, Robyn, BlackSheep, Sanic, aiohttp, and socketify.py.
+  Include strong Falcon WSGI/threaded-server and msgspec-equipped configurations, Litestar's
+  supported inline/offload choices, and tuned GIL process counts—not only convenient defaults.
+- Pin framework/server/parser/codec/interpreter versions and resource budgets. Record actual
+  worker `sys._is_gil_enabled()` after imports and warmup; mark unverified deployment cells
+  honestly rather than assuming a wheel or executable name establishes FT support.
+- Measure requestless and Request-aware JSON, typed bodies and checked outputs, first/last/miss
+  routing at realistic route counts, real database/outbound I/O, pure-Python and native CPU
+  work, mixed traffic, slow clients, overload/recovery, and shutdown.
+- Report correct business goodput, error counts, successful-response tail latency, CPU, memory,
+  thread/fd counts, and queue age. Fast 503s are not successful operations.
+- Use `wrk` for saturation diagnostics and an arrival-scheduled generator for latency/SLO
+  qualification. Account for coordinated omission, calibration, client validation overhead,
+  and generator saturation; short local runs are not promotion evidence.
+- Use randomized paired trials, separate tuning from held-out confirmation, retain every trial
+  and invalidation reason, and report uncertainty and losing cells. Do not average percentiles
+  into a fictitious pooled distribution or hide a losing runtime in a combined score.
+- Normalize total CPU/memory and database-pool budgets across thread/process deployments.
+  Require longer bare-metal Linux runs, real-service workloads, soak, and independent
+  reproduction before broad performance claims.
+- Profile routing, generic object inspection, allocation/retention, shared-state contention,
+  parsing, codecs, and syscalls before selecting a change. Evaluate method/path and prefix
+  indexes while retaining literal lookup and existing route precedence.
+- Establish explicit FT connection/work budgets and measure idle-connection fairness and queue
+  waiting time. Preserve one owner at a time; reconsider idle-socket scheduling only if measured
+  resource/SLO failures justify it. Unbounded FT threads are not the production destination.
+- Preserve the issue #18 parser parity and goodput gates; moving additional work into native
+  code requires measured end-to-end benefit and supported GIL/FT artifacts.
+
+Exit evidence: a correctness-matched baseline and reproducible qualification manifest, zero
+observed semantic mismatches in the acceptance corpus, bounded resource recovery, and a
+meaningful repeatable benefit without material regressions in mandatory workloads. Agree
+quantitative budgets before confirmation rather than choosing them after seeing results.
+
+A future publishable benchmark harness and results require their own reviewed scope. Keep raw
+local spike scripts and outputs outside this roadmap change; only research conclusions belong
+here.
 
 #### Native parser promotion gates
 
@@ -180,11 +286,13 @@ but those measurements are promotion evidence rather than README performance cla
 
 ### 5. Production operations
 
-Add operational controls while preserving the synchronous programming model:
+Run operational work alongside endpoint features, preserving the synchronous programming model:
 
 - Structured access and error logging with request IDs.
-- Metrics for active connections, queue depth, saturation, worker restarts, response status,
-  and drain duration.
+- Metrics for active connections, queue depth/age, saturation, worker restarts, response status,
+  and drain duration; bounded telemetry that does not add a global hot-path lock.
+- Explicit resource budgets for both GIL and FT deployments, including body buffering,
+  accepted connections, and overload recovery.
 - Configurable graceful-shutdown and per-connection deadlines.
 - Trusted-proxy and forwarded-header policy.
 - TLS guidance and explicit reverse-proxy deployment patterns.
@@ -210,7 +318,7 @@ Once the contract and operations are stable:
 - Requiring `async def`, exposing an event loop API, or making ASGI the framework core.
 - Becoming a thin wrapper around FastAPI, Starlette, Flask, or another server.
 - Hiding GIL versus free-threaded behavior behind one misleading performance number.
-- Accepting unbounded work on GIL builds instead of shedding overload.
+- Treating unbounded work as a production strategy on either interpreter mode.
 - Adding complex decorator configuration when a small typed object or ordinary Python
   function can express the same contract.
 - Claiming production readiness before parser limits, stable failures, operational signals,
@@ -237,7 +345,8 @@ silently weaken overload and shutdown behavior.
 
 ---
 
-Roadmap work should get a focused issue before implementation. Start with
+Contributor roadmap work should get a focused issue before implementation. Maintainer-led
+architecture work uses focused direct changes without consuming contributor issues. Start with
 [CONTRIBUTING.md](CONTRIBUTING.md) and include a real-user HTTP test for behavior changes.
 
 ### Explicit annotation namespaces
