@@ -55,8 +55,9 @@ Use `make format` before committing.
 - Public performance claims come from reproducible, correctness-matched benchmarks.
 - Optimize for leadership on both GIL-enabled and free-threaded CPython with the smallest
   practical API and execution model; do not trade protocol correctness for benchmark scores.
-- HEAD responses stay bodyless, including parse errors; unsupported expectations fail before
-  body reads. Fragmentation must not change configured request-size acceptance.
+- Parsed HEAD requests stay bodyless, including parse errors; admission may reject a connection
+  before reading its method. Unsupported expectations fail before body reads. Fragmentation must
+  not change configured request-size acceptance.
 - Scheduler settings fail before serving when invalid; pool zero means automatic sizing,
   while the queue limit must be positive.
 

@@ -114,8 +114,9 @@ annotation scope. Test repeated factory calls and per-registration namespace iso
 
 ### Protocol and configuration policy
 
-HEAD responses never include body bytes, including errors; automatic GET-to-HEAD routing
-is not provided. Requests with an `Expect` header are rejected with 417 and connection close
+Once a request reaches parsing, HEAD responses never include body bytes, including parser and
+handler errors; admission can reject an unread connection before its method is known. Automatic
+GET-to-HEAD routing is not provided. Requests with an `Expect` header are rejected with 417 and connection close
 before reading their body. Retry without `Expect` when appropriate.
 
 `DEXPOT_POOL=0` retains automatic sizing. Negative pool sizes and nonpositive
