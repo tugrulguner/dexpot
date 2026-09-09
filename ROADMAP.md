@@ -345,8 +345,7 @@ silently weaken overload and shutdown behavior.
 
 ---
 
-Contributor roadmap work should get a focused issue before implementation. Maintainer-led
-architecture work uses focused direct changes without consuming contributor issues. Start with
+Roadmap work should get a focused issue before implementation. Start with
 [CONTRIBUTING.md](CONTRIBUTING.md) and include a real-user HTTP test for behavior changes.
 
 ### Explicit annotation namespaces
