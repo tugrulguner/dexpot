@@ -53,6 +53,13 @@ Use `make format` before committing.
 - GIL admission remains bounded and returns 503 instead of accumulating unlimited work.
 - Free-threaded and GIL behavior are tested deliberately rather than assumed equivalent.
 - Public performance claims come from reproducible, correctness-matched benchmarks.
+- Optimize for leadership on both GIL-enabled and free-threaded CPython with the smallest
+  practical API and execution model; do not trade protocol correctness for benchmark scores.
+- Parsed HEAD requests stay bodyless, including parse errors; admission may reject a connection
+  before reading its method. Unsupported expectations fail before body reads. Fragmentation must
+  not change configured request-size acceptance.
+- Scheduler settings fail before serving when invalid; pool zero means automatic sizing,
+  while the queue limit must be positive.
 
 The rules above come from the route-binding, keep-alive, signal, and multiprocess bugs
 already exercised by the end-to-end suite. Treat them as architecture contracts rather

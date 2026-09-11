@@ -112,6 +112,17 @@ explicit `body=` binding remains authoritative for its body parameter. Use only 
 bindings rather than retaining all factory locals. Wrapped handlers use their original
 annotation scope. Test repeated factory calls and per-registration namespace isolation.
 
+### Protocol and configuration policy
+
+Once a request reaches parsing, HEAD responses never include body bytes, including parser and
+handler errors; admission can reject an unread connection before its method is known. Automatic
+GET-to-HEAD routing is not provided. Requests with an `Expect` header are rejected with 417 and connection close
+before reading their body. Retry without `Expect` when appropriate.
+
+`DEXPOT_POOL=0` retains automatic sizing. Negative pool sizes and nonpositive
+`DEXPOT_MAX_QUEUE` values fail at import, before a listener can open; zero queue is not a
+supported no-wait mode. These validation rules apply in both interpreter modes.
+
 ## HTTP boundary
 
 - `HttpLimits` is the one immutable policy for request-line bytes, total header bytes, header

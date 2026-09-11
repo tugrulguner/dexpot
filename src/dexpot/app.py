@@ -52,6 +52,10 @@ _is_gil_enabled = getattr(sys, "_is_gil_enabled", None)
 _gil_free = not _is_gil_enabled() if _is_gil_enabled is not None else False
 POOL_SIZE = int(os.environ.get("DEXPOT_POOL", "0")) or (_cores if _gil_free else _cores * 2 + 2)
 MAX_QUEUE = int(os.environ.get("DEXPOT_MAX_QUEUE", str(POOL_SIZE * 2)))
+if POOL_SIZE <= 0:
+    raise ValueError("DEXPOT_POOL must be positive, or zero for automatic sizing")
+if MAX_QUEUE <= 0:
+    raise ValueError("DEXPOT_MAX_QUEUE must be positive")
 
 _json_encode = msgspec.json.encode
 _logger = logging.getLogger("dexpot.error")
@@ -280,6 +284,7 @@ class Dex:
                 _json_encode({"detail": exc.detail}),
                 keep_alive=False,
                 version=exc.version or "HTTP/1.1",
+                suppress_body=exc.suppress_body,
             )
             return False, b""
 
@@ -292,6 +297,7 @@ class Dex:
                     _json_encode({"detail": "method not allowed"}),
                     keep_alive=request.keep_alive,
                     version=request.version,
+                    suppress_body=request.method == "HEAD",
                     extra_headers=(("Allow", ", ".join(allowed)),),
                 )
             else:
@@ -301,6 +307,7 @@ class Dex:
                     _json_encode({"detail": "not found"}),
                     keep_alive=request.keep_alive,
                     version=request.version,
+                    suppress_body=request.method == "HEAD",
                 )
             return request.keep_alive, buf
 
@@ -321,6 +328,7 @@ class Dex:
                         _json_encode({"detail": f"invalid int for {pname}"}),
                         keep_alive=request.keep_alive,
                         version=request.version,
+                        suppress_body=request.method == "HEAD",
                     )
                     return request.keep_alive, buf
 
@@ -335,6 +343,7 @@ class Dex:
                         _json_encode({"detail": str(exc)}),
                         keep_alive=request.keep_alive,
                         version=request.version,
+                        suppress_body=request.method == "HEAD",
                     )
                     return request.keep_alive, buf
 
@@ -381,6 +390,7 @@ class Dex:
             out,
             keep_alive=request.keep_alive,
             version=request.version,
+            suppress_body=request.method == "HEAD",
         )
         return request.keep_alive, buf
 
@@ -393,6 +403,7 @@ class Dex:
         keep_alive: bool,
         version: str = "HTTP/1.1",
         extra_headers: tuple[tuple[str, str], ...] = (),
+        suppress_body: bool = False,
     ) -> None:
         if type(status) is not int or not 100 <= status <= 599:
             _logger.error("invalid response status %r; sending 500", status)
@@ -400,7 +411,7 @@ class Dex:
             out = _json_encode({"detail": "internal server error"})
             keep_alive = False
         informational = 100 <= status < 200
-        if informational or status in _BODYLESS_STATUSES:
+        if suppress_body or informational or status in _BODYLESS_STATUSES:
             out = b""
         try:
             reason = http.HTTPStatus(status).phrase.encode("ascii")
@@ -408,7 +419,7 @@ class Dex:
             reason = b""
         # 1xx and 204 forbid Content-Length. For 304 it would describe the
         # selected 200 representation, which dexpot cannot infer, so omit it.
-        omit_length = informational or status in (204, 304)
+        omit_length = suppress_body or informational or status in (204, 304)
         header = b"%s %d %s\r\nServer: dexpot\r\nConnection: %s\r\n" % (
             version.encode("ascii"),
             status,

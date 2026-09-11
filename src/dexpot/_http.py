@@ -87,6 +87,7 @@ class HTTPParseError(Exception):
         self.status = status
         self.detail = detail
         self.version = version
+        self.suppress_body = False
 
     def with_version(self, version: str) -> HTTPParseError:
         self.version = version
@@ -343,78 +344,88 @@ def read_request(
     delimiter = b"\r\n\r\n"
     head_deadline = time.monotonic() + limits.head_read_seconds
     head_buffer = bytearray(buf)
-    while True:
-        delimiter_index = head_buffer.find(delimiter)
-        if delimiter_index >= 0:
-            break
-        first_line_end = head_buffer.find(b"\r\n")
-        if first_line_end >= 0:
-            if first_line_end > limits.request_line_bytes:
-                raise HTTPParseError(414, "request target too long")
-        elif len(head_buffer) > limits.request_line_bytes:
-            raise HTTPParseError(414, "request target too long")
-        if len(head_buffer) > limits.header_bytes:
-            raise HTTPParseError(431, "request headers too large")
-        chunk = _recv(
-            conn,
-            deadline=head_deadline,
-            idle_seconds=limits.idle_read_seconds,
-        )
-        if not chunk:
-            if not head_buffer:
-                raise ClientDisconnected()
-            raise HTTPParseError(400, "incomplete request head")
-        head_buffer.extend(chunk)
-
-    head = bytes(head_buffer[:delimiter_index])
-    rest = bytes(head_buffer[delimiter_index + len(delimiter) :])
-    if len(head) > limits.header_bytes:
-        raise HTTPParseError(431, "request headers too large")
-    method, target, version, headers, content_length, keep_alive = _parse_head(head, limits)
-
-    if len(rest) >= content_length:
-        body = rest[:content_length]
-        remaining = rest[content_length:]
-    else:
-        body_deadline = time.monotonic() + limits.body_read_seconds
-        body_buffer = bytearray(rest)
-        remaining = b""
-        while len(body_buffer) < content_length:
-            try:
-                chunk = _recv(
-                    conn,
-                    deadline=body_deadline,
-                    idle_seconds=limits.idle_read_seconds,
-                    version=version,
-                )
-            except HTTPParseError as exc:
-                raise exc.with_version(version) from None
-            if not chunk:
-                raise HTTPParseError(400, "incomplete request body", version)
-            needed = content_length - len(body_buffer)
-            body_buffer.extend(chunk[:needed])
-            if len(chunk) > needed:
-                remaining = chunk[needed:]
-                break
-        body = bytes(body_buffer)
-
     try:
-        path, query = _decode_path(target)
-    except HTTPParseError as exc:
-        raise exc.with_version(version) from None
+        while True:
+            delimiter_index = head_buffer.find(delimiter)
+            if delimiter_index >= 0:
+                break
+            first_line_end = head_buffer.find(b"\r\n")
+            if first_line_end >= 0:
+                if first_line_end > limits.request_line_bytes:
+                    raise HTTPParseError(414, "request target too long")
+            elif len(head_buffer) - head_buffer.endswith(b"\r") > limits.request_line_bytes:
+                raise HTTPParseError(414, "request target too long")
+            if len(head_buffer) > limits.header_bytes:
+                # Only a partial delimiter may exceed the configured head size.
+                pending = next((n for n in (3, 2, 1) if head_buffer.endswith(delimiter[:n])), 0)
+                if len(head_buffer) - pending > limits.header_bytes:
+                    raise HTTPParseError(431, "request headers too large")
+            chunk = _recv(
+                conn,
+                deadline=head_deadline,
+                idle_seconds=limits.idle_read_seconds,
+            )
+            if not chunk:
+                if not head_buffer:
+                    raise ClientDisconnected()
+                raise HTTPParseError(400, "incomplete request head")
+            head_buffer.extend(chunk)
 
-    # `_recv` tightens the socket timeout to the remaining absolute deadline.
-    # Restore the normal idle timeout before response writes or the next request.
-    conn.settimeout(limits.idle_read_seconds)
-    return (
-        ParsedRequest(
-            method=method,
-            path=path,
-            query=query,
-            version=version,
-            headers=headers,
-            body=body,
-            keep_alive=keep_alive,
-        ),
-        remaining,
-    )
+        head = bytes(head_buffer[:delimiter_index])
+        rest = bytes(head_buffer[delimiter_index + len(delimiter) :])
+        if len(head) > limits.header_bytes:
+            raise HTTPParseError(431, "request headers too large")
+        method, target, version, headers, content_length, keep_alive = _parse_head(head, limits)
+        if "expect" in headers:
+            raise HTTPParseError(417, "expectation failed", version)
+
+        if len(rest) >= content_length:
+            body = rest[:content_length]
+            remaining = rest[content_length:]
+        else:
+            body_deadline = time.monotonic() + limits.body_read_seconds
+            body_buffer = bytearray(rest)
+            remaining = b""
+            while len(body_buffer) < content_length:
+                try:
+                    chunk = _recv(
+                        conn,
+                        deadline=body_deadline,
+                        idle_seconds=limits.idle_read_seconds,
+                        version=version,
+                    )
+                except HTTPParseError as exc:
+                    raise exc.with_version(version) from None
+                if not chunk:
+                    raise HTTPParseError(400, "incomplete request body", version)
+                needed = content_length - len(body_buffer)
+                body_buffer.extend(chunk[:needed])
+                if len(chunk) > needed:
+                    remaining = chunk[needed:]
+                    break
+            body = bytes(body_buffer)
+
+        try:
+            path, query = _decode_path(target)
+        except HTTPParseError as exc:
+            raise exc.with_version(version) from None
+
+        # `_recv` tightens the socket timeout to the remaining absolute deadline.
+        # Restore the normal idle timeout before response writes or the next request.
+        conn.settimeout(limits.idle_read_seconds)
+        return (
+            ParsedRequest(
+                method=method,
+                path=path,
+                query=query,
+                version=version,
+                headers=headers,
+                body=body,
+                keep_alive=keep_alive,
+            ),
+            remaining,
+        )
+    except HTTPParseError as exc:
+        # Preserve HEAD framing even when parsing fails before a request exists.
+        exc.suppress_body = head_buffer.startswith(b"HEAD ")
+        raise
