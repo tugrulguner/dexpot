@@ -59,10 +59,18 @@ def test_skill_documents_current_boundaries() -> None:
 
 def test_skill_documents_current_body_binding_order() -> None:
     body = skill_body()
+    normalized = " ".join(body.split())
     assert "first non-path, non-Request parameter is the body parameter" in body
     assert body.index("### Explicit annotation namespaces") < body.index("## HTTP boundary")
-    assert "On Request-aware routes" in body
-    assert "outside this guard" in body
+    assert "Dexpot always rejects a directly returned Request" in normalized
+    assert (
+        "On Request-aware routes, it also rejects nested Request values in supported "
+        "response containers"
+    ) in normalized
+    assert (
+        "Explicit extraction of sensitive fields and nested, manually created Request values "
+        "returned by requestless handlers are outside the recursive guard"
+    ) in normalized
     assert "default-only parameters after it" in body
 
 
