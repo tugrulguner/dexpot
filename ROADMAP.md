@@ -252,9 +252,12 @@ Start the baseline before optimizing or broadening contracts, then repeat it as 
 - Profile routing, generic object inspection, allocation/retention, shared-state contention,
   parsing, codecs, and syscalls before selecting a change. Evaluate method/path and prefix
   indexes while retaining literal lookup and existing route precedence.
-- Establish explicit FT connection/work budgets and measure idle-connection fairness and queue
-  waiting time. Preserve one owner at a time; reconsider idle-socket scheduling only if measured
-  resource/SLO failures justify it. Unbounded FT threads are not the production destination.
+- Establish explicit FT connection/work budgets, including a configurable process-wide
+  active-connection cap with explicit overload behavior before per-connection thread creation.
+  Require real-socket coverage for slow keep-alive clients, thread growth, and file-descriptor
+  pressure; measure idle-connection fairness and queue waiting time. Preserve one owner at a time;
+  reconsider idle-socket scheduling only if measured resource/SLO failures justify it.
+  Unbounded FT threads are not the production destination.
 - Preserve the issue #18 parser parity and goodput gates; moving additional work into native
   code requires measured end-to-end benefit and supported GIL/FT artifacts.
 
