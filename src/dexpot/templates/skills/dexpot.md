@@ -93,10 +93,10 @@ def update(item: ItemIn, item_id: int, *, request: Request) -> dict[str, object]
 The frozen, GC-tracked object exposes `method`, `path`, raw string `params`, the raw `query`
 string, lowercase-name `headers`, received `raw_body` bytes, and the validated `body`. Handlers
 without a `Request` annotation do not allocate the public context object. Freezing is shallow:
-contained dictionaries and body values remain request-local application objects. Do not return
-the context. On Request-aware routes, Dexpot rejects direct and nested Request values in
-supported response containers. Explicit extraction of sensitive fields and manually created
-contexts returned by requestless handlers are outside this guard.
+contained dictionaries and body values remain request-local application objects. Dexpot always
+rejects a directly returned Request. On Request-aware routes, it also rejects nested Request values
+in supported response containers. Explicit extraction of sensitive fields and nested, manually
+created Request values returned by requestless handlers are outside the recursive guard.
 
 Prefer errors at registration. If a declaration can be proven invalid while the module is
 imported, do not defer it until a request.
