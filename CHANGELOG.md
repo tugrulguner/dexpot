@@ -10,6 +10,17 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.4.1] - 2026-09-12
+
+### Changed
+
+- Reject unsupported Expect headers before reading bodies and reject invalid pool or queue settings before serving.
+
+### Fixed
+
+- Keep parsed HEAD responses bodyless and accept exact-size request heads split across delimiter boundaries.
+
+
 ## [0.4.0] - 2026-09-05
 
 ### Added
