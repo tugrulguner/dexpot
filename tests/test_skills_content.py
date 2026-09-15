@@ -31,6 +31,7 @@ def test_description_tells_agents_when_to_load_skill() -> None:
         "structural shape",
         "Free-threaded",
         "bounded pool",
+        "DEXPOT_MAX_CONNECTIONS",
         "DEXPOT_WORKERS",
         "DEXPOT_HTTP_PARSER",
         "keep-alive connection",

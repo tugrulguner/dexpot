@@ -59,8 +59,8 @@ keeps the same plain synchronous handlers in both modes:
 - **Compiled endpoint plans.** Route matching metadata, argument sources, path conversions,
   and msgspec codecs are prepared when a handler is registered.
 - **Interpreter-adaptive scheduling.** Free-threaded builds use one process and a real thread
-  per connection. GIL builds use a bounded thread pool with fast 503 overload shedding and
-  can fan out through `SO_REUSEPORT` workers.
+  per connection, capped at 1,024 active connections by default. GIL builds use a bounded
+  thread pool with fast 503 overload shedding and can fan out through `SO_REUSEPORT` workers.
 - **msgspec request bodies.** JSON decoding and validation happen together in compiled C
   codecs.
 - **Optional Rust/PyO3 request-head parser.** A compatible `dexpot-native` installation
@@ -299,7 +299,7 @@ dexpot chooses its scheduler once when the module is imported.
 
 | Runtime | Default serving model | Overload behavior |
 |---|---|---|
-| Free-threaded CPython (`sys._is_gil_enabled() == False`) | One process; each accepted connection owns a thread | No framework queue; OS and process limits apply |
+| Free-threaded CPython (`sys._is_gil_enabled() == False`) | One process; each admitted connection owns a thread | Active connections capped at 1,024 by default; excess connections receive 503 before thread creation |
 | Standard GIL CPython | Bounded pool of `CPU * 2 + 2` connection-owning threads | Queue capped at `2 * pool`; excess connections receive 503 |
 | Standard GIL CPython with `DEXPOT_WORKERS>1` | POSIX `SO_REUSEPORT` processes, each with its own bounded pool | Each worker sheds independently |
 
@@ -307,9 +307,13 @@ A worker owns a keep-alive connection until it closes. This avoids putting idle 
 sockets back into a shared queue, where they can consume admission capacity and stall a
 worker waiting for the next request.
 
-Tune the GIL scheduler before the process imports dexpot:
+Tune admission before the process imports dexpot:
 
 ```bash
+# Set the free-threaded process-wide active-connection cap.
+DEXPOT_MAX_CONNECTIONS=512 dexpot serve main:app
+
+# Set the GIL thread pool and queue.
 DEXPOT_POOL=16 DEXPOT_MAX_QUEUE=32 dexpot serve main:app
 ```
 
@@ -345,10 +349,10 @@ Python path for configured head limits beyond Rust's `usize` range. Incompatible
 native installations fail visibly. Python continues to own sockets, deadlines, bodies, and routing.
 
 The interpreter changes admission and scheduling, not application code. Free-threaded
-CPython gives each accepted connection its own thread in one process. Standard GIL CPython
-uses a bounded pool, sheds excess work with 503, and can add POSIX process fan-out. Both
-paths enforce the same HTTP limits and execute the same compiled route, synchronous
-handler, and msgspec response pipeline shown above.
+CPython gives each admitted connection its own thread in one process and sheds above the
+configured process-wide cap. Standard GIL CPython uses a bounded pool, sheds above its queue
+limit, and can add POSIX process fan-out. Both paths enforce the same HTTP limits and execute
+the same compiled route, synchronous handler, and msgspec response pipeline shown above.
 
 ### Protocol and configuration policy
 
@@ -358,8 +362,9 @@ GET-to-HEAD routing is not provided. Requests with an `Expect` header are reject
 before reading their body. Retry without `Expect` when appropriate.
 
 `DEXPOT_POOL=0` retains automatic sizing. Negative pool sizes and nonpositive
-`DEXPOT_MAX_QUEUE` values fail at import, before a listener can open; zero queue is not a
-supported no-wait mode. These validation rules apply in both interpreter modes.
+`DEXPOT_MAX_QUEUE` or `DEXPOT_MAX_CONNECTIONS` values fail at import, before a listener can
+open; zero queue or connection capacity is not a supported no-wait mode. These validation
+rules apply in both interpreter modes.
 
 ## Current boundaries
 

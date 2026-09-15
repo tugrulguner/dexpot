@@ -57,7 +57,8 @@ The current release line provides:
   method resolution.
 - Stable public parser and handler failures with server-side exception diagnostics.
 - Automatic free-threaded detection through `sys._is_gil_enabled()`.
-- One-process thread-per-connection execution on free-threaded CPython.
+- One-process thread-per-connection execution on free-threaded CPython, bounded by a
+  configurable process-wide active-connection cap with immediate 503 shedding.
 - Bounded GIL thread pools with queue limits and immediate 503 shedding.
 - Optional POSIX `SO_REUSEPORT` worker processes on GIL builds.
 - Worker restart, partial-startup cleanup, SIGINT/SIGTERM handling, and bounded draining.
@@ -252,12 +253,10 @@ Start the baseline before optimizing or broadening contracts, then repeat it as 
 - Profile routing, generic object inspection, allocation/retention, shared-state contention,
   parsing, codecs, and syscalls before selecting a change. Evaluate method/path and prefix
   indexes while retaining literal lookup and existing route precedence.
-- Establish explicit FT connection/work budgets, including a configurable process-wide
-  active-connection cap with explicit overload behavior before per-connection thread creation.
-  Require real-socket coverage for slow keep-alive clients, thread growth, and file-descriptor
-  pressure; measure idle-connection fairness and queue waiting time. Preserve one owner at a time;
-  reconsider idle-socket scheduling only if measured resource/SLO failures justify it.
-  Unbounded FT threads are not the production destination.
+- Qualify the FT active-connection default and broader work budgets under slow keep-alive,
+  thread, file-descriptor, and mixed-workload pressure. Measure idle-connection fairness and
+  admission behavior while preserving one owner at a time; reconsider idle-socket scheduling
+  only if measured resource/SLO failures justify it.
 - Preserve the issue #18 parser parity and goodput gates; moving additional work into native
   code requires measured end-to-end benefit and supported GIL/FT artifacts.
 

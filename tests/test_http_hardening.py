@@ -9,13 +9,15 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 
-from dexpot import HttpLimits
+import dexpot.app as app_module
+from dexpot import Dex, HttpLimits
 from dexpot._http import read_request
 
 ROOT = Path(__file__).parent.parent
@@ -36,11 +38,13 @@ def _start_server(
     idle_read_seconds: float = 2.0,
     head_read_seconds: float = 3.0,
     body_read_seconds: float = 3.0,
+    max_connections: int = 1024,
 ) -> subprocess.Popen[bytes]:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(ROOT / "src") + os.pathsep + env.get("PYTHONPATH", "")
     env["DEXPOT_POOL"] = "1"
     env["DEXPOT_MAX_QUEUE"] = "1"
+    env["DEXPOT_MAX_CONNECTIONS"] = str(max_connections)
     env["DEXPOT_TEST_IDLE_SECONDS"] = str(idle_read_seconds)
     env["DEXPOT_TEST_HEAD_SECONDS"] = str(head_read_seconds)
     env["DEXPOT_TEST_BODY_SECONDS"] = str(body_read_seconds)
@@ -149,7 +153,15 @@ def test_expect_is_rejected_before_waiting_for_body(hardened_server: int) -> Non
 
 @pytest.mark.parametrize(
     ("setting", "value"),
-    [("DEXPOT_POOL", "-1"), ("DEXPOT_MAX_QUEUE", "0"), ("DEXPOT_MAX_QUEUE", "-1")],
+    [
+        ("DEXPOT_POOL", "-1"),
+        ("DEXPOT_MAX_QUEUE", "0"),
+        ("DEXPOT_MAX_QUEUE", "-1"),
+        ("DEXPOT_MAX_CONNECTIONS", "0"),
+        ("DEXPOT_MAX_CONNECTIONS", "-1"),
+        ("DEXPOT_MAX_CONNECTIONS", ""),
+        ("DEXPOT_MAX_CONNECTIONS", "many"),
+    ],
 )
 def test_invalid_scheduler_settings_fail_before_serving(setting: str, value: str) -> None:
     env = os.environ.copy()
@@ -165,6 +177,24 @@ def test_invalid_scheduler_settings_fail_before_serving(setting: str, value: str
     assert result.returncode != 0
     assert setting in result.stderr
     assert "ready" not in result.stdout
+
+
+def test_valid_free_threaded_connection_setting_imports_before_serving() -> None:
+    env = os.environ.copy()
+    env.update(DEXPOT_MAX_CONNECTIONS="1", PYTHONPATH=str(ROOT / "src"))
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from dexpot.app import MAX_CONNECTIONS; print(MAX_CONNECTIONS)",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=True,
+    )
+    assert result.stdout.strip() == "1"
 
 
 def _connect(port: int) -> socket.socket:
@@ -209,6 +239,30 @@ def _json(body: bytes) -> dict[str, object]:
     value = json.loads(body)
     assert isinstance(value, dict)
     return value
+
+
+def _json_int(body: bytes, field: str) -> int:
+    value = _json(body)[field]
+    assert type(value) is int
+    return value
+
+
+def _process_thread_count(pid: int) -> int | None:
+    status = Path(f"/proc/{pid}/status")
+    if status.exists():
+        for line in status.read_text().splitlines():
+            if line.startswith("Threads:"):
+                return int(line.split(":", 1)[1])
+    if sys.platform == "darwin":
+        result = subprocess.run(
+            ["ps", "-M", "-p", str(pid)],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        )
+        return max(0, len(result.stdout.splitlines()) - 1)
+    return None
 
 
 def test_http_limits_are_positive_and_immutable() -> None:
@@ -685,6 +739,42 @@ def test_saturation_still_returns_503(hardened_server: int) -> None:
             third.close()
 
 
+@pytest.mark.skipif(not _GIL_ENABLED, reason="GIL mode preserves pool and queue admission")
+def test_free_threaded_connection_setting_does_not_reduce_gil_queue_capacity() -> None:
+    port = _free_port()
+    process = _start_server(port, idle_read_seconds=30.0, max_connections=1)
+    active = _connect(port)
+    queued = _connect(port)
+    try:
+        active.sendall(b"GET /health HTTP/1.1\r\nHost: test")
+        time.sleep(0.2)
+        queued.sendall(b"GET /health HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n")
+        time.sleep(0.2)
+
+        status, headers, body = _request(
+            port,
+            b"GET /health HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n",
+        )
+        assert status == 503
+        assert headers["connection"] == "close"
+        assert _json(body) == {"detail": "overloaded"}
+
+        active.close()
+        status, _headers, body, _rest = _read_response(queued)
+        assert status == 200
+        assert _json(body) == {"ok": True}
+    finally:
+        active.close()
+        queued.close()
+        if process.poll() is None:
+            process.send_signal(signal.SIGTERM)
+            try:
+                process.wait(timeout=8)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=2)
+
+
 @pytest.mark.skipif(_GIL_ENABLED, reason="GIL mode uses bounded admission instead")
 def test_free_threaded_admission_does_not_use_gil_queue(hardened_server: int) -> None:
     slow = [_connect(hardened_server) for _ in range(8)]
@@ -700,6 +790,320 @@ def test_free_threaded_admission_does_not_use_gil_queue(hardened_server: int) ->
     finally:
         for sock in slow:
             sock.close()
+
+
+@pytest.mark.skipif(_GIL_ENABLED, reason="active connection cap is specific to free-threaded mode")
+def test_free_threaded_connection_cap_is_process_wide(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    slots = threading.BoundedSemaphore(1)
+    monkeypatch.setattr(app_module, "_FT_CONNECTION_SLOTS", slots, raising=False)
+    first_app = Dex()
+    second_app = Dex()
+    first_server, first_client = socket.socketpair()
+    second_server, second_client = socket.socketpair()
+    second_client.settimeout(2)
+    try:
+        first_app._handle_admission(first_server, b"")
+        second_app._handle_admission(second_server, b"")
+        status, headers, body, _rest = _read_response(second_client)
+        assert status == 503
+        assert headers["connection"] == "close"
+        assert _json(body) == {"detail": "overloaded"}
+    finally:
+        first_client.close()
+        second_client.close()
+        first_app._begin_drain(timeout=0.1)
+        second_app._begin_drain(timeout=0.1)
+
+
+@pytest.mark.skipif(_GIL_ENABLED, reason="active connection cap is specific to free-threaded mode")
+def test_free_threaded_thread_start_failure_releases_connection_slot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = Dex()
+    slots = threading.BoundedSemaphore(1)
+    monkeypatch.setattr(app_module, "_FT_CONNECTION_SLOTS", slots)
+    server, client = socket.socketpair()
+
+    class FailingThread:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def start(self) -> None:
+            raise RuntimeError("cannot start thread")
+
+    monkeypatch.setattr(threading, "Thread", FailingThread)
+    try:
+        app._handle_admission(server, b"")
+        status, headers, body, _rest = _read_response(client)
+        assert status == 503
+        assert headers["connection"] == "close"
+        assert _json(body) == {"detail": "overloaded"}
+        assert not app._active_connections
+        assert slots.acquire(blocking=False)
+        slots.release()
+    finally:
+        server.close()
+        client.close()
+
+
+@pytest.mark.skipif(_GIL_ENABLED, reason="active connection cap is specific to free-threaded mode")
+@pytest.mark.parametrize("error_type", [MemoryError, RuntimeError])
+def test_free_threaded_thread_construction_failure_cleans_up_admission(
+    monkeypatch: pytest.MonkeyPatch,
+    error_type: type[Exception],
+) -> None:
+    app = Dex()
+    slots = threading.BoundedSemaphore(1)
+    monkeypatch.setattr(app_module, "_FT_CONNECTION_SLOTS", slots)
+    server, client = socket.socketpair()
+    client.settimeout(2)
+
+    class FailingThread:
+        def __init__(self, **_kwargs: object) -> None:
+            raise error_type("cannot construct thread")
+
+    monkeypatch.setattr(threading, "Thread", FailingThread)
+    try:
+        with pytest.raises(error_type, match="cannot construct thread"):
+            app._handle_admission(server, b"")
+        assert client.recv(1) == b""
+        assert not app._active_connections
+        assert slots.acquire(blocking=False)
+        slots.release()
+    finally:
+        server.close()
+        client.close()
+
+
+@pytest.mark.skipif(_GIL_ENABLED, reason="active connection cap is specific to free-threaded mode")
+def test_free_threaded_registration_failure_cleans_up_partial_registration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingConnections(set[socket.socket]):
+        def add(self, conn: socket.socket) -> None:
+            super().add(conn)
+            raise RuntimeError("cannot register connection")
+
+    app = Dex()
+    app._active_connections = FailingConnections()
+    slots = threading.BoundedSemaphore(1)
+    monkeypatch.setattr(app_module, "_FT_CONNECTION_SLOTS", slots)
+    server, client = socket.socketpair()
+    client.settimeout(2)
+    try:
+        with pytest.raises(RuntimeError, match="cannot register connection"):
+            app._handle_admission(server, b"")
+        assert client.recv(1) == b""
+        assert not app._active_connections
+        assert slots.acquire(blocking=False)
+        slots.release()
+    finally:
+        server.close()
+        client.close()
+
+
+@pytest.mark.skipif(_GIL_ENABLED, reason="active connection cap is specific to free-threaded mode")
+def test_free_threaded_connection_cap_bounds_threads_and_file_descriptors() -> None:
+    port = _free_port()
+    process = _start_server(port, idle_read_seconds=30.0, max_connections=2)
+    slow: list[socket.socket] = []
+    try:
+        status, _headers, body = _request(
+            port,
+            b"GET /runtime HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n",
+        )
+        assert status == 200
+        baseline_fds = _json_int(body, "file_descriptors")
+
+        slow = [_connect(port) for _ in range(2)]
+        for sock in slow:
+            sock.sendall(b"GET /health HTTP/1.1\r\nHost: test")
+
+        deadline = time.monotonic() + 3
+        threads: int | None = None
+        while time.monotonic() < deadline:
+            threads = _process_thread_count(process.pid)
+            if threads is None or threads >= 3:
+                break
+            time.sleep(0.02)
+        assert threads is None or threads == 3
+
+        rejected = _connect(port)
+        status, headers, body, _rest = _read_response(rejected)
+        assert status == 503
+        assert headers["connection"] == "close"
+        assert headers["retry-after"] == "1"
+        assert headers["content-length"] == str(len(body))
+        assert _json(body) == {"detail": "overloaded"}
+        assert rejected.recv(1) == b""
+        rejected.close()
+
+        for _ in range(31):
+            status, headers, body = _request(
+                port,
+                b"GET /health HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n",
+            )
+            assert status == 503
+            assert headers["connection"] == "close"
+            assert headers["retry-after"] == "1"
+            assert _json(body) == {"detail": "overloaded"}
+            current_threads = _process_thread_count(process.pid)
+            assert current_threads is None or current_threads == 3
+
+        for sock in slow:
+            sock.close()
+        slow.clear()
+
+        deadline = time.monotonic() + 5
+        while True:
+            status, _headers, body = _request(
+                port,
+                b"GET /runtime HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n",
+            )
+            if status == 200 and _json_int(body, "active_threads") <= 2:
+                break
+            if time.monotonic() >= deadline:
+                raise AssertionError("free-threaded connection slots did not recover")
+            time.sleep(0.02)
+        assert _json_int(body, "file_descriptors") <= baseline_fds
+    finally:
+        for sock in slow:
+            sock.close()
+        if process.poll() is None:
+            process.send_signal(signal.SIGTERM)
+            try:
+                process.wait(timeout=8)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=2)
+
+
+@pytest.mark.skipif(_GIL_ENABLED, reason="active connection cap is specific to free-threaded mode")
+def test_free_threaded_keep_alive_holds_slot_until_connection_closes() -> None:
+    port = _free_port()
+    process = _start_server(port, idle_read_seconds=30.0, max_connections=1)
+    owner = _connect(port)
+    try:
+        owner.sendall(b"GET /health HTTP/1.1\r\nHost: test\r\n\r\n")
+        status, headers, body, _rest = _read_response(owner)
+        assert status == 200
+        assert headers["connection"] == "keep-alive"
+        assert _json(body) == {"ok": True}
+
+        rejected = _connect(port)
+        try:
+            status, headers, body, _rest = _read_response(rejected)
+            assert status == 503
+            assert headers["connection"] == "close"
+            assert _json(body) == {"detail": "overloaded"}
+        finally:
+            rejected.close()
+
+        owner.sendall(b"GET /health HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n")
+        status, _headers, body, _rest = _read_response(owner)
+        assert status == 200
+        assert _json(body) == {"ok": True}
+
+        deadline = time.monotonic() + 3
+        while True:
+            status, _headers, body = _request(
+                port,
+                b"GET /health HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n",
+            )
+            if status == 200:
+                break
+            if time.monotonic() >= deadline:
+                raise AssertionError("keep-alive connection did not release its slot")
+            time.sleep(0.02)
+        assert _json(body) == {"ok": True}
+    finally:
+        owner.close()
+        if process.poll() is None:
+            process.send_signal(signal.SIGTERM)
+            try:
+                process.wait(timeout=8)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=2)
+
+
+@pytest.mark.skipif(_GIL_ENABLED, reason="active connection cap is specific to free-threaded mode")
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (b"BROKEN\r\n\r\n", 400),
+        (b"GET /health HTTP/1.1\r\nHost: test", 408),
+    ],
+)
+def test_free_threaded_parser_failures_release_connection_slot(raw: bytes, expected: int) -> None:
+    port = _free_port()
+    process = _start_server(
+        port,
+        idle_read_seconds=0.1,
+        head_read_seconds=0.5,
+        max_connections=1,
+    )
+    try:
+        status, _headers, _body = _request(port, raw)
+        assert status == expected
+
+        deadline = time.monotonic() + 3
+        while True:
+            status, _headers, body = _request(
+                port,
+                b"GET /health HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n",
+            )
+            if status == 200:
+                break
+            if time.monotonic() >= deadline:
+                raise AssertionError("parser failure did not release its slot")
+            time.sleep(0.02)
+        assert _json(body) == {"ok": True}
+    finally:
+        if process.poll() is None:
+            process.send_signal(signal.SIGTERM)
+            try:
+                process.wait(timeout=8)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=2)
+
+
+@pytest.mark.skipif(_GIL_ENABLED, reason="active connection cap is specific to free-threaded mode")
+def test_free_threaded_shutdown_sees_admission_before_thread_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = Dex()
+    slots = threading.BoundedSemaphore(1)
+    monkeypatch.setattr(app_module, "_FT_CONNECTION_SLOTS", slots)
+    original_thread = threading.Thread
+    server, client = socket.socketpair()
+    observed_registered = False
+
+    class DrainBeforeStart:
+        def __init__(self, **kwargs: object) -> None:
+            self.kwargs = kwargs
+
+        def start(self) -> None:
+            nonlocal observed_registered
+            observed_registered = server in app._active_connections
+            app._begin_drain(timeout=0)
+            owner = original_thread(**self.kwargs)  # type: ignore[arg-type]
+            owner.start()
+            owner.join(timeout=1)
+
+    monkeypatch.setattr(threading, "Thread", DrainBeforeStart)
+    try:
+        app._handle_admission(server, b"")
+        assert observed_registered
+        assert not app._active_connections
+        assert slots.acquire(blocking=False)
+        slots.release()
+    finally:
+        server.close()
+        client.close()
 
 
 def test_sigterm_interrupts_slow_client_and_respects_drain_deadline() -> None:

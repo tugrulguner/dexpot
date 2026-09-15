@@ -2,7 +2,7 @@
 
 Ported from the gilpot-bench spike (micro6) with the same measured architecture:
 - connection-owning threads, no asyncio
-- mode-adaptive scheduling (unbounded threads on free-threaded CPython,
+- mode-adaptive scheduling (bounded connection-owning threads on free-threaded CPython,
   bounded pool + fast-shed on GIL builds)
 - msgspec fused decode+validate for typed bodies
 - single-write responses
@@ -52,10 +52,14 @@ _is_gil_enabled = getattr(sys, "_is_gil_enabled", None)
 _gil_free = not _is_gil_enabled() if _is_gil_enabled is not None else False
 POOL_SIZE = int(os.environ.get("DEXPOT_POOL", "0")) or (_cores if _gil_free else _cores * 2 + 2)
 MAX_QUEUE = int(os.environ.get("DEXPOT_MAX_QUEUE", str(POOL_SIZE * 2)))
+MAX_CONNECTIONS = int(os.environ.get("DEXPOT_MAX_CONNECTIONS", "1024"))
 if POOL_SIZE <= 0:
     raise ValueError("DEXPOT_POOL must be positive, or zero for automatic sizing")
 if MAX_QUEUE <= 0:
     raise ValueError("DEXPOT_MAX_QUEUE must be positive")
+if MAX_CONNECTIONS <= 0:
+    raise ValueError("DEXPOT_MAX_CONNECTIONS must be positive")
+_FT_CONNECTION_SLOTS = threading.BoundedSemaphore(MAX_CONNECTIONS) if _gil_free else None
 
 _json_encode = msgspec.json.encode
 _logger = logging.getLogger("dexpot.error")
@@ -458,22 +462,46 @@ class Dex:
                     self._active_connections.discard(conn)
                     cond.notify_all()
 
-    def _own_connection(self, conn: socket.socket, buf: bytes) -> None:
-        with self._cond:
-            self._active_connections.add(conn)
+    def _own_connection(self, conn: socket.socket, buf: bytes, *, registered: bool = False) -> None:
+        if not registered:
+            with self._cond:
+                self._active_connections.add(conn)
         try:
             while not self._stopping.is_set():
                 keep_alive, buf = self._process(conn, buf)
                 if not keep_alive:
                     break
-            conn.close()
         except (ConnectionError, OSError, ValueError):
+            pass
+        finally:
             with contextlib.suppress(OSError):
                 conn.close()
-        finally:
             with self._cond:
                 self._active_connections.discard(conn)
                 self._cond.notify_all()
+
+    def _own_connection_ft(self, conn: socket.socket, buf: bytes) -> None:
+        slots = _FT_CONNECTION_SLOTS
+        assert slots is not None
+        try:
+            self._own_connection(conn, buf, registered=True)
+        finally:
+            slots.release()
+
+    @staticmethod
+    def _reject_overload(conn: socket.socket) -> None:
+        try:
+            out = _json_encode({"detail": "overloaded"})
+            conn.sendall(
+                b"HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\n"
+                b"Content-Length: %d\r\nRetry-After: 1\r\nConnection: close\r\n\r\n%s"
+                % (len(out), out)
+            )
+        except OSError:
+            pass
+        finally:
+            with contextlib.suppress(OSError):
+                conn.close()
 
     def _handle_admission(self, conn: socket.socket, buf: bytes) -> None:
         if self._stopping.is_set():
@@ -481,8 +509,46 @@ class Dex:
                 conn.close()
             return
         if _gil_free:
-            # free-threaded: threads are cheap and truly parallel — spawn per connection.
-            threading.Thread(target=self._own_connection, args=(conn, buf), daemon=True).start()
+            slots = _FT_CONNECTION_SLOTS
+            assert slots is not None
+            if not slots.acquire(blocking=False):
+                self._reject_overload(conn)
+                return
+            registered = False
+            owner_started = False
+            start_failed = False
+            try:
+                with self._cond:
+                    if not self._stopping.is_set():
+                        self._active_connections.add(conn)
+                        registered = True
+                if registered:
+                    owner = threading.Thread(
+                        target=self._own_connection_ft,
+                        args=(conn, buf),
+                        daemon=True,
+                    )
+                    try:
+                        owner.start()
+                    except RuntimeError:
+                        start_failed = True
+                    else:
+                        owner_started = True
+            finally:
+                if not owner_started:
+                    try:
+                        if start_failed:
+                            self._reject_overload(conn)
+                        else:
+                            with contextlib.suppress(OSError):
+                                conn.close()
+                    finally:
+                        try:
+                            with self._cond:
+                                self._active_connections.discard(conn)
+                                self._cond.notify_all()
+                        finally:
+                            slots.release()
             return
         # GIL build: bounded pool + fast-shed on saturation.
         with self._cond:
@@ -491,18 +557,7 @@ class Dex:
                 self._work.append((conn, buf))
                 self._cond.notify()
         if saturated:
-            try:
-                out = _json_encode({"detail": "overloaded"})
-                conn.sendall(
-                    b"HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\n"
-                    b"Content-Length: %d\r\nRetry-After: 1\r\nConnection: close\r\n\r\n%s"
-                    % (len(out), out)
-                )
-            except OSError:
-                pass
-            finally:
-                with contextlib.suppress(OSError):
-                    conn.close()
+            self._reject_overload(conn)
 
     # ---- serving ----
 
@@ -527,7 +582,7 @@ class Dex:
         srv.bind((host, port))
         srv.listen(SOCKET_BACKLOG)
         srv.settimeout(0.5)
-        mode = "unbounded-ft" if _gil_free else f"pooled-gil({POOL_SIZE})"
+        mode = f"bounded-ft({MAX_CONNECTIONS})" if _gil_free else f"pooled-gil({POOL_SIZE})"
         print(f"dexpot serving on http://{host}:{port} pid={os.getpid()} mode={mode}", flush=True)
         if not _gil_free:
             for _ in range(POOL_SIZE):
