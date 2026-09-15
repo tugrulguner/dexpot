@@ -740,39 +740,32 @@ def test_saturation_still_returns_503(hardened_server: int) -> None:
 
 
 @pytest.mark.skipif(not _GIL_ENABLED, reason="GIL mode preserves pool and queue admission")
-def test_free_threaded_connection_setting_does_not_reduce_gil_queue_capacity() -> None:
-    port = _free_port()
-    process = _start_server(port, idle_read_seconds=30.0, max_connections=1)
-    active = _connect(port)
-    queued = _connect(port)
-    try:
-        active.sendall(b"GET /health HTTP/1.1\r\nHost: test")
-        time.sleep(0.2)
-        queued.sendall(b"GET /health HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n")
-        time.sleep(0.2)
+def test_free_threaded_connection_setting_does_not_reduce_gil_queue_capacity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(app_module, "MAX_CONNECTIONS", 1)
+    monkeypatch.setattr(app_module, "MAX_QUEUE", 1)
+    assert app_module._FT_CONNECTION_SLOTS is None
 
-        status, headers, body = _request(
-            port,
-            b"GET /health HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n",
-        )
+    app = Dex()
+    queued_server, queued_client = socket.socketpair()
+    rejected_server, rejected_client = socket.socketpair()
+    rejected_client.settimeout(2)
+    try:
+        app._handle_admission(queued_server, b"")
+        assert list(app._work) == [(queued_server, b"")]
+
+        app._handle_admission(rejected_server, b"")
+        status, headers, body, _rest = _read_response(rejected_client)
         assert status == 503
         assert headers["connection"] == "close"
         assert _json(body) == {"detail": "overloaded"}
-
-        active.close()
-        status, _headers, body, _rest = _read_response(queued)
-        assert status == 200
-        assert _json(body) == {"ok": True}
+        assert list(app._work) == [(queued_server, b"")]
     finally:
-        active.close()
-        queued.close()
-        if process.poll() is None:
-            process.send_signal(signal.SIGTERM)
-            try:
-                process.wait(timeout=8)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=2)
+        app._begin_drain(timeout=0)
+        queued_client.close()
+        rejected_server.close()
+        rejected_client.close()
 
 
 @pytest.mark.skipif(_GIL_ENABLED, reason="GIL mode uses bounded admission instead")
