@@ -50,7 +50,8 @@ Use `make format` before committing.
 - Plain synchronous handlers; no coroutine bridge in the request path.
 - Route and argument errors fail during registration when they can be known then.
 - A worker owns a keep-alive connection until close.
-- GIL admission remains bounded and returns 503 instead of accumulating unlimited work.
+- GIL queues and free-threaded active connections remain bounded and return 503 instead of
+  accumulating unlimited work or creating unlimited threads.
 - Free-threaded and GIL behavior are tested deliberately rather than assumed equivalent.
 - Public performance claims come from reproducible, correctness-matched benchmarks.
 - Optimize for leadership on both GIL-enabled and free-threaded CPython with the smallest
@@ -140,7 +141,8 @@ report includes:
 - operating system;
 - a minimal runnable application;
 - the exact request and observed response;
-- concurrency settings such as `DEXPOT_POOL`, `DEXPOT_MAX_QUEUE`, and `DEXPOT_WORKERS`;
+- concurrency settings such as `DEXPOT_POOL`, `DEXPOT_MAX_QUEUE`,
+  `DEXPOT_MAX_CONNECTIONS`, and `DEXPOT_WORKERS`;
 - whether the failure reproduces with a single connection and a single process.
 
 Remove secrets, credentials, tokens, and private connection strings from reproductions and

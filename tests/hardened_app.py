@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 
 import msgspec
 
@@ -28,6 +29,15 @@ app = Dex(
 @app.get("/health")
 def health() -> dict[str, bool]:
     return {"ok": True}
+
+
+@app.get("/runtime")
+def runtime() -> dict[str, int]:
+    fd_root = "/proc/self/fd" if os.path.isdir("/proc/self/fd") else "/dev/fd"
+    return {
+        "active_threads": threading.active_count(),
+        "file_descriptors": len(os.listdir(fd_root)),
+    }
 
 
 @app.post("/echo", body=Echo)

@@ -120,8 +120,9 @@ GET-to-HEAD routing is not provided. Requests with an `Expect` header are reject
 before reading their body. Retry without `Expect` when appropriate.
 
 `DEXPOT_POOL=0` retains automatic sizing. Negative pool sizes and nonpositive
-`DEXPOT_MAX_QUEUE` values fail at import, before a listener can open; zero queue is not a
-supported no-wait mode. These validation rules apply in both interpreter modes.
+`DEXPOT_MAX_QUEUE` or `DEXPOT_MAX_CONNECTIONS` values fail at import, before a listener can
+open; zero queue or connection capacity is not a supported no-wait mode. These validation
+rules apply in both interpreter modes.
 
 ## HTTP boundary
 
@@ -148,8 +149,9 @@ supported no-wait mode. These validation rules apply in both interpreter modes.
 
 The scheduler is selected when dexpot imports:
 
-- **Free-threaded build:** one process, one owning thread per accepted connection. Threads
-  can execute Python in parallel.
+- **Free-threaded build:** one process, one owning thread per admitted connection. Threads
+  can execute Python in parallel. `DEXPOT_MAX_CONNECTIONS` defaults to 1,024; excess
+  connections receive 503 before a thread is created.
 - **GIL build:** a bounded pool owns connections. The queue is bounded; saturated admission
   returns 503 rather than accumulating unlimited work.
 - **GIL + `DEXPOT_WORKERS>1`:** POSIX-only `SO_REUSEPORT` processes, each with a local pool
@@ -158,6 +160,7 @@ The scheduler is selected when dexpot imports:
 Tune before importing the application:
 
 ```bash
+DEXPOT_MAX_CONNECTIONS=512 dexpot serve main:app
 DEXPOT_POOL=16 DEXPOT_MAX_QUEUE=32 dexpot serve main:app
 DEXPOT_WORKERS=4 dexpot serve main:app
 ```

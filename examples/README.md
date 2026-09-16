@@ -72,8 +72,11 @@ DEXPOT_POOL=16 DEXPOT_MAX_QUEUE=32 uv run python examples/typed_crud.py
 # Fan out across process-local SO_REUSEPORT listeners on supported POSIX GIL builds.
 DEXPOT_WORKERS=4 uv run python examples/typed_crud.py
 
+# Tune the free-threaded active-connection cap (default: 1024).
+DEXPOT_MAX_CONNECTIONS=512 uv run python examples/typed_crud.py
+
 # A free-threaded CPython build is detected automatically and uses one process with
-# connection-owning threads that can execute Python in parallel.
+# capped connection-owning threads that can execute Python in parallel.
 ```
 
 Dexpot is still alpha software. These examples validate the current framework contract; they
