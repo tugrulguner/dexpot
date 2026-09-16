@@ -112,12 +112,21 @@ class Dex:
         method: str,
         path: str,
         fn: Callable[..., Any],
+        body_type: Any,
+        resp_type: Any,
         annotation_locals: Mapping[str, Any] | None = None,
     ) -> Callable[..., Any]:
         with self._declaration_lock:
             self._registration_depth += 1
             try:
-                return self._register_locked(method, path, fn, annotation_locals)
+                return self._register_locked(
+                    method,
+                    path,
+                    fn,
+                    body_type,
+                    resp_type,
+                    annotation_locals,
+                )
             finally:
                 self._registration_depth -= 1
 
@@ -126,14 +135,14 @@ class Dex:
         method: str,
         path: str,
         fn: Callable[..., Any],
+        body_type: Any,
+        resp_type: Any,
         annotation_locals: Mapping[str, Any] | None = None,
     ) -> Callable[..., Any]:
         if self._plan is not None:
             raise RuntimeError("application is compiled; routes can no longer be registered")
         if not path.startswith("/") or "?" in path or "#" in path:
             raise ValueError("route paths must be absolute paths without a query or fragment")
-        body_type = getattr(fn, "__dexpot_body__", None)
-        resp_type = getattr(fn, "__dexpot_resp__", None)
         path_names = [
             s[1:-1] for s in _path_segments(path) if s.startswith("{") and s.endswith("}")
         ]
@@ -233,11 +242,7 @@ class Dex:
                     ):
                         body_type = ann
                         break
-            if body_type is not None:
-                fn.__dexpot_body__ = body_type  # type: ignore[attr-defined]
-            if response is not None:
-                fn.__dexpot_resp__ = response  # type: ignore[attr-defined]
-            return self._register(method, path, fn, namespace)
+            return self._register(method, path, fn, body_type, response, namespace)
 
         return deco
 

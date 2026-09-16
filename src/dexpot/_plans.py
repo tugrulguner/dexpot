@@ -19,8 +19,6 @@ from .requests import Request
 
 _json_encode = msgspec.json.encode
 
-_type_hints_cache: dict[Any, dict[str, Any]] = {}
-
 _Source = tuple[Any, str, str, Any]
 _INVOKER_GLOBALS: dict[str, Any] = {}
 _INVOKER_CODE_LOCK = Lock()
@@ -31,35 +29,29 @@ class _ApplicationCompilationDuringRegistration(RuntimeError):
 
 
 def _type_hints(fn: Any, localns: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    hints = _type_hints_cache.get(fn) if localns is None else None
-    if hints is None:
-        raw = {
-            name: parameter.annotation
-            for name, parameter in inspect.signature(fn).parameters.items()
-        }
-        resolved: dict[str, Any] = {}
-        owner = inspect.unwrap(fn, stop=lambda f: hasattr(f, "__signature__"))
-        globalns = getattr(owner, "__globals__", {})
-        closure = owner.__closure__ or ()
-        cell_names = owner.__code__.co_freevars
-        cells = dict(zip(cell_names, (cell.cell_contents for cell in closure), strict=True))
-        for name, annotation in raw.items():
-            if isinstance(annotation, str):
-                try:
-                    annotation = eval(
-                        annotation,
-                        dict(typing.__dict__),
-                        {**globalns, **(localns or {}), **cells},
-                    )
-                except _ApplicationCompilationDuringRegistration:
-                    raise
-                except Exception:
-                    pass
-            resolved[name] = annotation
-        hints = resolved
-        if localns is None:
-            _type_hints_cache[fn] = hints
-    return hints
+    raw = {
+        name: parameter.annotation for name, parameter in inspect.signature(fn).parameters.items()
+    }
+    resolved: dict[str, Any] = {}
+    owner = inspect.unwrap(fn, stop=lambda f: hasattr(f, "__signature__"))
+    globalns = getattr(owner, "__globals__", {})
+    closure = owner.__closure__ or ()
+    cell_names = owner.__code__.co_freevars
+    cells = dict(zip(cell_names, (cell.cell_contents for cell in closure), strict=True))
+    for name, annotation in raw.items():
+        if isinstance(annotation, str):
+            try:
+                annotation = eval(
+                    annotation,
+                    dict(typing.__dict__),
+                    {**globalns, **(localns or {}), **cells},
+                )
+            except _ApplicationCompilationDuringRegistration:
+                raise
+            except Exception:
+                pass
+        resolved[name] = annotation
+    return resolved
 
 
 @lru_cache(maxsize=256)

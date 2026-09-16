@@ -7,6 +7,7 @@ import inspect
 import socket
 import threading
 import time
+import weakref
 from dataclasses import FrozenInstanceError
 
 import msgspec
@@ -264,6 +265,86 @@ def test_request_and_inferred_payload_select_the_payload_body_type() -> None:
     payload = endpoint.body_decoder.decode(b'{"value": 7}')
     request = Request("POST", "/inferred", {}, "", {}, b'{"value": 7}', payload)
     assert endpoint.invoke([], payload, request) == 14
+
+
+def test_route_body_and_response_options_do_not_leak_through_reused_handler() -> None:
+    class First(msgspec.Struct):
+        value: int
+
+    class Second(msgspec.Struct):
+        value: str
+
+    def handler(payload: object = None) -> object:
+        return payload
+
+    first_app = Dex()
+    second_app = Dex()
+    plain_app = Dex()
+    first_app.post("/", body=First, response=First)(handler)
+    second_app.post("/", body=Second, response=Second)(handler)
+    plain_app.post("/")(handler)
+
+    first = first_app._compile().endpoints[0]
+    second = second_app._compile().endpoints[0]
+    plain = plain_app._compile().endpoints[0]
+    assert (first.body_type, first.resp_type) == (First, First)
+    assert (second.body_type, second.resp_type) == (Second, Second)
+    assert (plain.body_type, plain.resp_type) == (None, None)
+    assert not hasattr(handler, "__dexpot_body__")
+    assert not hasattr(handler, "__dexpot_resp__")
+
+
+def test_failed_registration_does_not_mutate_handler_declaration_state() -> None:
+    class Output(msgspec.Struct):
+        ok: bool
+
+    app = Dex()
+
+    @app.get("/taken")
+    def existing() -> dict[str, bool]:
+        return {"ok": True}
+
+    def rejected() -> dict[str, bool]:
+        return {"ok": False}
+
+    with pytest.raises(ValueError, match="duplicate route"):
+        app.get("/taken", response=Output)(rejected)
+
+    fresh = Dex()
+    fresh.get("/fresh")(rejected)
+    assert fresh._compile().endpoints[0].resp_type is None
+    assert [endpoint.handler for endpoint in app._compile().endpoints] == [existing]
+
+
+def test_annotation_resolution_is_fresh_for_each_registration() -> None:
+    def handler(request: object = None) -> object:
+        return request
+
+    handler.__annotations__["request"] = Request
+    context_app = Dex()
+    context_app.get("/context")(handler)
+
+    handler.__annotations__["request"] = object
+    ordinary_app = Dex()
+    ordinary_app.get("/ordinary")(handler)
+
+    assert context_app._compile().endpoints[0].needs_request
+    assert not ordinary_app._compile().endpoints[0].needs_request
+
+
+def test_annotation_resolution_does_not_retain_discarded_handlers() -> None:
+    def register_temporary_handler() -> weakref.ReferenceType[object]:
+        app = Dex()
+
+        @app.get("/")
+        def handler(request: Request) -> str:
+            return request.method
+
+        return weakref.ref(handler)
+
+    handler_ref = register_temporary_handler()
+    gc.collect()
+    assert handler_ref() is None
 
 
 def test_request_rejects_conflicting_path_and_body_declarations() -> None:

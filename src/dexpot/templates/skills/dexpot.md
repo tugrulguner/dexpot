@@ -110,7 +110,9 @@ bindings override it. Module-global and concrete annotations need no extra optio
 Unresolved parameter annotations fail at registration, including defaulted parameters;
 explicit `body=` binding remains authoritative for its body parameter. Use only needed
 bindings rather than retaining all factory locals. Wrapped handlers use their original
-annotation scope. Test repeated factory calls and per-registration namespace isolation.
+annotation scope. Annotations resolve afresh per registration, and `body=`/`response=` are
+route-local rather than stored on shared handler functions. Test repeated factory calls,
+handler reuse across applications, and per-registration namespace isolation.
 
 ### Protocol and configuration policy
 
