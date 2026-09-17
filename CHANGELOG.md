@@ -10,6 +10,17 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.5.0] - 2026-09-17
+
+### Added
+
+- Bound free-threaded active connections per process with configurable `DEXPOT_MAX_CONNECTIONS` admission and reject excess connections with 503 before creating a thread.
+
+### Changed
+
+- Keep route body and response declarations local to each registration and resolve annotations per registration, preventing shared handlers from leaking schemas or stale annotation state across applications.
+
+
 ## [0.4.1] - 2026-09-12
 
 ### Changed
