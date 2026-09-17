@@ -48,3 +48,25 @@ def test_explicit_namespace_is_snapshotted_and_not_cached_by_handler(method: str
     assert context.invoke([], None, request) is request
     assert not ordinary.needs_request
     assert ordinary.invoke([], None) is None
+
+
+def test_native_annotation_semantics_resolve_factory_local_alias() -> None:
+    namespace: dict[str, Any] = {}
+    source = """
+def build_handler(Request):
+    Alias = Request
+
+    def handler(request: Alias):
+        return request
+
+    return handler
+"""
+    exec(compile(source, "<native-annotations>", "exec", dont_inherit=True), namespace)
+    handler = namespace["build_handler"](Request)
+    app = Dex()
+    app.get("/")(handler)
+    endpoint = app._compile().endpoints[0]
+    request = Request("GET", "/", {}, "", {})
+
+    assert endpoint.needs_request
+    assert endpoint.invoke([], None, request) is request

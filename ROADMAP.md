@@ -41,6 +41,8 @@ The current release line provides:
 - Literal and parameterized routes with structural duplicate detection.
 - Registration-time compilation of path, body, default, positional, keyword-only, and Request
   bindings into endpoint-specific direct `invoke` callables.
+- Route-local body/response declarations and fresh per-registration annotation resolution,
+  without mutating shared handlers or retaining a process-global annotation-result cache.
 - Serving-time freeze into an immutable `ApplicationPlan`, length-indexed `RouterPlan`, and
   complete `EndpointPlan` metadata before a listener opens.
 - Registration-time rejection of unbound captures and variadic handlers.
@@ -125,10 +127,6 @@ focused stages:
 
 #### 3.1 Registration ownership and diagnostics
 
-- Pass route-local body/response options directly into endpoint declarations rather than
-  storing them on shared user functions; publish only complete registrations.
-- Remove the process-global annotation-result cache and resolve annotations per registration.
-  Preserve the separately bounded generated-call-shape cache and direct-invocation path.
 - Preserve explicit annotation namespaces. Handle eager, stringified, and Python 3.14 deferred
   annotations deliberately; do not revive caller-frame guessing.
 - Reject detectable unsupported coroutine handlers and signatures before serving.

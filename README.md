@@ -262,6 +262,9 @@ returns. Captured closure bindings take precedence over the supplied namespace, 
 precedence over module globals. Unresolved parameter annotations fail registration with an
 `annotation_locals` error, even when the parameter has a default. An explicit `body=` schema
 continues to bind the first non-path, non-Request parameter without needing its annotation.
+Annotations are resolved afresh for each registration, and `body=`/`response=` belong to that
+route declaration rather than the handler function, so one handler can be reused safely across
+applications with different route contracts.
 
 ### Request context
 
