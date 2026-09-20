@@ -24,6 +24,10 @@ _MANAGED_START = "<!-- dexpot:managed:start -->"
 _MANAGED_END = "<!-- dexpot:managed:end -->"
 
 
+class _ManagedBlockError(ValueError):
+    """Raised when an existing shared file has ambiguous dexpot markers."""
+
+
 class Agent(StrEnum):
     """Coding agents dexpot can install guidance for."""
 
@@ -87,10 +91,19 @@ def _upsert_managed_block(path: Path, content: str) -> None:
     """Replace dexpot's fenced block while preserving project-owned content."""
     block = f"{_MANAGED_START}\n{content.rstrip()}\n{_MANAGED_END}\n"
     existing = path.read_text() if path.exists() else ""
+    start_count = existing.count(_MANAGED_START)
+    end_count = existing.count(_MANAGED_END)
     start = existing.find(_MANAGED_START)
     end = existing.find(_MANAGED_END)
 
-    if start != -1 and end != -1 and end > start:
+    has_one_ordered_block = start_count == end_count == 1 and end > start
+    has_no_markers = start_count == end_count == 0
+    if not has_one_ordered_block and not has_no_markers:
+        raise _ManagedBlockError(
+            f"malformed dexpot managed block in {path}; repair or remove its markers first"
+        )
+
+    if has_one_ordered_block:
         after = end + len(_MANAGED_END)
         for ending in ("\r\n", "\n"):
             if existing.startswith(ending, after):
@@ -166,5 +179,10 @@ def add_skills(
             raise typer.Exit(1)
 
     for target in targets:
-        for written in _WRITERS[target](root):
+        try:
+            written_paths = _WRITERS[target](root)
+        except _ManagedBlockError as exc:
+            typer.echo(f"Error: {exc}", err=True)
+            raise typer.Exit(1) from exc
+        for written in written_paths:
             typer.echo(f"{target.value}: {written.relative_to(root)}")

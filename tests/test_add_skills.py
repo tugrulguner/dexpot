@@ -101,6 +101,40 @@ def test_reinstall_preserves_content_after_managed_block(
     assert path.read_text().endswith(expected_tail)
 
 
+@pytest.mark.parametrize(
+    "agent,relative",
+    [
+        ("codex", "AGENTS.md"),
+        ("copilot", ".github/copilot-instructions.md"),
+        ("cline", ".clinerules"),
+    ],
+)
+@pytest.mark.parametrize(
+    "existing",
+    [
+        "before\n<!-- dexpot:managed:start -->\nold\n",
+        "before\n<!-- dexpot:managed:end -->\nafter\n",
+        "<!-- dexpot:managed:end -->\nold\n<!-- dexpot:managed:start -->\n",
+        (
+            "<!-- dexpot:managed:start -->\nold\n<!-- dexpot:managed:end -->\n"
+            "<!-- dexpot:managed:start -->\nduplicate\n<!-- dexpot:managed:end -->\n"
+        ),
+    ],
+)
+def test_shared_instruction_files_reject_malformed_managed_markers(
+    agent: str, relative: str, existing: str, tmp_path: Path
+) -> None:
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(existing)
+
+    result = runner.invoke(app, ["add", "skills", "--agent", agent, "--path", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "malformed dexpot managed block" in result.output
+    assert path.read_text() == existing
+
+
 def test_detects_only_unambiguous_existing_configuration(tmp_path: Path) -> None:
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".cursor").mkdir()
