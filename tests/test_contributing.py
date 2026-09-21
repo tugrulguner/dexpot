@@ -56,6 +56,7 @@ def test_bug_form_collects_runtime_and_contributor_context() -> None:
     ):
         assert field in bug
     assert "DEXPOT_POOL" in bug
+    assert "DEXPOT_MAX_CONNECTIONS" in bug
     assert "removed secrets" in bug
 
 
@@ -130,6 +131,7 @@ def test_reviewing_pins_exact_head_and_requires_integration_evidence() -> None:
     assert "reviewed head SHA" in reviewing
     assert "current main" in reviewing
     assert "green result against an obsolete base" in reviewing
+    assert "free-threaded active-connection cap" in reviewing
 
 
 def test_changelog_guidance_is_consistent_across_contributor_surfaces() -> None:

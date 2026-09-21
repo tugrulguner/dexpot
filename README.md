@@ -459,8 +459,9 @@ grow only as middleware, schemas, deployment support, and other roadmap capabili
 The shipped foundation now includes the HTTP-hardening gate and the optional native
 request-head seam. Remaining work is organized around four gates:
 
-1. extend the shipped request context with decoded query parameters, cookies, and client
-   metadata, and complete middleware, schemas, and richer response handling;
+1. Finish registration-time handler diagnostics, then extend the shipped request context with
+   decoded query parameters, cookies, and client metadata, and complete middleware, schemas,
+   and richer response handling;
 2. publish reproducible GIL and free-threaded benchmarks with correctness parity; and
 3. add production operations without replacing the synchronous execution model; and
 4. grow runnable examples, testing support, deployment guidance, and stable extension points.

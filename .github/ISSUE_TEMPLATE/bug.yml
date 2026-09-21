@@ -64,7 +64,7 @@ body:
     id: reproduction
     attributes:
       label: "Exact reproduction steps and request"
-      description: "Include the command, HTTP request, and relevant DEXPOT_POOL, DEXPOT_MAX_QUEUE, or DEXPOT_WORKERS settings."
+      description: "Include the command, HTTP request, and relevant DEXPOT_POOL, DEXPOT_MAX_QUEUE, DEXPOT_MAX_CONNECTIONS, or DEXPOT_WORKERS settings."
       render: "shell"
     validations:
       required: true

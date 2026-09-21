@@ -54,7 +54,7 @@ Prioritize:
 
 - registration-time correctness for routes and handler signatures;
 - real HTTP behavior, including malformed input and keep-alive;
-- bounded GIL admission and truthful 503 behavior;
+- bounded GIL admission, the free-threaded active-connection cap, and truthful 503 behavior;
 - free-threaded versus GIL branch differences;
 - worker listener ownership, restart, and atomic teardown;
 - signal handling in the main thread;
