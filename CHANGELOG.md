@@ -10,6 +10,17 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.5.1] - 2026-09-22
+
+### Changed
+
+- Align public and contributor guidance with v0.5.0's free-threaded connection cap and current roadmap.
+
+### Fixed
+
+- Make `dexpot add skills` reject malformed or duplicate managed markers without modifying shared instruction files.
+
+
 ## [0.5.0] - 2026-09-20
 
 ### Added
