@@ -42,6 +42,9 @@ def _is_async_handler(handler: Callable[..., Any]) -> bool:
     def is_async(value: Any) -> bool:
         return inspect.iscoroutinefunction(value) or inspect.isasyncgenfunction(value)
 
+    if isinstance(handler, partial):
+        return is_async(handler) or _is_async_handler(handler.func)
+
     target = _unwrap_handler(handler)
     if is_async(handler) or is_async(target):
         return True

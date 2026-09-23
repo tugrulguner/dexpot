@@ -98,6 +98,8 @@ def test_registration_rejects_detectable_coroutine_callable_forms() -> None:
         wrapped_handler,
         functools.partial(coroutine_handler),
         CoroutineCallable(),
+        functools.partial(wrapped_handler),
+        functools.partial(CoroutineCallable()),
     ]
     for handler in handlers:
         app = Dex()
