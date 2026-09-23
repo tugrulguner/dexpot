@@ -92,6 +92,17 @@ def test_registration_rejects_detectable_coroutine_callable_forms() -> None:
     def wrapped_handler() -> object:
         return coroutine_handler()
 
+    def synchronous_leaf() -> dict[str, bool]:
+        return {"ok": True}
+
+    @functools.wraps(synchronous_leaf)
+    async def asynchronous_middle() -> dict[str, bool]:
+        return synchronous_leaf()
+
+    @functools.wraps(asynchronous_middle)
+    def multiply_wrapped_handler() -> object:
+        return asynchronous_middle()
+
     class CoroutineCallable:
         async def __call__(self) -> dict[str, bool]:
             return {"ok": True}
@@ -130,6 +141,7 @@ def test_registration_rejects_detectable_coroutine_callable_forms() -> None:
 
     handlers = [
         wrapped_handler,
+        multiply_wrapped_handler,
         functools.partial(coroutine_handler),
         CoroutineCallable(),
         AsyncGeneratorCallable(),
@@ -146,6 +158,8 @@ def test_registration_rejects_detectable_coroutine_callable_forms() -> None:
         with pytest.raises(TypeError, match="asynchronous handlers are not supported"):
             app.get("/async")(handler)
         assert app._endpoints == []
+        assert app._literal == {}
+        assert app._parametric == []
 
 
 def test_registration_rejects_async_generator_handler() -> None:

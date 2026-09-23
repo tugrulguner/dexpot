@@ -52,9 +52,10 @@ def _is_async_handler(handler: Callable[..., Any]) -> bool:
         if isinstance(value, partial) and visit(value.func):
             return True
 
-        target = _unwrap_handler(value)
-        if target is not value and visit(target):
+        wrapped = getattr(value, "__wrapped__", value)
+        if wrapped is not value and visit(wrapped):
             return True
+        _unwrap_handler(value)
 
         if inspect.isclass(value):
             return any(
