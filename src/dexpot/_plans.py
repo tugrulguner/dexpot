@@ -59,6 +59,8 @@ def _annotation_owner(handler: Callable[..., Any]) -> Any:
     owner = handler.func if isinstance(handler, partial) else handler
     if not inspect.isroutine(owner) and not inspect.isclass(owner):
         owner = owner.__call__
+    if isinstance(owner, partial):
+        owner = owner.func
     owner = _unwrap_handler(owner, stop_at_signature=True)
     return getattr(owner, "__func__", owner)
 

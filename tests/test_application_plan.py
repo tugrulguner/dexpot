@@ -18,6 +18,8 @@ import dexpot._plans as plans
 import dexpot.app as app_module
 from dexpot import Dex, Request
 
+PartialMethodCapture = int
+
 
 def test_application_compiles_once_into_an_immutable_plan() -> None:
     app = Dex()
@@ -94,12 +96,18 @@ def test_registration_rejects_detectable_coroutine_callable_forms() -> None:
         async def __call__(self) -> dict[str, bool]:
             return {"ok": True}
 
+    class AsyncGeneratorCallable:
+        async def __call__(self):
+            yield {"ok": True}
+
     handlers = [
         wrapped_handler,
         functools.partial(coroutine_handler),
         CoroutineCallable(),
+        AsyncGeneratorCallable(),
         functools.partial(wrapped_handler),
         functools.partial(CoroutineCallable()),
+        functools.partial(AsyncGeneratorCallable()),
     ]
     for handler in handlers:
         app = Dex()
@@ -173,6 +181,21 @@ def test_registration_accepts_supported_callable_objects_and_partials() -> None:
         assert "BUILD_MAP" not in opnames
         assert "CALL_FUNCTION_EX" not in opnames
         assert "LOAD_GLOBAL" not in opnames
+
+
+def test_registration_resolves_partialmethod_callable_annotations() -> None:
+    class PartialMethodHandler:
+        def handle(self, prefix: str, item_id: PartialMethodCapture) -> tuple[str, int]:
+            return prefix, item_id
+
+        __call__ = functools.partialmethod(handle, "item")
+
+    app = Dex()
+    app.get("/items/{item_id}")(PartialMethodHandler())  # type: ignore[arg-type]
+    endpoint = app._compile().endpoints[0]
+
+    assert endpoint.int_captures == ((0, "item_id"),)
+    assert endpoint.invoke([7], None) == ("item", 7)
 
 
 def test_endpoint_precompiles_direct_invoker_for_supported_shapes() -> None:
