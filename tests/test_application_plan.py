@@ -100,11 +100,19 @@ def test_registration_rejects_detectable_coroutine_callable_forms() -> None:
         async def __call__(self):
             yield {"ok": True}
 
+    class WrappedCoroutineCallable:
+        async def __call__(self) -> dict[str, bool]:
+            return {"ok": True}
+
+    wrapped_coroutine_callable = WrappedCoroutineCallable()
+    functools.update_wrapper(wrapped_coroutine_callable, lambda: None)
+
     handlers = [
         wrapped_handler,
         functools.partial(coroutine_handler),
         CoroutineCallable(),
         AsyncGeneratorCallable(),
+        wrapped_coroutine_callable,
         functools.partial(wrapped_handler),
         functools.partial(CoroutineCallable()),
         functools.partial(AsyncGeneratorCallable()),

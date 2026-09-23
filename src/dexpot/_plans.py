@@ -46,12 +46,15 @@ def _is_async_handler(handler: Callable[..., Any]) -> bool:
         return is_async(handler) or _is_async_handler(handler.func)
 
     target = _unwrap_handler(handler)
-    if is_async(handler) or is_async(target):
-        return True
-    if inspect.isroutine(target) or not callable(target):
-        return False
-    call = target.__call__
-    return is_async(call) or is_async(_unwrap_handler(call))
+    for candidate in (handler, target):
+        if is_async(candidate):
+            return True
+        if inspect.isroutine(candidate) or inspect.isclass(candidate) or not callable(candidate):
+            continue
+        call = candidate.__call__
+        if is_async(call) or is_async(_unwrap_handler(call)):
+            return True
+    return False
 
 
 def _annotation_owner(handler: Callable[..., Any]) -> Any:
