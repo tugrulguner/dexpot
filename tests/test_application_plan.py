@@ -115,6 +115,16 @@ def test_registration_rejects_detectable_coroutine_callable_forms() -> None:
         async def __new__(cls) -> dict[str, bool]:
             return {"ok": True}
 
+    async def partialmethod_coroutine(self) -> dict[str, bool]:
+        return {"ok": True}
+
+    @functools.wraps(partialmethod_coroutine)
+    def partialmethod_wrapper(self) -> object:
+        return partialmethod_coroutine(self)
+
+    class WrappedPartialMethodCallable:
+        __call__ = functools.partialmethod(partialmethod_wrapper)
+
     wrapped_coroutine_callable = WrappedCoroutineCallable()
     functools.update_wrapper(wrapped_coroutine_callable, lambda: None)
 
@@ -126,6 +136,7 @@ def test_registration_rejects_detectable_coroutine_callable_forms() -> None:
         wrapped_coroutine_callable,
         MetaclassCoroutineHandler,
         NewCoroutineHandler,
+        WrappedPartialMethodCallable(),
         functools.partial(wrapped_handler),
         functools.partial(CoroutineCallable()),
         functools.partial(AsyncGeneratorCallable()),

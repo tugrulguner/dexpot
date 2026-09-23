@@ -39,27 +39,33 @@ def _unwrap_handler(handler: Any, *, stop_at_signature: bool = False) -> Any:
 def _is_async_handler(handler: Callable[..., Any]) -> bool:
     """Detect asynchronous callables without adding request-path inspection."""
 
-    def is_async(value: Any) -> bool:
-        return inspect.iscoroutinefunction(value) or inspect.isasyncgenfunction(value)
+    seen: set[int] = set()
 
-    if isinstance(handler, partial):
-        return is_async(handler) or _is_async_handler(handler.func)
+    def visit(value: Any) -> bool:
+        identity = id(value)
+        if identity in seen:
+            return False
+        seen.add(identity)
 
-    if inspect.isclass(handler):
-        for lifecycle in (type(handler).__call__, handler.__new__, handler.__init__):
-            if is_async(lifecycle) or is_async(_unwrap_handler(lifecycle)):
-                return True
-
-    target = _unwrap_handler(handler)
-    for candidate in (handler, target):
-        if is_async(candidate):
+        if inspect.iscoroutinefunction(value) or inspect.isasyncgenfunction(value):
             return True
-        if inspect.isroutine(candidate) or inspect.isclass(candidate) or not callable(candidate):
-            continue
-        call = candidate.__call__
-        if is_async(call) or is_async(_unwrap_handler(call)):
+        if isinstance(value, partial) and visit(value.func):
             return True
-    return False
+
+        target = _unwrap_handler(value)
+        if target is not value and visit(target):
+            return True
+
+        if inspect.isclass(value):
+            return any(
+                visit(lifecycle)
+                for lifecycle in (type(value).__call__, value.__new__, value.__init__)
+            )
+        if inspect.isroutine(value) or not callable(value):
+            return False
+        return visit(value.__call__)
+
+    return visit(handler)
 
 
 def _annotation_owner(handler: Callable[..., Any]) -> Any:
