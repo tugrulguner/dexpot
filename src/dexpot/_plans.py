@@ -8,7 +8,7 @@ import unicodedata
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
-from functools import lru_cache
+from functools import lru_cache, partial
 from threading import Lock
 from types import CodeType, FunctionType, MappingProxyType
 from typing import Any
@@ -28,15 +28,58 @@ class _ApplicationCompilationDuringRegistration(RuntimeError):
     """Keep registration-control failures visible during annotation evaluation."""
 
 
-def _type_hints(fn: Any, localns: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    raw = {
-        name: parameter.annotation for name, parameter in inspect.signature(fn).parameters.items()
-    }
+def _unwrap_handler(handler: Any, *, stop_at_signature: bool = False) -> Any:
+    stop = (lambda value: hasattr(value, "__signature__")) if stop_at_signature else None
+    try:
+        return inspect.unwrap(handler, stop=stop)
+    except (TypeError, ValueError) as exc:
+        raise TypeError("handler signature cannot be inspected") from exc
+
+
+def _is_async_handler(handler: Callable[..., Any]) -> bool:
+    """Detect asynchronous callables without adding request-path inspection."""
+
+    def is_async(value: Any) -> bool:
+        return inspect.iscoroutinefunction(value) or inspect.isasyncgenfunction(value)
+
+    target = _unwrap_handler(handler)
+    if is_async(handler) or is_async(target):
+        return True
+    if inspect.isroutine(target) or not callable(target):
+        return False
+    call = target.__call__
+    return is_async(call) or is_async(_unwrap_handler(call))
+
+
+def _annotation_owner(handler: Callable[..., Any]) -> Any:
+    """Return the function that owns a callable's annotation namespace."""
+    owner = handler.func if isinstance(handler, partial) else handler
+    if not inspect.isroutine(owner) and not inspect.isclass(owner):
+        owner = owner.__call__
+    owner = _unwrap_handler(owner, stop_at_signature=True)
+    return getattr(owner, "__func__", owner)
+
+
+def _handler_signature(handler: Callable[..., Any]) -> inspect.Signature:
+    """Inspect a handler with one stable registration diagnostic."""
+    try:
+        return inspect.signature(handler)
+    except (TypeError, ValueError) as exc:
+        raise TypeError("handler signature cannot be inspected") from exc
+
+
+def _type_hints(
+    fn: Any,
+    signature: inspect.Signature,
+    localns: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    raw = {name: parameter.annotation for name, parameter in signature.parameters.items()}
     resolved: dict[str, Any] = {}
-    owner = inspect.unwrap(fn, stop=lambda f: hasattr(f, "__signature__"))
+    owner = _annotation_owner(fn)
     globalns = getattr(owner, "__globals__", {})
-    closure = owner.__closure__ or ()
-    cell_names = owner.__code__.co_freevars
+    closure = getattr(owner, "__closure__", None) or ()
+    code = getattr(owner, "__code__", None)
+    cell_names = code.co_freevars if code is not None else ()
     cells = dict(zip(cell_names, (cell.cell_contents for cell in closure), strict=True))
     for name, annotation in raw.items():
         if isinstance(annotation, str):
@@ -148,6 +191,8 @@ class EndpointPlan:
         path_names: list[str],
         annotation_locals: Mapping[str, Any] | None = None,
     ) -> None:
+        if _is_async_handler(handler):
+            raise TypeError("asynchronous handlers are not supported")
         if body_type is Request:
             raise TypeError("Request is handler context and cannot be used as a body type")
         object.__setattr__(self, "method", method)
@@ -168,8 +213,8 @@ class EndpointPlan:
             msgspec.json.Encoder() if resp_type is not None else None,
         )
 
-        hints = _type_hints(handler, annotation_locals)
-        signature = inspect.signature(handler)
+        signature = _handler_signature(handler)
+        hints = _type_hints(handler, signature, annotation_locals)
         captures_by_name = {name: index for index, name in enumerate(path_names)}
         sources: list[_Source] = []
         int_captures: list[tuple[int, str]] = []

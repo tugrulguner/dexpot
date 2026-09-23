@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import dis
+import functools
 import gc
 import inspect
 import socket
@@ -65,6 +66,111 @@ def test_application_plan_retains_endpoint_contracts() -> None:
         ("GET", "/health"),
         ("POST", "/users/{user_id}"),
     ]
+
+
+def test_registration_rejects_coroutine_handler_atomically() -> None:
+    app = Dex()
+
+    async def handler() -> dict[str, bool]:
+        return {"ok": True}
+
+    with pytest.raises(TypeError, match="asynchronous handlers are not supported"):
+        app.get("/async")(handler)
+
+    assert app._endpoints == []
+    assert app._literal == {}
+    assert app._parametric == []
+
+
+def test_registration_rejects_detectable_coroutine_callable_forms() -> None:
+    async def coroutine_handler() -> dict[str, bool]:
+        return {"ok": True}
+
+    @functools.wraps(coroutine_handler)
+    def wrapped_handler() -> object:
+        return coroutine_handler()
+
+    class CoroutineCallable:
+        async def __call__(self) -> dict[str, bool]:
+            return {"ok": True}
+
+    handlers = [
+        wrapped_handler,
+        functools.partial(coroutine_handler),
+        CoroutineCallable(),
+    ]
+    for handler in handlers:
+        app = Dex()
+        with pytest.raises(TypeError, match="asynchronous handlers are not supported"):
+            app.get("/async")(handler)
+        assert app._endpoints == []
+
+
+def test_registration_rejects_async_generator_handler() -> None:
+    app = Dex()
+
+    async def handler():
+        yield {"ok": True}
+
+    with pytest.raises(TypeError, match="asynchronous handlers are not supported"):
+        app.get("/async-generator")(handler)
+
+    assert app._endpoints == []
+
+
+def test_registration_rejects_uninspectable_signature_atomically() -> None:
+    class OpaqueCallable:
+        __signature__ = object()
+
+        def __call__(self) -> dict[str, bool]:
+            return {"ok": True}
+
+    def cyclic_wrapper() -> dict[str, bool]:
+        return {"ok": True}
+
+    cyclic_wrapper.__wrapped__ = cyclic_wrapper  # type: ignore[attr-defined]
+
+    for handler in (OpaqueCallable(), cyclic_wrapper):
+        app = Dex()
+        with pytest.raises(TypeError, match="handler signature cannot be inspected"):
+            app.get("/opaque")(handler)
+
+        assert app._endpoints == []
+        assert app._literal == {}
+        assert app._parametric == []
+
+    explicit_body_app = Dex()
+    with pytest.raises(TypeError, match="handler signature cannot be inspected"):
+        explicit_body_app.post("/opaque", body=dict)(cyclic_wrapper)
+    assert explicit_body_app._endpoints == []
+
+
+def test_registration_accepts_supported_callable_objects_and_partials() -> None:
+    class CallableHandler:
+        def __call__(self, item_id: int, suffix: str = "!") -> str:
+            return f"item-{item_id}{suffix}"
+
+    def render(prefix: str, item_id: int) -> str:
+        return f"{prefix}-{item_id}"
+
+    callable_app = Dex()
+    callable_app.get("/items/{item_id}")(CallableHandler())
+    callable_endpoint = callable_app._compile().endpoints[0]
+
+    partial_app = Dex()
+    partial_app.get("/items/{item_id}")(functools.partial(render, "item"))
+    partial_endpoint = partial_app._compile().endpoints[0]
+
+    assert callable_endpoint.int_captures == ((0, "item_id"),)
+    assert callable_endpoint.invoke([7], None) == "item-7!"
+    assert partial_endpoint.int_captures == ((0, "item_id"),)
+    assert partial_endpoint.invoke([7], None) == "item-7"
+    for endpoint in (callable_endpoint, partial_endpoint):
+        opnames = {instruction.opname for instruction in dis.get_instructions(endpoint.invoke)}
+        assert "BUILD_LIST" not in opnames
+        assert "BUILD_MAP" not in opnames
+        assert "CALL_FUNCTION_EX" not in opnames
+        assert "LOAD_GLOBAL" not in opnames
 
 
 def test_endpoint_precompiles_direct_invoker_for_supported_shapes() -> None:
