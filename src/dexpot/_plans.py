@@ -45,6 +45,11 @@ def _is_async_handler(handler: Callable[..., Any]) -> bool:
     if isinstance(handler, partial):
         return is_async(handler) or _is_async_handler(handler.func)
 
+    if inspect.isclass(handler):
+        for lifecycle in (type(handler).__call__, handler.__new__, handler.__init__):
+            if is_async(lifecycle) or is_async(_unwrap_handler(lifecycle)):
+                return True
+
     target = _unwrap_handler(handler)
     for candidate in (handler, target):
         if is_async(candidate):
