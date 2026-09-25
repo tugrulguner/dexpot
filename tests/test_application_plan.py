@@ -229,6 +229,41 @@ def test_registration_accepts_supported_callable_objects_and_partials() -> None:
         assert "LOAD_GLOBAL" not in opnames
 
 
+def test_registration_uses_wrapped_callable_annotation_namespace() -> None:
+    original_namespace: dict[str, object] = {}
+    exec(
+        compile(
+            "Alias = int\ndef original(item_id: 'Alias'): return item_id",
+            "<wrapped-original>",
+            "exec",
+            dont_inherit=True,
+        ),
+        original_namespace,
+    )
+    wrapper_namespace = {"functools": functools}
+    exec(
+        """
+Alias = str
+class Wrapper:
+    def __init__(self, fn):
+        functools.update_wrapper(self, fn)
+        self.fn = fn
+
+    def __call__(self, *args, **kwargs):
+        return self.fn(*args, **kwargs)
+""",
+        wrapper_namespace,
+    )
+
+    handler = wrapper_namespace["Wrapper"](original_namespace["original"])  # type: ignore[operator]
+    app = Dex()
+    app.get("/items/{item_id}")(handler)  # type: ignore[arg-type]
+    endpoint = app._compile().endpoints[0]
+
+    assert endpoint.int_captures == ((0, "item_id"),)
+    assert endpoint.invoke([7], None) == 7
+
+
 def test_registration_resolves_partialmethod_callable_annotations() -> None:
     class PartialMethodHandler:
         def handle(self, prefix: str, item_id: PartialMethodCapture) -> tuple[str, int]:

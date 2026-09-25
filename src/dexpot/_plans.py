@@ -71,12 +71,14 @@ def _is_async_handler(handler: Callable[..., Any]) -> bool:
 
 def _annotation_owner(handler: Callable[..., Any]) -> Any:
     """Return the function that owns a callable's annotation namespace."""
-    owner = handler.func if isinstance(handler, partial) else handler
+    owner = _unwrap_handler(handler, stop_at_signature=True)
+    if isinstance(owner, partial):
+        owner = _unwrap_handler(owner.func, stop_at_signature=True)
     if not inspect.isroutine(owner) and not inspect.isclass(owner):
         owner = owner.__call__
-    if isinstance(owner, partial):
-        owner = owner.func
-    owner = _unwrap_handler(owner, stop_at_signature=True)
+        if isinstance(owner, partial):
+            owner = owner.func
+        owner = _unwrap_handler(owner, stop_at_signature=True)
     return getattr(owner, "__func__", owner)
 
 
