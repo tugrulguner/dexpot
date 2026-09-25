@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import contextlib
 import http
-import inspect
 import logging
 import multiprocessing
 import os
@@ -33,6 +32,7 @@ from ._plans import (
     EndpointPlan,
     RouterPlan,
     _ApplicationCompilationDuringRegistration,
+    _handler_signature,
 )
 from .requests import Request
 
@@ -233,7 +233,10 @@ class Dex:
             body_type = body
             if body_type is None:
                 # fall back to live annotation object if present (no __future__ import)
-                hints = {n: p.annotation for n, p in inspect.signature(fn).parameters.items()}
+                hints = {
+                    name: parameter.annotation
+                    for name, parameter in _handler_signature(fn).parameters.items()
+                }
                 for ann in hints.values():
                     if (
                         ann is not Request

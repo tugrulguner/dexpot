@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import socket
 import threading
 import time
@@ -69,6 +70,17 @@ def server():
     @app.get("/keyword/{item_id}")
     def keyword_path(*, item_id: int) -> dict:
         return {"item_id": item_id}
+
+    class CallableHandler:
+        def __call__(self, item_id: int) -> dict[str, object]:
+            return {"kind": "callable", "item_id": item_id}
+
+    app.get("/callable/{item_id}")(CallableHandler())
+
+    def partial_handler(kind: str, item_id: int) -> dict[str, object]:
+        return {"kind": kind, "item_id": item_id}
+
+    app.get("/partial/{item_id}")(functools.partial(partial_handler, "partial"))
 
     @app.post("/keyword-body/{item_id}", body=Body)
     def keyword_body(*, item: Body, item_id: int) -> dict:
@@ -236,6 +248,13 @@ def test_keyword_only_path_binding(server):
     r = httpx.get(f"{server}/keyword/7")
     assert r.status_code == 200
     assert r.json() == {"item_id": 7}
+
+
+@pytest.mark.parametrize("kind", ["callable", "partial"])
+def test_supported_callable_forms_preserve_http_binding(server, kind):
+    r = httpx.get(f"{server}/{kind}/7")
+    assert r.status_code == 200
+    assert r.json() == {"kind": kind, "item_id": 7}
 
 
 def test_keyword_only_body_and_path_binding(server):
