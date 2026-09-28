@@ -11,6 +11,9 @@ export default defineConfig({
       title: 'dexpot',
       description: 'A synchronous Python API framework with adaptive GIL and free-threaded execution.',
       favicon: '/favicon.svg',
+      logo: {
+        src: './src/assets/dexpot-mark.svg',
+      },
       customCss: ['./src/styles/custom.css'],
       lastUpdated: true,
       editLink: {
