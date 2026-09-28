@@ -1,0 +1,148 @@
+:root {
+  --sl-font: 'Avenir Next', Avenir, 'Segoe UI', sans-serif;
+  --sl-font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --sl-color-accent-low: #072b3a;
+  --sl-color-accent: #66d9ff;
+  --sl-color-accent-high: #c9f4ff;
+  --sl-color-white: #f7f2e8;
+  --sl-color-gray-1: #e8e9eb;
+  --sl-color-gray-2: #b7bbc4;
+  --sl-color-gray-3: #7a818e;
+  --sl-color-gray-4: #424a58;
+  --sl-color-gray-5: #222a37;
+  --sl-color-gray-6: #111722;
+  --sl-color-black: #070a12;
+  --dexpot-gold: #f2b84b;
+  --dexpot-cyan: #66d9ff;
+}
+
+:root[data-theme='light'] {
+  --sl-color-accent-low: #d9f5ff;
+  --sl-color-accent: #006f91;
+  --sl-color-accent-high: #003b50;
+  --sl-color-white: #101521;
+  --sl-color-gray-1: #222936;
+  --sl-color-gray-2: #3f4857;
+  --sl-color-gray-3: #667080;
+  --sl-color-gray-4: #aab0b8;
+  --sl-color-gray-5: #d8dbe0;
+  --sl-color-gray-6: #eff0f2;
+  --sl-color-gray-7: #f8f6f0;
+  --sl-color-black: #ffffff;
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 75% 12%, color-mix(in srgb, var(--dexpot-cyan) 7%, transparent), transparent 25rem),
+    radial-gradient(circle at 12% 80%, color-mix(in srgb, var(--dexpot-gold) 4%, transparent), transparent 24rem);
+}
+
+.site-title {
+  font-size: 1.2rem;
+  font-weight: 750;
+  letter-spacing: -0.05em;
+}
+
+.site-title::first-letter {
+  color: inherit;
+}
+
+.hero {
+  position: relative;
+  padding-block: clamp(4rem, 10vw, 8rem);
+}
+
+.hero h1 {
+  max-width: 10ch;
+  font-size: clamp(4rem, 11vw, 9rem);
+  line-height: 0.82;
+  letter-spacing: -0.085em;
+  text-transform: lowercase;
+}
+
+.hero h1::after {
+  color: var(--dexpot-gold);
+  content: '';
+}
+
+.hero .tagline {
+  max-width: 34rem;
+  font-size: clamp(1.25rem, 2.4vw, 2rem);
+  line-height: 1.25;
+  letter-spacing: -0.035em;
+}
+
+.hero img {
+  width: min(44rem, 48vw);
+  filter: saturate(.92) drop-shadow(0 0 3rem color-mix(in srgb, var(--dexpot-cyan) 12%, transparent));
+  clip-path: polygon(0 5%, 100% 0, 96% 95%, 4% 100%);
+}
+
+.hero .actions a {
+  border-radius: 0;
+  font-family: var(--sl-font-mono);
+  font-size: .72rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.hero .actions .primary {
+  color: #071018;
+  background: var(--dexpot-cyan);
+  border-color: var(--dexpot-cyan);
+}
+
+.sl-markdown-content h2 {
+  padding-top: 1.5rem;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  letter-spacing: -0.045em;
+}
+
+.sl-markdown-content h3 {
+  letter-spacing: -0.025em;
+}
+
+.sl-markdown-content table {
+  display: table;
+  width: 100%;
+}
+
+.sl-markdown-content th {
+  color: var(--dexpot-cyan);
+  font-family: var(--sl-font-mono);
+  font-size: .74rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.sl-markdown-content td,
+.sl-markdown-content th {
+  border-bottom: 1px solid var(--sl-color-gray-5);
+}
+
+.sl-markdown-content img[src='/dexpot-execution.webp'] {
+  width: 100%;
+  margin-block: 2.5rem;
+  border: 1px solid var(--sl-color-gray-5);
+}
+
+.expressive-code {
+  --ec-brdRad: 0px;
+}
+
+@media (max-width: 50rem) {
+  .hero {
+    grid-template-columns: 1fr;
+    padding-block: 3.5rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(4rem, 24vw, 7rem);
+  }
+
+  .hero img {
+    width: 100%;
+    max-width: 34rem;
+    opacity: .88;
+  }
+}

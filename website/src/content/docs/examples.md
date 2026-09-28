@@ -1,0 +1,52 @@
+---
+title: Runnable examples
+description: Run Dexpot's tested minimal, typed CRUD, and bounded HTTP API examples through their real socket servers.
+---
+
+The repository ships three examples that progress across the current public surface. Clone the repository and prepare its development environment:
+
+```bash
+git clone https://github.com/tugrulguner/dexpot.git
+cd dexpot
+uv sync --all-extras
+```
+
+## Minimal typed route
+
+`examples/minimal.py` demonstrates a typed integer path capture and msgspec response.
+
+```bash
+uv run python examples/minimal.py
+curl -s http://127.0.0.1:8000/items/7
+```
+
+```json
+{"id":7,"name":"item-7","price":7.0}
+```
+
+## Typed CRUD
+
+`examples/typed_crud.py` demonstrates typed JSON bodies, compiled response encoders, status/payload returns, and thread-safe shared application state.
+
+```bash
+uv run python examples/typed_crud.py
+curl -s -X POST http://127.0.0.1:8000/items \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"keyboard","price":79.0}'
+```
+
+The lock in this example belongs to the application. It protects the mutable dictionary when handlers execute concurrently.
+
+## Bounded API
+
+`examples/bounded_api.py` customizes `HttpLimits` and exercises 413, 422, and 405 responses plus typed `Request` injection.
+
+```bash
+uv run python examples/bounded_api.py
+curl -s http://127.0.0.1:8000/health
+curl -s http://127.0.0.1:8000/context
+```
+
+The test suite launches every example as a subprocess and validates its public HTTP behavior. Set `DEXPOT_EXAMPLE_PORT` when port 8000 is occupied.
+
+Read the complete [examples guide](https://github.com/tugrulguner/dexpot/blob/main/examples/README.md) and source files in the repository.
