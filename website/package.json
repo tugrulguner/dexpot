@@ -6,7 +6,8 @@
     "dev": "astro dev",
     "start": "astro dev",
     "check": "astro check",
-    "build": "astro build",
+    "build": "astro build && npm run verify:rendered",
+    "verify:rendered": "node scripts/verify-rendered-output.mjs",
     "preview": "astro preview",
     "deploy": "npm run build && wrangler deploy",
     "astro": "astro"
