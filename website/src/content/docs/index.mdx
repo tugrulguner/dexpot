@@ -1,0 +1,44 @@
+---
+title: dexpot
+description: Synchronous Python APIs that adapt concurrency to standard GIL and free-threaded CPython.
+template: splash
+hero:
+  tagline: Synchronous Python APIs that adapt concurrency to the interpreter.
+  image:
+    file: ../../assets/dexpot.webp
+    alt: Dexpot potion artwork surrounded by Python API code and execution symbols
+  actions:
+    - text: Start with a typed API
+      link: /quick-start/
+      icon: right-arrow
+    - text: View source
+      link: https://github.com/tugrulguner/dexpot
+      icon: external
+      variant: minimal
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## One application. Two interpreter modes.
+
+Dexpot keeps application code synchronous while changing admission and scheduling around the interpreter that runs it.
+
+| Runtime | Serving model | Overload behavior |
+|---|---|---|
+| Free-threaded CPython | One process; each admitted connection owns a thread | A process-wide active-connection cap sheds excess work before thread creation |
+| Standard GIL CPython | A bounded pool of connection-owning threads | A bounded queue sheds excess work with 503 |
+| Standard GIL CPython with workers | POSIX `SO_REUSEPORT` processes, each with its own bounded pool | Each worker sheds independently |
+
+<img src="/dexpot-execution.webp" alt="A Dexpot route compiles into an immutable endpoint plan, then uses the selected request-head parser and interpreter-specific scheduler before both paths execute the same synchronous handler" />
+
+## What dexpot owns
+
+- **Plain synchronous handlers** without an event loop or coroutine bridge.
+- **Compiled endpoint plans** for route matching, argument binding, path conversion, and msgspec codecs.
+- **Interpreter-adaptive scheduling** selected once when the module imports.
+- **A bounded HTTP core** for parsing, routing, scheduling, draining, and response writes.
+- **An optional parser-only Rust extension** without moving sockets, routing, handlers, or scheduling out of Python.
+
+<Aside type="caution" title="Current status">
+Dexpot is alpha software and is not yet recommended for untrusted production traffic. Read the [current boundaries](/current-boundaries/) before choosing it for an application.
+</Aside>
