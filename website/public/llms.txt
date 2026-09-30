@@ -17,7 +17,7 @@
 
 - Language: Python 3.12 and newer.
 - License: MIT.
-- Package: `dexpot` on PyPI.
+- Package: [`dexpot` on PyPI](https://pypi.org/project/dexpot/).
 - Handlers are synchronous Python functions.
 - Routes compile into immutable endpoint and application plans before the listener opens.
 - Standard GIL builds use a bounded thread pool and optional POSIX process fan-out.
