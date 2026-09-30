@@ -43,6 +43,7 @@ let htmlCount = 0;
 for await (const path of htmlFiles(distRoot)) {
   htmlCount += 1;
   const html = await readFile(path, 'utf8');
+  const outputPath = relative(distRoot, path);
   for (const check of forbidden) {
     if (check.pattern.test(html)) {
       failures.push(`${relative(distRoot, path)}: ${check.label}`);
@@ -60,11 +61,39 @@ for await (const path of htmlFiles(distRoot)) {
     failures.push(`${relative(distRoot, path)}: missing canonical ModePot return link`);
   }
   if (html.includes('modepot.com')) failures.push(`${relative(distRoot, path)}: stale ModePot domain`);
+  for (const token of [
+    'rel="alternate" type="text/plain" href="/llms.txt"',
+    'property="og:image" content="https://dexpot.modepot.io/social-card.png"',
+    'name="twitter:image" content="https://dexpot.modepot.io/social-card.png"',
+  ]) {
+    if (!html.includes(token)) failures.push(`${outputPath}: missing discovery metadata ${token}`);
+  }
+  const jsonLd = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1];
+  if (!jsonLd) {
+    failures.push(`${outputPath}: missing JSON-LD`);
+  } else {
+    try {
+      const data = JSON.parse(jsonLd);
+      const types = new Set((data['@graph'] ?? [data]).map((node) => node['@type']));
+      for (const type of ['SoftwareApplication', 'WebSite']) {
+        if (!types.has(type)) failures.push(`${outputPath}: missing ${type} structured data`);
+      }
+    } catch (error) {
+      failures.push(`${outputPath}: invalid JSON-LD (${error.message})`);
+    }
+  }
 }
 
 const llms = await readFile(join(distRoot, 'llms.txt'), 'utf8');
 if (!llms.includes('https://modepot.io/')) failures.push('llms.txt: missing canonical ModePot URL');
 if (llms.includes('modepot.com')) failures.push('llms.txt: stale ModePot domain');
+for (const token of ['License: MIT', 'https://pypi.org/project/dexpot/', 'Current boundaries']) {
+  if (!llms.includes(token)) failures.push(`llms.txt: missing ${token}`);
+}
+const socialCard = await readFile(join(distRoot, 'social-card.png'));
+if (socialCard.readUInt32BE(16) !== 1200 || socialCard.readUInt32BE(20) !== 630) {
+  failures.push('social-card.png: expected 1200x630 PNG');
+}
 if (htmlCount === 0) failures.push('no rendered HTML files found');
 
 if (failures.length > 0) {
@@ -72,5 +101,5 @@ if (failures.length > 0) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log('Rendered output contains no uncompiled Starlight components.');
+  console.log(`Verified rendered content and discovery metadata in ${htmlCount} HTML files.`);
 }

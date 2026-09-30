@@ -3,6 +3,25 @@ import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import starlight from '@astrojs/starlight';
 
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'SoftwareApplication',
+      name: 'Dexpot',
+      applicationCategory: 'DeveloperApplication',
+      operatingSystem: 'Python 3.12 or later',
+      description: 'A synchronous Python API framework with adaptive execution for standard GIL and free-threaded CPython.',
+      url: 'https://dexpot.modepot.io/',
+      codeRepository: 'https://github.com/tugrulguner/dexpot',
+      installUrl: 'https://pypi.org/project/dexpot/',
+      license: 'https://opensource.org/license/mit',
+      isPartOf: { '@type': 'Organization', name: 'ModePot', url: 'https://modepot.io/' },
+    },
+    { '@type': 'WebSite', name: 'Dexpot documentation', url: 'https://dexpot.modepot.io/', inLanguage: 'en' },
+  ],
+};
+
 export default defineConfig({
   site: 'https://dexpot.modepot.io',
   integrations: [
@@ -45,6 +64,14 @@ export default defineConfig({
         { tag: 'meta', attrs: { name: 'author', content: 'Tugrul Guner' } },
         { tag: 'meta', attrs: { name: 'robots', content: 'index, follow, max-image-preview:large' } },
         { tag: 'link', attrs: { rel: 'alternate', type: 'text/plain', href: '/llms.txt', title: 'Dexpot summary for AI agents' } },
+        { tag: 'meta', attrs: { property: 'og:image', content: 'https://dexpot.modepot.io/social-card.png' } },
+        { tag: 'meta', attrs: { property: 'og:image:width', content: '1200' } },
+        { tag: 'meta', attrs: { property: 'og:image:height', content: '630' } },
+        { tag: 'meta', attrs: { property: 'og:image:alt', content: 'Dexpot: plain synchronous handlers with adaptive execution' } },
+        { tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
+        { tag: 'meta', attrs: { name: 'twitter:image', content: 'https://dexpot.modepot.io/social-card.png' } },
+        { tag: 'meta', attrs: { name: 'twitter:image:alt', content: 'Dexpot: plain synchronous handlers with adaptive execution' } },
+        { tag: 'script', attrs: { type: 'application/ld+json' }, content: JSON.stringify(structuredData) },
       ],
     }),
   ],
