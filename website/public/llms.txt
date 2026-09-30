@@ -11,6 +11,7 @@
 - [HTTP boundary](https://dexpot.modepot.io/http-boundary/): Request limits, parser selection, and protocol policy.
 - [Current boundaries](https://dexpot.modepot.io/current-boundaries/): Explicit alpha limitations and non-features.
 - [Source repository](https://github.com/tugrulguner/dexpot): Source, issues, releases, examples, and contribution guidance.
+- [ModePot](https://modepot.io/): Return to the open-source project family.
 
 ## Key facts
 

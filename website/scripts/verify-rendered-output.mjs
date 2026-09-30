@@ -56,8 +56,15 @@ for await (const path of htmlFiles(distRoot)) {
   if ((html.match(/posthog\.init\(/g) ?? []).length !== 1) {
     failures.push(`${relative(distRoot, path)}: expected exactly one PostHog initialization`);
   }
+  if (!html.includes('https://modepot.io/')) {
+    failures.push(`${relative(distRoot, path)}: missing canonical ModePot return link`);
+  }
+  if (html.includes('modepot.com')) failures.push(`${relative(distRoot, path)}: stale ModePot domain`);
 }
 
+const llms = await readFile(join(distRoot, 'llms.txt'), 'utf8');
+if (!llms.includes('https://modepot.io/')) failures.push('llms.txt: missing canonical ModePot URL');
+if (llms.includes('modepot.com')) failures.push('llms.txt: stale ModePot domain');
 if (htmlCount === 0) failures.push('no rendered HTML files found');
 
 if (failures.length > 0) {
