@@ -19,6 +19,10 @@ hero:
 
 import { Aside } from '@astrojs/starlight/components';
 
+<Aside type="caution" title="Alpha — review boundaries before adopting">
+Dexpot is alpha software and is not yet recommended for untrusted production traffic. Read the [current boundaries](/current-boundaries/) before choosing it for an application.
+</Aside>
+
 ## One application. Two interpreter modes.
 
 Dexpot keeps application code synchronous while changing admission and scheduling around the interpreter that runs it.
@@ -38,9 +42,5 @@ Dexpot keeps application code synchronous while changing admission and schedulin
 - **Interpreter-adaptive scheduling** selected once when the module imports.
 - **A bounded HTTP core** for parsing, routing, scheduling, draining, and response writes.
 - **An optional parser-only Rust extension** without moving sockets, routing, handlers, or scheduling out of Python.
-
-<Aside type="caution" title="Current status">
-Dexpot is alpha software and is not yet recommended for untrusted production traffic. Read the [current boundaries](/current-boundaries/) before choosing it for an application.
-</Aside>
 
 Dexpot is part of [ModePot](https://modepot.io/), an open-source family of modern frameworks, tools, engines, and games.
