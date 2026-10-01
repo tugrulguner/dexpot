@@ -103,8 +103,11 @@ body {
 }
 
 .sl-markdown-content table {
-  display: table;
   width: 100%;
+}
+
+.sl-markdown-content table :is(th, td) {
+  overflow-wrap: anywhere;
 }
 
 .sl-markdown-content th {
