@@ -57,6 +57,16 @@ for await (const path of htmlFiles(distRoot)) {
   if ((html.match(/posthog\.init\(/g) ?? []).length !== 1) {
     failures.push(`${relative(distRoot, path)}: expected exactly one PostHog initialization`);
   }
+  if (outputPath !== '404.html' && !html.includes('href="/current-boundaries/"')) {
+    failures.push(`${outputPath}: missing prominent alpha-boundary link`);
+  }
+  const statusTitle = 'Alpha — review boundaries before adopting';
+  if (outputPath === 'index.html' && !html.includes(statusTitle)) {
+    failures.push(`${outputPath}: missing primary adoption status warning`);
+  }
+  if (outputPath === 'index.html' && html.includes('Current status')) {
+    failures.push(`${outputPath}: duplicate secondary status warning remains`);
+  }
   if (!html.includes('https://modepot.io/')) {
     failures.push(`${relative(distRoot, path)}: missing canonical ModePot return link`);
   }
