@@ -4,6 +4,8 @@
   <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/assets/dexpot.png" alt="dexpot synchronous Python API framework" width="600">
 </p>
 
+<p align="center">Part of <a href="https://modepot.io/">ModePot</a>.</p>
+
 <p align="center">
   <strong>Synchronous Python APIs that adapt concurrency to the interpreter.</strong>
 </p>
