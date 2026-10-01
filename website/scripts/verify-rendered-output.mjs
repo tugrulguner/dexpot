@@ -94,6 +94,24 @@ for await (const path of htmlFiles(distRoot)) {
   }
 }
 
+// Keep the narrow-screen table regression covered in the committed build gate:
+// emitted CSS must retain full-width tables and allow long cell tokens to wrap.
+const cssFiles = (await readdir(join(distRoot, '_astro')))
+  .filter((name) => extname(name) === '.css');
+const stylesheets = await Promise.all(
+  cssFiles.map((name) => readFile(join(distRoot, '_astro', name), 'utf8')),
+);
+const tableRules = stylesheets.join('\n');
+if (!/\.sl-markdown-content table\s*\{[^}]*width:\s*100%/.test(tableRules)) {
+  failures.push('emitted CSS: markdown tables must remain full width');
+}
+if (!/\.sl-markdown-content table :is\(th,td\)\s*\{[^}]*overflow-wrap:\s*anywhere/.test(tableRules)) {
+  failures.push('emitted CSS: markdown table cells must wrap long unbreakable content');
+}
+if (/\.sl-markdown-content table\s*\{[^}]*display:\s*table/.test(tableRules)) {
+  failures.push('emitted CSS: markdown tables must not force native table display sizing');
+}
+
 const llms = await readFile(join(distRoot, 'llms.txt'), 'utf8');
 if (!llms.includes('https://modepot.io/')) failures.push('llms.txt: missing canonical ModePot URL');
 if (llms.includes('modepot.com')) failures.push('llms.txt: stale ModePot domain');
