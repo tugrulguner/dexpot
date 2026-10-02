@@ -1,6 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createState, execute } from '../src/scripts/crud-playground.js';
+import { createState, execute, measureRun } from '../src/scripts/crud-playground.js';
+test('measured runs use the injected clock around execution on every invocation', () => {
+  const readings = [10, 13.25, 20, 24.5];
+  const clock = () => readings.shift();
+  const result = measureRun(() => 'first', clock);
+  assert.deepEqual(result, { value: 'first', elapsedMs: 3.25 });
+  const invalidRun = measureRun(() => { throw new Error('invalid request'); }, clock);
+  assert.equal(invalidRun.elapsedMs, 4.5);
+  assert.equal(invalidRun.error.message, 'invalid request');
+});
 const run = (state, operation, fields = {}) => execute(state, { operation, id: 1, name: 'thing', price: 2, ...fields });
 test('draft edits cannot mutate state; starter GET and reset baseline', () => {
   const state = createState();

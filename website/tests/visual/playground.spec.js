@@ -17,15 +17,78 @@ const contrast = (foreground, background) => {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 };
 
+test('run timing stays beside the action that produced it', async ({ page }) => {
+  for (const width of [1280, 768, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/playground/');
+    await page.locator('#contract-run').click();
+    const run = await page.locator('#contract-run').boundingBox();
+    const timing = await page.locator('#run-timing').boundingBox();
+    const pane = await page.locator('.request-pane').boundingBox();
+    expect(timing.x).toBeGreaterThanOrEqual(pane.x);
+    expect(timing.x + timing.width).toBeLessThanOrEqual(pane.x + pane.width + 1);
+    expect(timing.y - run.y - run.height).toBeGreaterThanOrEqual(0);
+    expect(timing.y - run.y - run.height).toBeLessThanOrEqual(24);
+    if (width === 1280) expect(timing.y + timing.height).toBeLessThan(900);
+  }
+});
+
+test('editing the draft invalidates the prior response and timing', async ({ page }) => {
+  await page.goto('/playground/');
+  for (const field of ['operation', 'item-id', 'item-name', 'item-price']) {
+    await page.locator('#contract-run').click();
+    await expect(page.locator('#run-timing')).toContainText(/\d+\.\d{3} ms/);
+    if (field === 'operation') await page.locator('#operation').selectOption('get');
+    else await page.locator(`#${field}`).fill(field === 'item-name' ? 'Changed' : '2');
+    await expect(page.locator('#contract-request')).toHaveText('Awaiting run()');
+    await expect(page.locator('#contract-response')).toHaveText('No response yet.');
+    await expect(page.locator('#contract-error')).toHaveText('');
+    await expect(page.locator('#run-timing')).toContainText('—');
+    expect(await page.locator('#run-timing').innerText()).not.toMatch(/\d+\.\d{3} ms/);
+  }
+});
+
+test('populated request and response panels keep matched desktop bounds', async ({ page }) => {
+  for (const width of [768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const theme of ['light', 'dark']) {
+      await page.goto('/playground/');
+      await page.evaluate(async (value) => {
+        document.documentElement.dataset.theme = value;
+        await document.fonts.ready;
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      }, theme);
+      await page.locator('#operation').selectOption('get');
+      await page.locator('#contract-run').click();
+      await expect(page.locator('#contract-response')).toContainText('200');
+      for (const id of ['1', '999']) {
+        await page.locator('#item-id').fill(id);
+        await page.locator('#contract-run').click();
+        await expect(page.locator('#contract-response')).toContainText(id === '1' ? '200' : '404');
+        const request = await page.locator('#contract-request').boundingBox();
+        const response = await page.locator('#contract-response').boundingBox();
+        expect(request.y).toBe(response.y);
+        expect(request.height).toBe(response.height);
+        expect(request.width).toBe(response.width);
+      }
+    }
+  }
+});
+
 test('playground first fold, controls, palette contrast, and responsive bounds', async ({ page }) => {
   for (const width of [320, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     for (const theme of ['light', 'dark']) {
       await page.goto('/playground/');
-      await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
+      await page.evaluate(async (value) => {
+        document.documentElement.dataset.theme = value;
+        await document.fonts.ready;
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      }, theme);
       await expect(page.locator('main h1')).toHaveText('Request workbench');
       await expect(page.locator('main h1')).toHaveCount(1);
-      await expect(page.getByText('SEPARATE LOCAL SERVER RUN · NOT THIS PREVIEW')).toBeVisible();
+      await expect(page.locator('.workbench-record summary')).toContainText('Optional recorded loopback run');
+      await page.locator('.workbench-record summary').click();
       await expect(page.getByText('p50 439 µs')).toBeVisible();
       await expect(page.getByRole('link', { name: /Canonical Python source/ })).toHaveAttribute('href', /examples\/typed_crud\.py/);
       await expect(page.getByRole('link', { name: 'ModePot ↗' })).toHaveAttribute('href', 'https://modepot.io/');
@@ -49,38 +112,70 @@ test('playground first fold, controls, palette contrast, and responsive bounds',
           source: bounds('.code-pane pre'),
           builder: bounds('.request-pane'),
           run: bounds('#contract-run'),
+          reset: bounds('#contract-reset'),
+          requestHeading: bounds('.contract-grid article:first-child h3'),
+          responseHeading: bounds('.contract-grid article:last-child h3'),
+          requestPre: bounds('#contract-request'),
+          responsePre: bounds('#contract-response'),
           title: bounds('main h1'),
           theme: document.documentElement.dataset.theme,
-          colors: Object.fromEntries(['.eyebrow', '.workbench-intro', '.pane-label', '.request-pane label', '.workbench-actions button:first-child', '#request-target', '.contract-grid h3', '.contract-note', '.record-context', '.playground-context', '.code-pane pre', '.contract-grid pre', '.workbench-record .record-label', '.workbench-record strong', '.workbench-record a'].map((selector) => {
+          colors: Object.fromEntries(['.eyebrow', '.workbench-intro', '.pane-label', '.request-pane label', '.workbench-actions button:first-child', '.workbench-actions button:last-child', '#request-target', '.contract-grid h3', '.contract-note', '.run-timing', '.run-timing span', '.code-pane pre', '.contract-grid pre', '.record-details', '.record-details strong', '.workbench-record summary'].map((selector) => {
             const node = document.querySelector(selector);
             const style = getComputedStyle(node);
-            return [selector, { foreground: style.color, background: style.backgroundColor }];
+            let ancestor = node;
+            let background = style.backgroundColor;
+            while (ancestor && (background === 'transparent' || /rgba\([^)]*,\s*0(?:\.0+)?\)$/.test(background))) {
+              ancestor = ancestor.parentElement;
+              if (ancestor) background = getComputedStyle(ancestor).backgroundColor;
+            }
+            if (!ancestor) throw new Error(`No rendered opaque background for ${selector}`);
+            return [selector, { foreground: style.color, background }];
           })),
         };
       });
       expect(layout.document, `${width}px document overflow (${theme})`).toBeLessThanOrEqual(width);
       expect(layout.body, `${width}px body overflow (${theme})`).toBeLessThanOrEqual(width);
-      for (const region of [layout.record, layout.source, layout.builder, layout.run]) {
+      for (const region of [layout.record, layout.source, layout.builder, layout.run, layout.reset]) {
         expect(region.x).toBeGreaterThanOrEqual(0);
         expect(region.right).toBeLessThanOrEqual(width + 1);
         expect(region.width).toBeGreaterThan(0);
         expect(region.height).toBeGreaterThan(0);
       }
+      expect(layout.run.height).toBe(44);
+      expect(layout.reset.height).toBe(44);
+      expect(layout.run.y).toBe(layout.reset.y);
+      if (width >= 672) {
+        expect(layout.requestHeading.y).toBe(layout.responseHeading.y);
+        expect(layout.requestHeading.height).toBe(layout.responseHeading.height);
+        expect(layout.requestPre.y).toBe(layout.responsePre.y);
+        expect(layout.requestPre.height).toBe(layout.responsePre.height);
+      } else {
+        expect(layout.responseHeading.y).toBeGreaterThan(layout.requestPre.y);
+        expect(layout.responsePre.y).toBeGreaterThan(layout.responseHeading.y);
+      }
+      const actualStyles = await page.evaluate(() => ['#contract-run', '#contract-reset'].map((selector) => { const style = getComputedStyle(document.querySelector(selector)); return { font: style.font, padding: style.padding }; }));
+      expect(actualStyles[0]).toEqual(actualStyles[1]);
       if (width >= 768) {
         expect(layout.source.y).toBeLessThan(900);
         expect(layout.builder.y).toBeLessThan(900);
         expect(layout.run.bottom).toBeLessThan(900);
       }
-      const backgrounds = theme === 'light'
-        ? { normal: '#f8f6f0', code: '#ffffff', button: '#003b50' }
-        : { normal: '#111722', code: '#070a12', button: '#66d9ff' };
       for (const [selector, colors] of Object.entries(layout.colors)) {
-        const background = selector.includes('pre') ? backgrounds.code : selector.includes('button') ? backgrounds.button : backgrounds.normal;
-        const foreground = colors.foreground;
-        expect(contrast(foreground, background), `${selector} contrast ${theme}`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(colors.foreground, colors.background), `${selector} actual rendered contrast ${theme}`).toBeGreaterThanOrEqual(4.5);
       }
       await page.locator('#contract-run').click();
       await expect(page.locator('#contract-response')).toContainText('201');
+      await expect(page.locator('#run-timing')).toContainText(/\d+\.\d{3} ms/);
+      expect(await page.locator('#run-timing').innerText()).not.toContain('—');
+      await page.locator('#item-price').fill('');
+      await page.locator('#contract-run').click();
+      await expect(page.locator('#contract-response')).toContainText('422');
+      await expect(page.locator('#contract-error')).toContainText('request body');
+      await expect(page.locator('#run-timing')).toContainText(/\d+\.\d{3} ms/);
+      await page.locator('#contract-reset').click();
+      await expect(page.locator('#contract-request')).toHaveText('Awaiting run()');
+      await expect(page.locator('#contract-response')).toHaveText('No response yet.');
+      await expect(page.locator('#run-timing')).toContainText('—');
       await page.emulateMedia({ reducedMotion: 'reduce' });
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     }

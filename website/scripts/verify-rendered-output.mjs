@@ -71,11 +71,11 @@ for await (const path of htmlFiles(distRoot)) {
     failures.push(`${relative(distRoot, path)}: expected exactly one PostHog initialization`);
   }
   if (outputPath.endsWith('examples/index.html') || outputPath.endsWith('playground/index.html')) {
-    for (const token of ['BROWSER-LOCAL CONTRACT', 'examples/typed_crud.py', 'id="operation"', 'id="item-id"', 'id="item-name"', 'id="item-price"', 'id="request-target"', 'id="contract-response"', 'id="contract-run"', 'id="contract-reset"', 'Local contract preview—not a Python server']) {
+    for (const token of ['BROWSER-LOCAL CONTRACT', 'examples/typed_crud.py', 'id="operation"', 'id="item-id"', 'id="item-name"', 'id="item-price"', 'id="request-target"', 'id="contract-response"', 'id="contract-run"', 'id="contract-reset"', 'Local contract preview, not a Python server.']) {
       if (!html.includes(token)) failures.push(`${outputPath}: missing playground feature ${token}`);
     }
     if (outputPath.endsWith('playground/index.html')) {
-      for (const token of ['examples/typed_crud.py · create_item', 'SEPARATE LOCAL SERVER RUN', 'p50 439 µs', 'p90 0.92 ms', 'p99 1.76 ms', 'Canonical Python source ↗']) {
+      for (const token of ['examples/typed_crud.py · create_item', 'Optional recorded loopback run', 'p50 439 µs', 'p90 0.92 ms', 'p99 1.76 ms', 'Canonical Python source ↗', 'id="run-timing"', 'Excludes Dexpot Python/server and network latency']) {
         if (!html.includes(token)) failures.push(`${outputPath}: missing playground feature ${token}`);
       }
       const playgroundHeadings = [...html.matchAll(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/g)]
