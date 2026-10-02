@@ -76,7 +76,7 @@ test('playground first fold, controls, palette contrast, and responsive bounds',
         : { normal: '#111722', code: '#070a12', button: '#66d9ff' };
       for (const [selector, colors] of Object.entries(layout.colors)) {
         const background = selector.includes('pre') ? backgrounds.code : selector.includes('button') ? backgrounds.button : backgrounds.normal;
-        const foreground = selector.includes('button') ? (theme === 'light' ? '#ffffff' : '#06111a') : colors.foreground;
+        const foreground = colors.foreground;
         expect(contrast(foreground, background), `${selector} contrast ${theme}`).toBeGreaterThanOrEqual(4.5);
       }
       await page.locator('#contract-run').click();
