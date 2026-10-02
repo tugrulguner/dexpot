@@ -98,6 +98,9 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build
+      - run: npm run test:playground
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:visual
 
   build:
     name: build

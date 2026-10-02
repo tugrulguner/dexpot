@@ -133,6 +133,38 @@ body {
   --ec-brdRad: 0px;
 }
 
+.latency-record {
+  margin-block: 2rem;
+  padding: clamp(1rem, 3vw, 2rem);
+  border: 1px solid var(--sl-color-gray-5);
+  border-left: 3px solid var(--dexpot-gold);
+  background: color-mix(in srgb, var(--sl-color-gray-6) 70%, transparent);
+}
+
+.latency-record h2 { margin-block: .35rem; }
+.latency-record .eyebrow { color: var(--dexpot-gold); font: .7rem var(--sl-font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.latency-values { display: flex; flex-wrap: wrap; gap: clamp(.75rem, 4vw, 2.5rem); margin-block: 1rem; font: clamp(1.05rem, 3vw, 1.6rem) var(--sl-font-mono); }
+.latency-values strong { color: var(--dexpot-cyan); }
+
+/* Keep the measured run and canonical source visible without competing with the workbench. */
+.workbench-record {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .45rem 1rem;
+  margin-block: .5rem .25rem;
+  padding-block: .55rem;
+  border-block: 1px solid var(--sl-color-gray-5);
+  font: .78rem var(--sl-font-mono);
+}
+.workbench-record .record-label { color: var(--sl-color-gray-2); font-size: .68rem; }
+.workbench-record strong { color: var(--sl-color-accent); }
+.workbench-record a { text-decoration: underline; text-underline-offset: .2em; }
+.record-context,.playground-context { margin-block: .3rem; color: var(--sl-color-gray-2); font-size: .78rem; line-height: 1.5; }
+@media (max-width: 42rem) {
+  .workbench-record { align-items: flex-start; flex-direction: column; }
+}
+
 @media (max-width: 50rem) {
   .hero {
     grid-template-columns: 1fr;
