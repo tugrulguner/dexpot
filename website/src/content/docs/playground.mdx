@@ -1,25 +1,21 @@
 ---
 title: Request workbench
-description: Explore the typed CRUD example with explicit browser-local requests.
+template: splash
+description: Run a bounded browser-local preview of Dexpot's typed CRUD example.
 ---
 
 import CrudPlayground from '../../components/CrudPlayground.astro';
 
-# Browser-local request workbench
+<div class="workbench-record" aria-label="Recorded local server latency and source">
+  <span class="record-label">SEPARATE LOCAL SERVER RUN · NOT THIS PREVIEW</span>
+  <span><strong>p50 439 µs</strong> · <strong>p90 0.92 ms</strong> · <strong>p99 1.76 ms</strong></span>
+  <a href="https://github.com/tugrulguner/dexpot/blob/main/examples/typed_crud.py">Canonical Python source ↗</a>
+  <a href="https://modepot.io/">ModePot ↗</a>
+  <a href="https://github.com/tugrulguner/dexpot/blob/main/website/benchmarks/loopback-2026-10-02.md">Run details &amp; provenance ↗</a>
+</div>
 
-Explore the request/response contract demonstrated by [`examples/typed_crud.py`](https://github.com/tugrulguner/dexpot/blob/main/examples/typed_crud.py). The workbench computes bounded CRUD outcomes in this tab only; it does not call the Python framework or send requests to a server.
+<div class="record-context">83,430 checked responses · zero status/body mismatches · one 5-second <code>wrk</code> run · CPython 3.14.7 (GIL on), macOS 26.5.2, Apple M4. Client-observed loopback latency includes transport and generator overhead; exploratory single-machine evidence, not a production benchmark.</div>
 
 <CrudPlayground />
 
-## Recorded latency, measured on a local Dexpot server
-
-<div class="latency-record">
-  <p class="eyebrow">02 / Recorded measurement · not live</p>
-  <h2>Loopback response latency</h2>
-  <p class="latency-values"><strong>p50 439 µs</strong><strong>p90 0.92 ms</strong><strong>p99 1.76 ms</strong></p>
-  <p>One 5-second <code>wrk</code> run against a real Dexpot server on the same Mac: 83,430 checked responses, zero status/body mismatches, 16,361.16 requests/s. Client-observed request/response latency includes loopback transport and generator overhead; it does not isolate server processing.</p>
-  <p>CPython 3.14.7 (GIL on) · macOS 26.5.2 · Apple M4 · 2 generator threads / 8 connections. Exploratory single-machine evidence, not a comparison or production benchmark.</p>
-  <p><a href="https://github.com/tugrulguner/dexpot/blob/main/website/benchmarks/loopback-2026-10-02.md">Method, complete captured run &amp; reproduction command ↗</a></p>
-</div>
-
-The example starts with item `1` (`starter`, `9.99`), creates monotonic IDs, returns `200` with `{ "deleted": id }` for successful deletes, and uses `detail` for error bodies. The browser preview allows at most 20 live items and resets when asked or when the page reloads. The latency record above is a separately measured local HTTP run—not a browser timer and not output from this preview.
+<div class="playground-context">This browser-only preview computes bounded CRUD outcomes in this tab; it does not run Python or send requests to a server. It starts with the example item, allows at most 20 live items, and resets on reload. <a href="/current-boundaries/">Review Dexpot's current alpha boundaries ↗</a></div>

@@ -1,19 +1,17 @@
 ---
 import dexpotMark from '../assets/dexpot-mark.svg';
 ---
-<section aria-labelledby="crud-playground-title" class="crud-playground">
+<section aria-label="Browser-local CRUD request workbench" class="crud-playground">
   <header class="workbench-heading">
-    <div><p class="eyebrow">01 / Request workbench <span>LOCAL CONTRACT</span></p><h2 id="crud-playground-title">A typed route, from input to response.</h2>
-    <p>Read the Python contract. Then run the same bounded CRUD shape in this tab—no request leaves your browser.</p></div>
-    <img src={dexpotMark.src} alt="" width="54" height="54" /></header>
+    <div><p class="eyebrow">BROWSER-LOCAL CONTRACT <span>NO SERVER REQUESTS</span></p>
+    <p class="workbench-intro">Use the actual typed CRUD example as a guide, then run a bounded request locally.</p></div>
+    <img src={dexpotMark.src} alt="" width="42" height="42" /></header>
   <div class="workbench-layout">
-    <div class="code-pane"><div class="pane-label"><span>examples/typed_crud.py</span><span>PYTHON · SYNC</span></div><pre><code>@app.post("/items", body=ItemIn,
-          response=Item)
-def create_item(item: ItemIn):
+    <div class="code-pane"><div class="pane-label"><span>examples/typed_crud.py · create_item</span><span>PYTHON · SYNC</span></div><pre><code>@app.post("/items", body=ItemIn, response=Item)
+def create_item(item: ItemIn) -> tuple[int, Item]:
     global _next_id
     with _lock:
-        created = Item(id=_next_id, name=item.name,
-                       price=item.price)
+        created = Item(id=_next_id, name=item.name, price=item.price)
         _items[_next_id] = created
         _next_id += 1
     return 201, created</code></pre><a href="https://github.com/tugrulguner/dexpot/blob/main/examples/typed_crud.py">Open complete example ↗</a></div>
@@ -60,30 +58,29 @@ def create_item(item: ItemIn):
   });
 </script>
 <style>
-  .crud-playground { margin-block:2rem; padding:clamp(1rem,3vw,2rem); border:1px solid var(--sl-color-gray-5); border-top:3px solid var(--dexpot-cyan); background:color-mix(in srgb,var(--sl-color-gray-6) 66%,transparent); }
-  .workbench-heading { display:flex; justify-content:space-between; gap:1rem; align-items:start; }
-  .workbench-heading h2 { max-width:22ch; margin:.4rem 0; font-size:clamp(1.5rem,4vw,2.3rem); line-height:1.08; }
+  .crud-playground { margin-block:1rem .75rem; padding:clamp(.75rem,2vw,1.25rem); border:1px solid var(--sl-color-gray-5); background:color-mix(in srgb,var(--sl-color-gray-6) 45%,transparent); }
+  .workbench-heading { display:flex; justify-content:space-between; gap:1rem; align-items:center; }
   .workbench-heading img { flex:none; }
-  .eyebrow { color:var(--dexpot-cyan); font:600 .7rem var(--sl-font-mono); letter-spacing:.08em; text-transform:uppercase; }
-  .eyebrow span { margin-left:.7rem; color:var(--dexpot-gold); }
-  .workbench-layout { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(15rem,.85fr); gap:1rem; margin-top:1.25rem; }
-  .code-pane,.request-pane,.result-pane { min-width:0; border:1px solid var(--sl-color-gray-5); background:var(--sl-color-black); }
-  .code-pane { padding:1rem; border-left:2px solid var(--dexpot-gold); }
-  .request-pane { padding:1rem; border-left:2px solid var(--dexpot-cyan); }
-  .pane-label { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.4rem; color:var(--sl-color-gray-2); font: .64rem var(--sl-font-mono); letter-spacing:.07em; }
-  .code-pane pre { margin:.8rem 0; color:var(--sl-color-white); font-size:.78rem; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
-  .code-pane a { font: .7rem var(--sl-font-mono); }
-  .request-pane label { display:grid; gap:.3rem; margin-top:.7rem; font-size:.8rem; }
-  .request-pane :is(input,select) { box-sizing:border-box; width:100%; min-width:0; padding:.5rem; border:1px solid var(--sl-color-gray-4); border-radius:0; color:var(--sl-color-white); background:var(--sl-color-gray-6); }
-  .workbench-actions { display:flex; gap:.5rem; margin-top:1rem; }
-  .workbench-actions button { padding:.55rem .7rem; border:1px solid var(--dexpot-cyan); border-radius:0; color:#06111a; background:var(--dexpot-cyan); font: .7rem var(--sl-font-mono); cursor:pointer; }
+  .eyebrow { margin:0; color:var(--sl-color-accent); font:600 .72rem var(--sl-font-mono); letter-spacing:.06em; }
+  .eyebrow span { margin-left:.6rem; color:var(--sl-color-gray-2); }
+  .workbench-intro { margin:.4rem 0 0; color:var(--sl-color-gray-2); font-size:.92rem; }
+  .workbench-layout { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(15rem,.85fr); gap:clamp(.75rem,2vw,1.25rem); margin-top:1rem; }
+  .code-pane,.request-pane { min-width:0; }
+  .pane-label { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.4rem; color:var(--sl-color-gray-2); font: .7rem var(--sl-font-mono); letter-spacing:.04em; }
+  .code-pane pre { margin:.65rem 0; padding:.7rem; color:var(--sl-color-white); background:var(--sl-color-black); font-size:.84rem; line-height:1.55; white-space:pre; overflow:auto; }
+  .code-pane a { font: .76rem var(--sl-font-mono); }
+  .request-pane label { display:grid; gap:.3rem; margin-top:.55rem; color:var(--sl-color-gray-1); font-size:.84rem; }
+  .request-pane :is(input,select) { box-sizing:border-box; width:100%; min-width:0; padding:.5rem; border:1px solid var(--sl-color-gray-4); border-radius:0; color:var(--sl-color-white); background:var(--sl-color-black); font:inherit; }
+  .workbench-actions { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.8rem; }
+  .workbench-actions button { min-height:2.5rem; padding:.55rem .75rem; border:1px solid var(--sl-color-accent); border-radius:0; color:#06111a; background:var(--sl-color-accent); font: .75rem var(--sl-font-mono); cursor:pointer; }
   .workbench-actions button + button { color:var(--sl-color-white); background:transparent; border-color:var(--sl-color-gray-4); }
-  .result-pane { margin-top:1rem; padding:1rem; border-left:2px solid var(--dexpot-gold); }
-  .contract-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; margin-top:.7rem; }
+  :global(:root[data-theme='light']) .workbench-actions button:first-child { color:#fff; background:#003b50; border-color:#003b50; }
+  .result-pane { margin-top:.85rem; padding-top:.7rem; border-top:1px solid var(--sl-color-gray-5); }
+  .contract-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; margin-top:.5rem; }
   .contract-grid article { min-width:0; }
-  .contract-grid h3 { margin:.2rem 0; font: .7rem var(--sl-font-mono); text-transform:uppercase; }
-  .contract-grid pre { max-width:100%; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font-size:.75rem; }
+  .contract-grid h3 { margin:.2rem 0; color:var(--sl-color-gray-2); font: .7rem var(--sl-font-mono); text-transform:uppercase; }
+  .contract-grid pre { max-width:100%; margin:.35rem 0; padding:.55rem; overflow:auto; color:var(--sl-color-white); background:var(--sl-color-black); white-space:pre-wrap; overflow-wrap:anywhere; font-size:.76rem; }
   #contract-error { color:var(--sl-color-red); }
-  .contract-note { margin: .7rem 0 0; color:var(--sl-color-gray-2); font-size:.75rem; }
-  @media (max-width:42rem) { .workbench-layout,.contract-grid { grid-template-columns:minmax(0,1fr); } .workbench-heading img { width:38px; height:38px; } .code-pane pre { font-size:.68rem; } }
+  .contract-note { margin: .55rem 0 0; color:var(--sl-color-gray-2); font-size:.76rem; }
+  @media (max-width:42rem) { .workbench-layout,.contract-grid { grid-template-columns:minmax(0,1fr); } .workbench-heading img { width:32px; height:32px; } }
 </style>

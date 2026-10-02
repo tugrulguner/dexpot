@@ -38,6 +38,19 @@ const requiredPosthogConfig = [
   'disable_session_recording:true',
 ];
 
+const benchmarkRecord = await readFile(join(websiteRoot, 'benchmarks/loopback-2026-10-02.md'), 'utf8');
+const benchmarkLines = benchmarkRecord.split(/\r?\n/);
+if (benchmarkLines[0] !== '---' || benchmarkLines[4] !== '---') {
+  throw new Error('loopback benchmark record must have a closed YAML front matter block');
+}
+for (const value of ['p50 439 µs', 'p90 0.92 ms', 'p99 1.76 ms', '83,430 responses checked', '0 invalid statuses/bodies']) {
+  if (!benchmarkRecord.includes(value)) throw new Error(`loopback benchmark record missing preserved value: ${value}`);
+}
+const benchmarkValidator = await readFile(join(websiteRoot, 'benchmarks/dexpot-loopback.lua'), 'utf8');
+for (const value of ['status ~= 200', `'{"id":7,"name":"item-7","price":7.0}'`, 'validated_responses=%d invalid_responses=%d']) {
+  if (!benchmarkValidator.includes(value)) throw new Error(`loopback benchmark response validator missing: ${value}`);
+}
+
 const failures = [];
 let htmlCount = 0;
 for await (const path of htmlFiles(distRoot)) {
@@ -58,8 +71,21 @@ for await (const path of htmlFiles(distRoot)) {
     failures.push(`${relative(distRoot, path)}: expected exactly one PostHog initialization`);
   }
   if (outputPath.endsWith('examples/index.html') || outputPath.endsWith('playground/index.html')) {
-    for (const token of ['01 / Request workbench', 'examples/typed_crud.py', 'id="operation"', 'id="item-id"', 'id="item-name"', 'id="item-price"', 'id="request-target"', 'id="contract-response"', 'id="contract-run"', 'id="contract-reset"', 'Local contract preview—not a Python server']) {
+    for (const token of ['BROWSER-LOCAL CONTRACT', 'examples/typed_crud.py', 'id="operation"', 'id="item-id"', 'id="item-name"', 'id="item-price"', 'id="request-target"', 'id="contract-response"', 'id="contract-run"', 'id="contract-reset"', 'Local contract preview—not a Python server']) {
       if (!html.includes(token)) failures.push(`${outputPath}: missing playground feature ${token}`);
+    }
+    if (outputPath.endsWith('playground/index.html')) {
+      for (const token of ['examples/typed_crud.py · create_item', 'SEPARATE LOCAL SERVER RUN', 'p50 439 µs', 'p90 0.92 ms', 'p99 1.76 ms', 'Canonical Python source ↗']) {
+        if (!html.includes(token)) failures.push(`${outputPath}: missing playground feature ${token}`);
+      }
+      const playgroundHeadings = [...html.matchAll(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/g)]
+        .map((match) => match[1].replace(/<[^>]+>/g, '').trim());
+      if (playgroundHeadings.filter((heading) => /request workbench|browser-local request workbench|typed route, from input/i.test(heading)).length !== 1) {
+        failures.push(`${outputPath}: expected one canonical request-workbench heading`);
+      }
+      if (html.includes('Browser local request workbench') || html.includes('A typed route, from input to response.')) {
+        failures.push(`${outputPath}: duplicate playground hero copy remains`);
+      }
     }
     if (html.includes('recorded-local-http-execution') || html.includes('typed-crud-capture.json') || html.includes('CrudCapture')) failures.push(`${outputPath}: recording-only capture remains`);
   }
