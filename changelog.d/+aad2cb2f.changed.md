@@ -1,0 +1,1 @@
+Add a selectable documentation preview for the recorded typed CRUD HTTP lifecycle.

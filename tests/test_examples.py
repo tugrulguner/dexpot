@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
+import json
 import os
 import socket
 import subprocess
@@ -15,7 +17,7 @@ import httpx
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES = ROOT / "examples"
-EXPECTED_EXAMPLES = {"bounded_api.py", "minimal.py", "typed_crud.py"}
+EXPECTED_EXAMPLES = {"bounded_api.py", "minimal.py", "typed_crud.py", "record_typed_crud.py"}
 
 
 def _free_port() -> int:
@@ -105,6 +107,32 @@ def test_typed_crud_example_runs_complete_lifecycle() -> None:
     assert deleted.json() == {"deleted": 2}
     assert missing.status_code == 404
     assert missing.json() == {"detail": "item not found"}
+
+
+def test_recorded_typed_crud_capture_has_real_lifecycle_provenance() -> None:
+    capture_path = (
+        ROOT / "website" / "src" / "content" / "docs" / "data" / "typed-crud-capture.json"
+    )
+    capture = json.loads(capture_path.read_text())
+    assert capture["mode"] == "recorded-local-http-execution"
+    assert capture["source"]["file"] == "examples/typed_crud.py"
+    assert len(capture["source"]["sha256"]) == 64
+    assert capture["source"]["version"]
+    assert (
+        capture["source"]["sha256"]
+        == hashlib.sha256((EXAMPLES / "typed_crud.py").read_bytes()).hexdigest()
+    )
+    assert len(capture["source"]["commit"]) == 40
+    steps = capture["steps"]
+    assert [(step["method"], step["path"], step["status"]) for step in steps] == [
+        ("GET", "/items/1", 200),
+        ("POST", "/items", 201),
+        ("PUT", "/items/2", 200),
+        ("DELETE", "/items/2", 200),
+        ("GET", "/items/2", 404),
+    ]
+    assert steps[1]["response"] == {"id": 2, "name": "keyboard", "price": 79.0}
+    assert steps[-1]["response"] == {"detail": "item not found"}
 
 
 def test_bounded_api_example_validates_success_and_failure_paths() -> None:
