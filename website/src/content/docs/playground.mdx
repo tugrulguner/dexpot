@@ -1,14 +1,25 @@
 ---
-title: CRUD playground
+title: Request workbench
 description: Explore the typed CRUD example with explicit browser-local requests.
 ---
 
 import CrudPlayground from '../../components/CrudPlayground.astro';
 
-# Browser-local CRUD playground
+# Browser-local request workbench
 
-Explore the request and response contract demonstrated by [`examples/typed_crud.py`](https://github.com/tugrulguner/dexpot/blob/main/examples/typed_crud.py). Nothing is sent to a backend: requests mutate only this tab's in-memory state, and editing fields alone has no effect.
+Explore the request/response contract demonstrated by [`examples/typed_crud.py`](https://github.com/tugrulguner/dexpot/blob/main/examples/typed_crud.py). The workbench computes bounded CRUD outcomes in this tab only; it does not call the Python framework or send requests to a server.
 
 <CrudPlayground />
 
-The example starts with item `1` (`starter`, `9.99`), creates monotonic IDs, returns `200` with `{ "deleted": id }` for successful deletes, and uses `detail` for error bodies. This bounded illustration permits at most 20 live items and resets when asked or when the page reloads; it is not a live Python server or performance demonstration.
+## Recorded latency, measured on a local Dexpot server
+
+<div class="latency-record">
+  <p class="eyebrow">02 / Recorded measurement · not live</p>
+  <h2>Loopback response latency</h2>
+  <p class="latency-values"><strong>p50 439 µs</strong><strong>p90 0.92 ms</strong><strong>p99 1.76 ms</strong></p>
+  <p>One 5-second <code>wrk</code> run against a real Dexpot server on the same Mac: 83,430 checked responses, zero status/body mismatches, 16,361.16 requests/s. Client-observed request/response latency includes loopback transport and generator overhead; it does not isolate server processing.</p>
+  <p>CPython 3.14.7 (GIL on) · macOS 26.5.2 · Apple M4 · 2 generator threads / 8 connections. Exploratory single-machine evidence, not a comparison or production benchmark.</p>
+  <p><a href="https://github.com/tugrulguner/dexpot/blob/main/website/benchmarks/loopback-2026-10-02.md">Method, complete captured run &amp; reproduction command ↗</a></p>
+</div>
+
+The example starts with item `1` (`starter`, `9.99`), creates monotonic IDs, returns `200` with `{ "deleted": id }` for successful deletes, and uses `detail` for error bodies. The browser preview allows at most 20 live items and resets when asked or when the page reloads. The latency record above is a separately measured local HTTP run—not a browser timer and not output from this preview.

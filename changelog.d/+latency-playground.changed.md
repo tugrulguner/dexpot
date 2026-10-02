@@ -1,0 +1,1 @@
+The playground now pairs typed Python route code with a bounded browser-local request/response workbench and clearly separated, reproducible loopback latency evidence measured against a local Dexpot server.

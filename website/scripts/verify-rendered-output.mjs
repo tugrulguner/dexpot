@@ -58,10 +58,13 @@ for await (const path of htmlFiles(distRoot)) {
     failures.push(`${relative(distRoot, path)}: expected exactly one PostHog initialization`);
   }
   if (outputPath.endsWith('examples/index.html') || outputPath.endsWith('playground/index.html')) {
-    for (const token of ['Browser-local contract explorer', 'id="operation"', 'id="item-id"', 'id="item-name"', 'id="item-price"', 'id="contract-response"', 'id="contract-run"', 'id="contract-reset"']) {
+    for (const token of ['01 / Request workbench', 'examples/typed_crud.py', 'id="operation"', 'id="item-id"', 'id="item-name"', 'id="item-price"', 'id="request-target"', 'id="contract-response"', 'id="contract-run"', 'id="contract-reset"', 'Local contract preview—not a Python server']) {
       if (!html.includes(token)) failures.push(`${outputPath}: missing playground feature ${token}`);
     }
     if (html.includes('recorded-local-http-execution') || html.includes('typed-crud-capture.json') || html.includes('CrudCapture')) failures.push(`${outputPath}: recording-only capture remains`);
+  }
+  if (outputPath.endsWith('playground/index.html') && (!html.includes('83,430 checked responses') || !html.includes('loopback-2026-10-02.md'))) {
+    failures.push(`${outputPath}: missing measured latency provenance`);
   }
   if (outputPath === 'index.html' && !html.includes('href="/playground/"')) failures.push('index.html: missing direct playground link');
   if (outputPath !== '404.html' && !html.includes('href="/current-boundaries/"')) {
