@@ -55,6 +55,7 @@ export default defineConfig({
         ] },
         { label: 'Use dexpot', items: [
           { label: 'Runnable examples', slug: 'examples' },
+          { label: 'CRUD playground', slug: 'playground' },
           { label: 'Coding-agent context', slug: 'agent-context' },
         ] },
         { label: 'ModePot', link: 'https://modepot.io/' },
