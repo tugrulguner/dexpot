@@ -7,7 +7,7 @@ export function execute(state, request) {
   const path = op === 'create' ? '/items' : `/items/${id}`;
   const payload = { method: methods[op], path, ...(['create', 'update'].includes(op) ? { body: { name, price } } : {}) };
   let status, body;
-  if (op !== 'create' && !Number.isInteger(id)) { status = 404; body = { detail: 'item not found' }; }
+  if (op !== 'create' && !Number.isInteger(id)) { status = 422; body = { detail: 'invalid int for item_id' }; }
   else if (['create', 'update'].includes(op) && (typeof name !== 'string' || !Number.isFinite(price))) { status = 422; body = { detail: 'request body must contain a string name and finite price' }; }
   else if (op === 'create') {
     if (state.items.size >= MAX_ITEMS) { status = 422; body = { detail: 'browser state is limited to 20 items' }; }

@@ -25,7 +25,7 @@ test('create/update/get/delete exactly match example status and body contracts',
 test('empty, nonfinite, fractional ID/price invalid; no overwrite; live item cap', () => {
   let state = createState();
   for (const price of [Number.NaN, Infinity]) assert.equal(run(state, 'create', { price }).result.response.status, 422);
-  for (const id of [1.5]) assert.equal(run(state, 'get', { id }).result.response.status, 404);
+  assert.deepEqual(run(state, 'get', { id: 1.5 }).result.response, { status: 422, body: { detail: 'invalid int for item_id' } });
   assert.equal(run(state, 'get', { id: 0 }).result.response.status, 404);
   state = run(state, 'delete', { id: 1 }).state;
   state = run(state, 'create').state;
