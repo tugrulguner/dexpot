@@ -1,3 +1,11 @@
+export function measureRun(run, clock = () => performance.now()) {
+  const started = clock();
+  try {
+    return { value: run(), elapsedMs: clock() - started };
+  } catch (error) {
+    return { error, elapsedMs: clock() - started };
+  }
+}
 export const MAX_ITEMS = 20;
 export function createState() { return { items: new Map([[1, { id: 1, name: 'starter', price: 9.99 }]]), nextId: 2, result: null }; }
 export function execute(state, request) {

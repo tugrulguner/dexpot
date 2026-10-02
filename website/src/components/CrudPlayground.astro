@@ -15,18 +15,21 @@ def create_item(item: ItemIn) -> tuple[int, Item]:
         _items[_next_id] = created
         _next_id += 1
     return 201, created</code></pre><a href="https://github.com/tugrulguner/dexpot/blob/main/examples/typed_crud.py">Open complete example ↗</a></div>
-    <div class="request-pane"><div class="pane-label"><span>REQUEST BUILDER</span><span id="request-target">POST /items</span></div>
-      <label>Operation <select id="operation"><option value="create">POST · create</option><option value="update">PUT · update</option><option value="get">GET · read</option><option value="delete">DELETE · remove</option></select></label>
-      <label>Item ID <input id="item-id" type="number" value="1"></label><label>Name <input id="item-name" value="Notebook"></label><label>Price <input id="item-price" type="number" step="any" value="12.5"></label>
-      <div class="workbench-actions"><button type="button" id="contract-run">▶ &nbsp; Run locally</button><button type="button" id="contract-reset">Reset</button></div>
+    <div class="workbench-right">
+      <div class="request-pane"><div class="pane-label"><span>REQUEST BUILDER</span><span id="request-target">POST /items</span></div>
+        <label>Operation <select id="operation"><option value="create">POST · create</option><option value="update">PUT · update</option><option value="get">GET · read</option><option value="delete">DELETE · remove</option></select></label>
+        <label>Item ID <input id="item-id" type="number" value="1"></label><label>Name <input id="item-name" value="Notebook"></label><label>Price <input id="item-price" type="number" step="any" value="12.5"></label>
+        <div class="workbench-actions"><button type="button" id="contract-run">Run locally</button><button type="button" id="contract-reset">Reset</button></div>
+        <p class="contract-note">Local contract preview, not a Python server. No network calls. Starts with the example item; maximum 20 live items. Editing is inert until Run.</p>
+      </div>
+      <div class="result-pane"><div class="contract-grid"><article><h3>Request</h3><pre id="contract-request">Awaiting run()</pre></article><article><h3>Computed response</h3><pre id="contract-response" aria-live="polite">No response yet.</pre></article></div></div>
     </div>
   </div>
   <p id="contract-error" role="alert"></p>
-  <div class="result-pane"><div class="pane-label"><span>RESPONSE TRACE</span><span>IN-MEMORY · THIS TAB ONLY</span></div><div class="contract-grid"><article><h3>Request</h3><pre id="contract-request">Awaiting run()</pre></article><article><h3>Computed response</h3><pre id="contract-response" aria-live="polite">No response yet.</pre></article></div></div>
-  <p class="contract-note">Local contract preview—not a Python server. No network calls. Starts with the example item; maximum 20 live items. Editing is inert until Run.</p>
+  <p id="run-timing" class="run-timing" aria-live="polite">— <span>Browser-local processing only. Excludes Dexpot Python/server and network latency.</span></p>
 </section>
 <script>
-  import { createState, execute } from '../scripts/crud-playground.js';
+import { createState, execute, measureRun } from '../scripts/crud-playground.js';
   const state = createState();
   const operation = document.querySelector<HTMLSelectElement>('#operation');
   const idField = document.querySelector<HTMLInputElement>('#item-id');
@@ -43,44 +46,57 @@ def create_item(item: ItemIn) -> tuple[int, Item]:
   idField?.addEventListener('input', refreshTarget);
   document.querySelector<HTMLButtonElement>('#contract-run')?.addEventListener('click', () => {
     if (!operation || !idField || !nameField || !priceField) return;
+    const timing = document.querySelector<HTMLElement>('#run-timing');
+    if (timing) timing.firstChild!.textContent = '— ';
     const rawPrice = priceField.value;
-    const result = execute(state, { operation: operation.value, id: Number(idField.value), name: nameField.value, price: rawPrice === '' ? Number.NaN : Number(rawPrice) });
-    Object.assign(state, result.state);
-    text('#contract-request', JSON.stringify(result.result.request, null, 2));
-    text('#contract-response', JSON.stringify(result.result.response, null, 2));
-    text('#contract-error', result.result.response.status >= 400 ? result.result.response.body.detail : '');
+    const measured = measureRun(() => {
+      const result = execute(state, { operation: operation.value, id: Number(idField.value), name: nameField.value, price: rawPrice === '' ? Number.NaN : Number(rawPrice) });
+      Object.assign(state, result.state);
+      text('#contract-request', JSON.stringify(result.result.request, null, 2));
+      text('#contract-response', JSON.stringify(result.result.response, null, 2));
+      text('#contract-error', result.result.response.status >= 400 ? result.result.response.body.detail : '');
+    });
+    if (timing) timing.firstChild!.textContent = `${measured.elapsedMs.toFixed(3)} ms `;
   });
   document.querySelector<HTMLButtonElement>('#contract-reset')?.addEventListener('click', () => {
     Object.assign(state, createState());
     if(operation) operation.value='create'; if(idField) idField.value='1'; if(nameField) nameField.value='Notebook'; if(priceField) priceField.value='12.5';
     refreshTarget();
     text('#contract-request', 'Awaiting run()'); text('#contract-response', 'No response yet.'); text('#contract-error', '');
+    const timing = document.querySelector<HTMLElement>('#run-timing');
+    if (timing) timing.firstChild!.textContent = '— ';
   });
 </script>
 <style>
-  .crud-playground { margin-block:1rem .75rem; padding:clamp(.75rem,2vw,1.25rem); border:1px solid var(--sl-color-gray-5); background:color-mix(in srgb,var(--sl-color-gray-6) 45%,transparent); }
+  .crud-playground { margin-block:1rem .75rem; padding:clamp(.75rem,2vw,1.25rem); border:1px solid var(--sl-color-gray-5); background:var(--play-surface); color:var(--play-ink); font-size:14px; }
+  .crud-playground :global(*) { box-sizing:border-box; }
   .workbench-heading { display:flex; justify-content:space-between; gap:1rem; align-items:center; }
   .workbench-heading img { flex:none; }
-  .eyebrow { margin:0; color:var(--sl-color-accent); font:600 .72rem var(--sl-font-mono); letter-spacing:.06em; }
-  .eyebrow span { margin-left:.6rem; color:var(--sl-color-gray-2); }
-  .workbench-intro { margin:.4rem 0 0; color:var(--sl-color-gray-2); font-size:.92rem; }
-  .workbench-layout { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(15rem,.85fr); gap:clamp(.75rem,2vw,1.25rem); margin-top:1rem; }
-  .code-pane,.request-pane { min-width:0; }
-  .pane-label { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.4rem; color:var(--sl-color-gray-2); font: .7rem var(--sl-font-mono); letter-spacing:.04em; }
-  .code-pane pre { margin:.65rem 0; padding:.7rem; color:var(--sl-color-white); background:var(--sl-color-black); font-size:.84rem; line-height:1.55; white-space:pre; overflow:auto; }
-  .code-pane a { font: .76rem var(--sl-font-mono); }
-  .request-pane label { display:grid; gap:.3rem; margin-top:.55rem; color:var(--sl-color-gray-1); font-size:.84rem; }
-  .request-pane :is(input,select) { box-sizing:border-box; width:100%; min-width:0; padding:.5rem; border:1px solid var(--sl-color-gray-4); border-radius:0; color:var(--sl-color-white); background:var(--sl-color-black); font:inherit; }
-  .workbench-actions { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.8rem; }
-  .workbench-actions button { min-height:2.5rem; padding:.55rem .75rem; border:1px solid var(--sl-color-accent); border-radius:0; color:#06111a; background:var(--sl-color-accent); font: .75rem var(--sl-font-mono); cursor:pointer; }
-  .workbench-actions button + button { color:var(--sl-color-white); background:transparent; border-color:var(--sl-color-gray-4); }
-  :global(:root[data-theme='light']) .workbench-actions button:first-child { color:#fff; background:#003b50; border-color:#003b50; }
-  .result-pane { margin-top:.85rem; padding-top:.7rem; border-top:1px solid var(--sl-color-gray-5); }
-  .contract-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; margin-top:.5rem; }
-  .contract-grid article { min-width:0; }
-  .contract-grid h3 { margin:.2rem 0; color:var(--sl-color-gray-2); font: .7rem var(--sl-font-mono); text-transform:uppercase; }
-  .contract-grid pre { max-width:100%; margin:.35rem 0; padding:.55rem; overflow:auto; color:var(--sl-color-white); background:var(--sl-color-black); white-space:pre-wrap; overflow-wrap:anywhere; font-size:.76rem; }
-  #contract-error { color:var(--sl-color-red); }
-  .contract-note { margin: .55rem 0 0; color:var(--sl-color-gray-2); font-size:.76rem; }
+  .eyebrow { margin:0; color:var(--play-muted); font-size:13px; }
+  .eyebrow span { margin-left:.6rem; color:var(--play-muted); }
+  .workbench-intro { margin:.4rem 0 0; color:var(--play-muted); font-size:14px; }
+  .workbench-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start; gap:clamp(.75rem,2vw,1.25rem); margin-top:1rem; }
+  .code-pane,.workbench-right { min-width:0; }
+  .workbench-right { display:grid; gap:.9rem; }
+  .pane-label { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.4rem; color:var(--play-muted); font-size:13px; }
+  .code-pane pre,.contract-grid pre { box-sizing:border-box; max-width:100%; margin:.55rem 0; padding:.7rem; color:var(--play-ink); background:var(--play-code); font-size:12.5px; line-height:1.55; }
+  .code-pane pre { overflow:auto; white-space:pre; }
+  .code-pane a { font-size:13px; }
+  .request-pane label { display:grid; gap:.3rem; margin:.55rem 0 0; color:var(--play-ink); font-size:13px; }
+  .request-pane :is(input,select) { box-sizing:border-box; width:100%; min-width:0; min-height:2.35rem; padding:.45rem .55rem; border:1px solid var(--play-border); border-radius:3px; color:var(--play-ink); background:var(--play-code); font:inherit; }
+  .request-pane :is(input,select):focus-visible,.workbench-actions button:focus-visible { outline:2px solid var(--play-accent); outline-offset:2px; }
+  .workbench-actions { display:flex; flex-wrap:wrap; align-items:flex-start; gap:.5rem; margin-top:.8rem; }
+  .workbench-actions button { box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; height:44px; min-height:44px; margin:0; padding:.6rem .8rem; border:1px solid var(--play-accent); border-radius:3px; color:var(--play-button-ink); background:var(--play-accent); font:600 14px/1 var(--sl-font); cursor:pointer; }
+  .workbench-actions button + button { color:var(--play-ink); background:transparent; border-color:var(--play-border); }
+  .result-pane { min-width:0; padding-top:.65rem; border-top:1px solid var(--play-border); }
+  .contract-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:.7rem; }
+  .contract-grid article { min-width:0; display:flex; flex-direction:column; align-items:stretch; margin:0; }
+  .contract-grid h3 { all:unset; display:block; flex:none; box-sizing:border-box; min-height:1.45em; margin:0 0 .35rem; padding:0; color:var(--play-muted); font:500 14px/1.45 var(--sl-font); }
+  .contract-grid pre { min-height:5.5rem; margin:0; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
+  #contract-error { min-height:0; margin:0; color:var(--play-error); font-size:13px; }
+  .contract-note { margin:.65rem 0 0; color:var(--play-muted); font-size:13px; line-height:1.45; }
+  .run-timing { display:flex; flex-wrap:wrap; align-items:baseline; gap:.55rem; margin:.65rem 0 0; color:var(--play-ink); font:500 14px/1.45 var(--sl-font-mono); }
+  .run-timing span { color:var(--play-muted); font:13px/1.45 var(--sl-font); }
   @media (max-width:42rem) { .workbench-layout,.contract-grid { grid-template-columns:minmax(0,1fr); } .workbench-heading img { width:32px; height:32px; } }
+  @media (prefers-reduced-motion:reduce) { .crud-playground *, .crud-playground *::before, .crud-playground *::after { scroll-behavior:auto !important; animation-duration:.01ms !important; transition-duration:.01ms !important; } }
 </style>
