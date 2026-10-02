@@ -57,6 +57,12 @@ for await (const path of htmlFiles(distRoot)) {
   if ((html.match(/posthog\.init\(/g) ?? []).length !== 1) {
     failures.push(`${relative(distRoot, path)}: expected exactly one PostHog initialization`);
   }
+  if (outputPath.endsWith('examples/index.html')) {
+    for (const token of ['Browser-local contract explorer', 'id="operation"', 'id="item-id"', 'id="item-name"', 'id="item-price"', 'id="contract-response"', 'id="contract-reset"']) {
+      if (!html.includes(token)) failures.push(`${outputPath}: missing playground feature ${token}`);
+    }
+    if (html.includes('recorded-local-http-execution') || html.includes('typed-crud-capture.json')) failures.push(`${outputPath}: recorded capture remains`);
+  }
   if (outputPath !== '404.html' && !html.includes('href="/current-boundaries/"')) {
     failures.push(`${outputPath}: missing prominent alpha-boundary link`);
   }

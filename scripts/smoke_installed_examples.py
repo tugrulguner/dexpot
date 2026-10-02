@@ -26,7 +26,6 @@ EXAMPLES = ROOT / "examples"
 EXPECTED_EXAMPLES = {
     "bounded_api.py",
     "minimal.py",
-    "record_typed_crud.py",
     "typed_crud.py",
 }
 

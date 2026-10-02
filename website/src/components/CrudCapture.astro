@@ -1,68 +1,47 @@
----
-import capture from '../content/docs/data/typed-crud-capture.json';
----
-
-<label class="crud-capture__label" for="crud-step">Recorded request
-  <select id="crud-step" aria-controls="crud-result">
-  {capture.steps.map((step, index) => (
-    <option value={index}>{step.method} {step.path} → {step.status}</option>
-  ))}
-  </select>
-</label>
-<pre id="crud-result" aria-live="polite"></pre>
-<small id="crud-provenance"></small>
-
+<section aria-labelledby="crud-playground-title" class="crud-playground">
+  <p class="eyebrow">Browser-local contract explorer · no Python server</p>
+  <h2 id="crud-playground-title">Typed CRUD request and response</h2>
+  <p>Edit bounded fields to compute a response from this example contract. This does not invoke Dexpot or execute Python.</p>
+  <label>Operation <select id="operation"><option value="create">Create item</option><option value="update">Update item</option><option value="get">Get item</option><option value="delete">Delete item</option></select></label>
+  <label>Item ID <input id="item-id" type="number" min="1" max="20" value="1"></label>
+  <label>Name <input id="item-name" maxlength="40" value="Notebook"></label>
+  <label>Price <input id="item-price" type="number" min="0" max="9999" step="0.01" value="12.5"></label>
+  <p id="contract-error" role="alert"></p>
+  <div class="contract-grid"><article><h3>Request</h3><pre id="contract-request"></pre></article><article><h3>Computed response</h3><pre id="contract-response" aria-live="polite"></pre></article></div>
+  <button type="button" id="contract-reset">Reset</button>
+  <p class="contract-note">In-memory browser state only; up to 20 items. Reload to clear.</p>
+</section>
 <script>
-  import capture from '../content/docs/data/typed-crud-capture.json';
-
-  const selector = document.querySelector<HTMLSelectElement>('#crud-step');
-  const result = document.querySelector<HTMLElement>('#crud-result');
-  const provenance = document.querySelector<HTMLElement>('#crud-provenance');
-  if (selector && result && provenance) {
-    const activeSelector = selector;
-    const activeResult = result;
-    const activeProvenance = provenance;
-
-    function render() {
-      const step = capture.steps[Number(activeSelector.value)];
-      activeResult.textContent = JSON.stringify(
-        {
-          request: { method: step.method, path: step.path, body: step.request },
-          response: { status: step.status, body: step.response },
-        },
-        null,
-        2,
-      );
-    }
-
-    activeSelector.addEventListener('change', render);
-    render();
-    activeProvenance.textContent = `Recorded execution · ${capture.source.file} · commit ${capture.source.commit} · SHA-256 ${capture.source.sha256} · Dexpot ${capture.source.version}`;
+  type Item = { id: number; name: string; price: number };
+  const items = new Map<number, Item>();
+  const operation = document.querySelector<HTMLSelectElement>('#operation');
+  const idField = document.querySelector<HTMLInputElement>('#item-id');
+  const nameField = document.querySelector<HTMLInputElement>('#item-name');
+  const priceField = document.querySelector<HTMLInputElement>('#item-price');
+  const error = document.querySelector<HTMLElement>('#contract-error');
+  const text = (id: string, value: string) => { const node = document.getElementById(id); if (node) node.textContent = value; };
+  function render() {
+    if (!operation || !idField || !nameField || !priceField || !error) return;
+    const id = Number(idField.value), name = nameField.value.trim(), price = Number(priceField.value), op = operation.value;
+    const methods: Record<string,string> = { create:'POST', update:'PUT', get:'GET', delete:'DELETE' };
+    text('contract-request', JSON.stringify({ method: methods[op], path: op === 'create' ? '/items' : `/items/${id}`, ...(op === 'create' || op === 'update' ? { body: { name, price } } : {}) }, null, 2));
+    let status: number, body: unknown;
+    if (!Number.isInteger(id) || id < 1 || id > 20) { status=422; body={error:'id must be an integer from 1 to 20'}; }
+    else if ((op === 'create' || op === 'update') && (!name || name.length>40 || !Number.isFinite(price) || price<0 || price>9999)) { status=422; body={error:'name (1–40 chars) and price (0–9999) are required'}; }
+    else if (op === 'create') { if (items.size>=20) { status=422; body={error:'browser state is limited to 20 items'}; } else { const item={id:items.size+1,name,price}; items.set(item.id,item); status=201; body=item; } }
+    else if (op === 'update') { if (!items.has(id)) { status=404; body={error:'item not found'}; } else { const item={id,name,price}; items.set(id,item); status=200; body=item; } }
+    else if (op === 'get') { const item=items.get(id); status=item?200:404; body=item??{error:'item not found'}; }
+    else { const deleted=items.delete(id); status=deleted?204:404; body=deleted?null:{error:'item not found'}; }
+    error.textContent = status>=400 ? String((body as {error:string}).error) : '';
+    text('contract-response', JSON.stringify({status,body},null,2));
   }
+  [operation,idField,nameField,priceField].forEach((field)=>field?.addEventListener('input',render));
+  document.querySelector<HTMLButtonElement>('#contract-reset')?.addEventListener('click',()=>{items.clear(); if(operation)operation.value='create'; if(idField)idField.value='1'; if(nameField)nameField.value='Notebook'; if(priceField)priceField.value='12.5'; render();}); render();
 </script>
-
 <style>
-  .crud-capture__label {
-    display: grid;
-    gap: 0.5rem;
-    max-width: 24rem;
-  }
-
-  .crud-capture__label select {
-    box-sizing: border-box;
-    max-width: 100%;
-    min-width: 0;
-    width: 100%;
-  }
-
-  #crud-provenance {
-    display: block;
-    max-width: 100%;
-    overflow-wrap: anywhere;
-  }
-
-  #crud-result {
-    max-width: 100%;
-    overflow-x: auto;
-  }
+  .crud-playground { padding:1.2rem; border:1px solid var(--sl-color-gray-5); border-radius:1rem; } .eyebrow { color:var(--sl-color-accent-high); font-weight:650; }
+  label { display:grid; gap:.35rem; max-width:26rem; margin-block:.65rem; } input,select,button { box-sizing:border-box; max-width:100%; padding:.55rem; }
+  .contract-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr)); gap:.75rem; } article { min-width:0; padding:.75rem; border:1px solid var(--sl-color-gray-5); border-radius:.6rem; }
+  pre { max-width:100%; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; } #contract-error { color:var(--sl-color-red); } .contract-note { font-size:.9rem; }
+  @media (prefers-reduced-motion:no-preference) { #contract-response { animation:update .16s ease-out; } @keyframes update { from {opacity:.55} to {opacity:1} } }
 </style>
