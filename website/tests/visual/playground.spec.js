@@ -17,6 +17,64 @@ const contrast = (foreground, background) => {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 };
 
+test('run timing stays beside the action that produced it', async ({ page }) => {
+  for (const width of [1280, 768, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/playground/');
+    await page.locator('#contract-run').click();
+    const run = await page.locator('#contract-run').boundingBox();
+    const timing = await page.locator('#run-timing').boundingBox();
+    const pane = await page.locator('.request-pane').boundingBox();
+    expect(timing.x).toBeGreaterThanOrEqual(pane.x);
+    expect(timing.x + timing.width).toBeLessThanOrEqual(pane.x + pane.width + 1);
+    expect(timing.y - run.y - run.height).toBeGreaterThanOrEqual(0);
+    expect(timing.y - run.y - run.height).toBeLessThanOrEqual(24);
+    if (width === 1280) expect(timing.y + timing.height).toBeLessThan(900);
+  }
+});
+
+test('editing the draft invalidates the prior response and timing', async ({ page }) => {
+  await page.goto('/playground/');
+  for (const field of ['operation', 'item-id', 'item-name', 'item-price']) {
+    await page.locator('#contract-run').click();
+    await expect(page.locator('#run-timing')).toContainText(/\d+\.\d{3} ms/);
+    if (field === 'operation') await page.locator('#operation').selectOption('get');
+    else await page.locator(`#${field}`).fill(field === 'item-name' ? 'Changed' : '2');
+    await expect(page.locator('#contract-request')).toHaveText('Awaiting run()');
+    await expect(page.locator('#contract-response')).toHaveText('No response yet.');
+    await expect(page.locator('#contract-error')).toHaveText('');
+    await expect(page.locator('#run-timing')).toContainText('—');
+    expect(await page.locator('#run-timing').innerText()).not.toMatch(/\d+\.\d{3} ms/);
+  }
+});
+
+test('populated request and response panels keep matched desktop bounds', async ({ page }) => {
+  for (const width of [768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const theme of ['light', 'dark']) {
+      await page.goto('/playground/');
+      await page.evaluate(async (value) => {
+        document.documentElement.dataset.theme = value;
+        await document.fonts.ready;
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      }, theme);
+      await page.locator('#operation').selectOption('get');
+      await page.locator('#contract-run').click();
+      await expect(page.locator('#contract-response')).toContainText('200');
+      for (const id of ['1', '999']) {
+        await page.locator('#item-id').fill(id);
+        await page.locator('#contract-run').click();
+        await expect(page.locator('#contract-response')).toContainText(id === '1' ? '200' : '404');
+        const request = await page.locator('#contract-request').boundingBox();
+        const response = await page.locator('#contract-response').boundingBox();
+        expect(request.y).toBe(response.y);
+        expect(request.height).toBe(response.height);
+        expect(request.width).toBe(response.width);
+      }
+    }
+  }
+});
+
 test('playground first fold, controls, palette contrast, and responsive bounds', async ({ page }) => {
   for (const width of [320, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
@@ -61,10 +119,17 @@ test('playground first fold, controls, palette contrast, and responsive bounds',
           responsePre: bounds('#contract-response'),
           title: bounds('main h1'),
           theme: document.documentElement.dataset.theme,
-          colors: Object.fromEntries(['.eyebrow', '.workbench-intro', '.pane-label', '.request-pane label', '.workbench-actions button:first-child', '#request-target', '.contract-grid h3', '.contract-note', '.run-timing', '.run-timing span', '.code-pane pre', '.contract-grid pre', '.record-details', '.record-details strong', '.workbench-record summary'].map((selector) => {
+          colors: Object.fromEntries(['.eyebrow', '.workbench-intro', '.pane-label', '.request-pane label', '.workbench-actions button:first-child', '.workbench-actions button:last-child', '#request-target', '.contract-grid h3', '.contract-note', '.run-timing', '.run-timing span', '.code-pane pre', '.contract-grid pre', '.record-details', '.record-details strong', '.workbench-record summary'].map((selector) => {
             const node = document.querySelector(selector);
             const style = getComputedStyle(node);
-            return [selector, { foreground: style.color, background: style.backgroundColor }];
+            let ancestor = node;
+            let background = style.backgroundColor;
+            while (ancestor && (background === 'transparent' || /rgba\([^)]*,\s*0(?:\.0+)?\)$/.test(background))) {
+              ancestor = ancestor.parentElement;
+              if (ancestor) background = getComputedStyle(ancestor).backgroundColor;
+            }
+            if (!ancestor) throw new Error(`No rendered opaque background for ${selector}`);
+            return [selector, { foreground: style.color, background }];
           })),
         };
       });
@@ -95,13 +160,8 @@ test('playground first fold, controls, palette contrast, and responsive bounds',
         expect(layout.builder.y).toBeLessThan(900);
         expect(layout.run.bottom).toBeLessThan(900);
       }
-      const backgrounds = theme === 'light'
-        ? { normal: '#f8f7f4', code: '#f8f7f4', button: '#087d70' }
-        : { normal: '#202226', code: '#16181b', button: '#4fa89b' };
       for (const [selector, colors] of Object.entries(layout.colors)) {
-        const background = selector.includes('pre') ? backgrounds.code : selector.includes('button') ? backgrounds.button : backgrounds.normal;
-        const foreground = colors.foreground;
-        expect(contrast(foreground, background), `${selector} contrast ${theme}`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(colors.foreground, colors.background), `${selector} actual rendered contrast ${theme}`).toBeGreaterThanOrEqual(4.5);
       }
       await page.locator('#contract-run').click();
       await expect(page.locator('#contract-response')).toContainText('201');

@@ -20,13 +20,13 @@ def create_item(item: ItemIn) -> tuple[int, Item]:
         <label>Operation <select id="operation"><option value="create">POST · create</option><option value="update">PUT · update</option><option value="get">GET · read</option><option value="delete">DELETE · remove</option></select></label>
         <label>Item ID <input id="item-id" type="number" value="1"></label><label>Name <input id="item-name" value="Notebook"></label><label>Price <input id="item-price" type="number" step="any" value="12.5"></label>
         <div class="workbench-actions"><button type="button" id="contract-run">Run locally</button><button type="button" id="contract-reset">Reset</button></div>
-        <p class="contract-note">Local contract preview, not a Python server. No network calls. Starts with the example item; maximum 20 live items. Editing is inert until Run.</p>
+        <p id="run-timing" class="run-timing" aria-live="polite">— <span>Browser-local processing only. Excludes Dexpot Python/server and network latency.</span></p>
+        <p class="contract-note">Local contract preview, not a Python server. No network calls. Starts with the example item; maximum 20 live items. Editing clears the last result. Only Run executes.</p>
       </div>
       <div class="result-pane"><div class="contract-grid"><article><h3>Request</h3><pre id="contract-request">Awaiting run()</pre></article><article><h3>Computed response</h3><pre id="contract-response" aria-live="polite">No response yet.</pre></article></div></div>
     </div>
   </div>
   <p id="contract-error" role="alert"></p>
-  <p id="run-timing" class="run-timing" aria-live="polite">— <span>Browser-local processing only. Excludes Dexpot Python/server and network latency.</span></p>
 </section>
 <script>
 import { createState, execute, measureRun } from '../scripts/crud-playground.js';
@@ -36,6 +36,15 @@ import { createState, execute, measureRun } from '../scripts/crud-playground.js'
   const nameField = document.querySelector<HTMLInputElement>('#item-name');
   const priceField = document.querySelector<HTMLInputElement>('#item-price');
   const text = (selector: string, value: string) => { const node = document.querySelector<HTMLElement>(selector); if (node) node.textContent = value; };
+  const clearOutput = () => {
+    text('#contract-request', 'Awaiting run()'); text('#contract-response', 'No response yet.'); text('#contract-error', '');
+    const timing = document.querySelector<HTMLElement>('#run-timing');
+    if (timing) timing.firstChild!.textContent = '— ';
+  };
+  for (const field of [operation, idField, nameField, priceField]) {
+    field?.addEventListener('input', clearOutput);
+    field?.addEventListener('change', clearOutput);
+  }
   const refreshTarget = () => {
     if (!operation || !idField) return;
     const methods: Record<string, string> = { create: 'POST', update: 'PUT', get: 'GET', delete: 'DELETE' };
@@ -62,9 +71,7 @@ import { createState, execute, measureRun } from '../scripts/crud-playground.js'
     Object.assign(state, createState());
     if(operation) operation.value='create'; if(idField) idField.value='1'; if(nameField) nameField.value='Notebook'; if(priceField) priceField.value='12.5';
     refreshTarget();
-    text('#contract-request', 'Awaiting run()'); text('#contract-response', 'No response yet.'); text('#contract-error', '');
-    const timing = document.querySelector<HTMLElement>('#run-timing');
-    if (timing) timing.firstChild!.textContent = '— ';
+    clearOutput();
   });
 </script>
 <style>
@@ -89,10 +96,10 @@ import { createState, execute, measureRun } from '../scripts/crud-playground.js'
   .workbench-actions button { box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; height:44px; min-height:44px; margin:0; padding:.6rem .8rem; border:1px solid var(--play-accent); border-radius:3px; color:var(--play-button-ink); background:var(--play-accent); font:600 14px/1 var(--sl-font); cursor:pointer; }
   .workbench-actions button + button { color:var(--play-ink); background:transparent; border-color:var(--play-border); }
   .result-pane { min-width:0; padding-top:.65rem; border-top:1px solid var(--play-border); }
-  .contract-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:.7rem; }
+  .contract-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; gap:.7rem; }
   .contract-grid article { min-width:0; display:flex; flex-direction:column; align-items:stretch; margin:0; }
   .contract-grid h3 { all:unset; display:block; flex:none; box-sizing:border-box; min-height:1.45em; margin:0 0 .35rem; padding:0; color:var(--play-muted); font:500 14px/1.45 var(--sl-font); }
-  .contract-grid pre { min-height:5.5rem; margin:0; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .contract-grid pre { flex:1; min-height:5.5rem; max-height:14rem; margin:0; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
   #contract-error { min-height:0; margin:0; color:var(--play-error); font-size:13px; }
   .contract-note { margin:.65rem 0 0; color:var(--play-muted); font-size:13px; line-height:1.45; }
   .run-timing { display:flex; flex-wrap:wrap; align-items:baseline; gap:.55rem; margin:.65rem 0 0; color:var(--play-ink); font:500 14px/1.45 var(--sl-font-mono); }
