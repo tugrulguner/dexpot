@@ -1,0 +1,14 @@
+---
+title: CRUD playground
+description: Explore the typed CRUD example with explicit browser-local requests.
+---
+
+import CrudPlayground from '../../components/CrudPlayground.astro';
+
+# Browser-local CRUD playground
+
+Explore the request and response contract demonstrated by [`examples/typed_crud.py`](https://github.com/tugrulguner/dexpot/blob/main/examples/typed_crud.py). Nothing is sent to a backend: requests mutate only this tab's in-memory state, and editing fields alone has no effect.
+
+<CrudPlayground />
+
+The example starts with item `1` (`starter`, `9.99`), creates monotonic IDs, returns `200` with `{ "deleted": id }` for successful deletes, and uses `detail` for error bodies. This bounded illustration permits at most 20 live items and resets when asked or when the page reloads; it is not a live Python server or performance demonstration.

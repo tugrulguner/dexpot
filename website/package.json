@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
+    "test:playground": "node --test tests/*.test.js",
     "check": "astro check",
     "build": "astro build && npm run verify:rendered",
     "verify:rendered": "node scripts/verify-rendered-output.mjs",
