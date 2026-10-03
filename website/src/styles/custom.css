@@ -31,6 +31,12 @@
 }
 body { background-image: none; font: 16px/1.6 var(--mp-font); }
 header.header { height: 64px; padding-inline: max(16px, calc((100vw - 1200px) / 2)); background: var(--sl-color-bg-nav); border-bottom: 1px solid var(--sl-color-gray-5); }
+header.header .header-tools { justify-content: flex-end; }
+header.header .header-tools site-search button { width: max-content; max-width: none; }
+.family-home { color: var(--sl-color-white); font: 600 14px/1.4 var(--mp-font); text-decoration: none; white-space: nowrap; }
+.family-home-mobile { color: var(--sl-color-white); font: 600 13px/1.4 var(--mp-font); text-decoration: none; }
+starlight-theme-select select { min-height: 44px; border: 1px solid var(--mp-control-light); border-radius: 6px; background: var(--mp-raised-light); color: var(--mp-ink-light); }
+:root[data-theme='dark'] starlight-theme-select select { border-color: var(--mp-control-dark); background: var(--mp-raised-dark); color: var(--mp-ink-dark); }
 .site-title { font-size: 1rem; font-weight: 650; letter-spacing: -.02em; }
 .hero { padding-block: clamp(2rem, 5vw, 4rem); }
 .hero h1 { max-width: 22ch; font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.1; font-weight: 700; letter-spacing: -.03em; text-transform: none; }
@@ -40,6 +46,8 @@ main h1 { font-size: clamp(2rem, 3vw, 2.5rem); line-height: 1.15; font-weight: 7
 .hero .actions a { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0 16px; border-radius: 6px; font: 600 14px/1.4 var(--mp-font); letter-spacing: 0; text-transform: none; }
 .hero .actions .primary { color: #fff; background: var(--mp-accent-light); border-color: var(--mp-accent-light); }
 :root[data-theme='dark'] .hero .actions .primary { color: #181a1d; background: var(--mp-accent-dark); border-color: var(--mp-accent-dark); }
+.hero .actions .minimal { color: var(--mp-ink-light); background: var(--mp-surface-light); border: 1px solid var(--mp-control-light); }
+:root[data-theme='dark'] .hero .actions .minimal { color: var(--mp-ink-dark); background: var(--mp-surface-dark); border-color: var(--mp-control-dark); }
 :where(button, a, input, select, summary):focus-visible { outline: 2px solid var(--mp-accent-light); outline-offset: 2px; }
 :root[data-theme='dark'] :where(button, a, input, select, summary):focus-visible { outline-color: var(--mp-accent-dark); }
 .sl-markdown-content h2 { padding-top: 1.5rem; font-size: clamp(1.8rem, 4vw, 3rem); letter-spacing: -.02em; }

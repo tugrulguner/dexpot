@@ -91,7 +91,7 @@ test('playground first fold, controls, palette contrast, and responsive bounds',
       await page.locator('.workbench-record summary').click();
       await expect(page.getByText('p50 439 µs')).toBeVisible();
       await expect(page.getByRole('link', { name: /Canonical Python source/ })).toHaveAttribute('href', /examples\/typed_crud\.py/);
-      await expect(page.getByRole('link', { name: 'ModePot ↗' })).toHaveAttribute('href', 'https://modepot.io/');
+      await expect(page.locator('.workbench-record').getByRole('link', { name: 'ModePot ↗' })).toHaveAttribute('href', 'https://modepot.io/');
       await expect(page.locator('.code-pane pre code')).toContainText('def create_item(item: ItemIn) -> tuple[int, Item]:');
       await expect(page.locator('#operation')).toBeVisible();
       await expect(page.locator('#item-id')).toBeVisible();
@@ -182,6 +182,94 @@ test('playground first fold, controls, palette contrast, and responsive bounds',
   }
 });
 
+
+test('rendered family frame, theme behavior, and real-text contrast hold across homepage and docs', async ({ page }) => {
+  for (const route of ['/', '/quick-start/']) {
+    for (const width of [1280, 768, 320]) {
+      await page.setViewportSize({ width, height: width === 320 ? 390 : width === 768 ? 768 : 900 });
+      await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
+      await page.goto(route);
+      const themeSelect = page.locator('header.header select');
+      await expect(themeSelect.locator('xpath=ancestor::label')).toContainText('Select theme');
+      await expect(themeSelect.locator('option')).toHaveCount(3);
+      await expect(page.locator('main h1')).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+
+      for (const theme of ['light', 'dark']) {
+        await themeSelect.selectOption(theme, { force: true });
+        const actual = await page.evaluate(async () => {
+          await document.fonts.ready;
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          const opaqueBackground = (node) => {
+            let current = node;
+            while (current) {
+              const color = getComputedStyle(current).backgroundColor;
+              if (color !== 'transparent' && !/rgba\([^)]*,\s*0(?:\.0+)?\)$/.test(color)) return color;
+              current = current.parentElement;
+            }
+            throw new Error(`No opaque background for ${node.tagName}.${node.className}`);
+          };
+          const sample = (selector) => {
+            const node = document.querySelector(selector);
+            const style = getComputedStyle(node);
+            return { fg: style.color, bg: opaqueBackground(node), rect: node.getBoundingClientRect().toJSON() };
+          };
+          const header = document.querySelector('header.header');
+          const product = header.querySelector('.site-title');
+          const modepot = header.querySelector(innerWidth < 800 ? 'a.family-home-mobile' : 'a.family-home');
+          const search = header.querySelector('site-search button[data-open-modal]');
+          const github = [...header.querySelectorAll('a')].find(a => a.textContent.trim() === 'GitHub');
+          return {
+            theme: document.documentElement.dataset.theme,
+            headerHeight: header.getBoundingClientRect().height,
+            docWidth: document.documentElement.scrollWidth,
+            bodyWidth: document.body.scrollWidth,
+            font: getComputedStyle(document.body).fontFamily,
+            product: product.getBoundingClientRect().toJSON(),
+            modepot: modepot && { href: modepot.href, rect: modepot.getBoundingClientRect().toJSON() },
+            search: search && search.getBoundingClientRect().toJSON(),
+            github: github && github.getBoundingClientRect().toJSON(),
+            canvas: getComputedStyle(document.body).backgroundColor,
+            text: ['main h1', 'main p', 'header .site-title', 'header .right-group', 'header select'].map(sample),
+            themeBoundary: (() => { const n = document.querySelector('header select'), s = getComputedStyle(n); return { border: s.borderTopColor, background: opaqueBackground(n), width: s.borderTopWidth }; })(),
+            secondary: document.querySelector('.hero .actions .minimal') && (() => {
+              const n = document.querySelector('.hero .actions .minimal'), s = getComputedStyle(n);
+              return { ...sample('.hero .actions .minimal'), border: s.borderTopColor, width: s.borderTopWidth, radius: s.borderRadius, height: n.getBoundingClientRect().height };
+            })(),
+          };
+        });
+        expect(actual.theme).toBe(theme);
+        expect(actual.headerHeight).toBe(64);
+        expect(actual.docWidth).toBeLessThanOrEqual(width);
+        expect(actual.bodyWidth).toBeLessThanOrEqual(width);
+        expect(actual.font).toContain('Avenir Next');
+        expect(actual.modepot?.href).toBe('https://modepot.io/');
+        expect(actual.search.x).toBeGreaterThan(actual.product.x + actual.product.width);
+        if (width >= 800) expect(actual.search.right).toBeLessThanOrEqual(actual.github.x + 1);
+        for (const [index, colors] of actual.text.entries()) {
+          expect(contrast(colors.fg, colors.bg), `${route} actual rendered text sample ${index} (${theme}): ${JSON.stringify(colors)}`).toBeGreaterThanOrEqual(4.5);
+        }
+        expect(actual.themeBoundary.width).not.toBe('0px');
+        expect(contrast(actual.themeBoundary.border, actual.themeBoundary.background), `${route} theme control boundary (${theme})`).toBeGreaterThanOrEqual(3);
+        if (route === '/') {
+          expect(actual.secondary).toBeTruthy();
+          expect(actual.secondary.height).toBeGreaterThanOrEqual(44);
+          expect(actual.secondary.radius).toBe('6px');
+          expect(actual.secondary.width).toBe('1px');
+          expect(contrast(actual.secondary.fg, actual.secondary.bg)).toBeGreaterThanOrEqual(4.5);
+          expect(contrast(actual.secondary.border, actual.secondary.bg)).toBeGreaterThanOrEqual(3);
+        }
+      }
+
+      for (const [system, expected] of [['light', 'rgb(248, 247, 244)'], ['dark', 'rgb(22, 24, 27)']]) {
+        await page.emulateMedia({ colorScheme: system, reducedMotion: 'reduce' });
+        await themeSelect.selectOption('auto', { force: true });
+        await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe(expected);
+        await expect(themeSelect).toHaveValue('auto');
+      }
+    }
+  }
+});
 
 test('family foundation maps shared tokens across homepage, docs, and playground', async ({ page }) => {
   for (const route of ['/', '/quick-start/', '/playground/']) {
