@@ -2,31 +2,50 @@
 title: Python APIs for GIL and Free-Threaded CPython
 description: Build synchronous Python APIs that adapt execution to standard GIL and free-threaded CPython while keeping plain handlers.
 template: splash
-hero:
-  tagline: Synchronous Python APIs that adapt concurrency to the interpreter.
-  image:
-    file: ../../assets/dexpot.webp
-    alt: Minimal Dexpot lockup using its ModePot family mark
-  actions:
-    - text: Start with a typed API
-      link: /quick-start/
-      icon: right-arrow
-    - text: Try the CRUD playground
-      link: /playground/
-      icon: right-arrow
-    - text: View source
-      link: https://github.com/tugrulguner/dexpot
-      icon: external
-      variant: minimal
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import dexpotImage from '../../assets/dexpot.webp';
 
-<p class="creator-credit"><a href="https://tugrul.modepot.io/">Created by Tugrul Guner</a></p>
+<section class="framework-hero" aria-labelledby="framework-title">
+  <div class="framework-copy">
+    <p class="framework-eyebrow">SYNCHRONOUS PYTHON APIS</p>
+    <h1 id="framework-title">Synchronous APIs for every Python interpreter.</h1>
+    <p class="framework-tagline">Keep plain synchronous handlers while Dexpot adapts bounded admission and scheduling to standard GIL or free-threaded CPython.</p>
+    <nav class="framework-actions" aria-label="Primary actions">
+      <a class="framework-action primary" href="/quick-start/">Quick start</a>
+      <a class="framework-action secondary" href="/playground/">Playground</a>
+      <a class="framework-action tertiary" href="https://github.com/tugrulguner/dexpot" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
+    </nav>
+    <a class="creator-attribution" href="https://tugrul.modepot.io/">Created by Tugrul Guner</a>
+  </div>
+  <figure class="framework-art">
+    <Image src={dexpotImage} alt="Dexpot lockup: synchronous Python APIs adapt execution to the interpreter." width={1200} height={900} />
+  </figure>
+</section>
 
-<Aside type="caution" title="Alpha — review boundaries before adopting">
+<section class="installation-strip" aria-label="Installation">
+  <div><p class="section-eyebrow">GET STARTED</p><h2>Install Dexpot</h2></div>
+  <code>{'pip install "dexpot[cli]"'}</code>
+  <a href="/quick-start/">Quick start guide <span aria-hidden="true">→</span></a>
+</section>
+
+<Aside type="caution" title="Alpha — review boundaries before adopting" className="maturity-notice">
 Dexpot is alpha software and is not yet recommended for untrusted production traffic. Read the [current boundaries](/current-boundaries/) before choosing it for an application.
 </Aside>
+
+<section class="project-demo" aria-label="Project demonstration">
+  <div>
+    <p class="section-eyebrow">EXPLORE THE MECHANISM</p>
+    <h2>Try bounded CRUD behavior.</h2>
+    <p>Explore the existing playground's bounded item operations, response outcomes, and recorded loopback evidence.</p>
+  </div>
+  <a href="/playground/">Open the playground <span aria-hidden="true">→</span></a>
+  <p class="demo-boundary"><strong>Browser-local preview.</strong> JavaScript computes bounded results in this tab; it does not execute Python or send requests. Recorded loopback timings are separate evidence, not this preview's runtime.</p>
+</section>
+
+<div class="deeper-content">
 
 ## One application. Two interpreter modes.
 
@@ -49,3 +68,5 @@ Dexpot keeps application code synchronous while changing admission and schedulin
 - **An optional parser-only Rust extension** without moving sockets, routing, handlers, or scheduling out of Python.
 
 Dexpot is part of [ModePot](https://modepot.io/), an open-source family of modern frameworks, tools, engines, and games.
+
+</div>

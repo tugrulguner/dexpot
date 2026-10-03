@@ -192,12 +192,12 @@ test('rendered family frame, theme behavior, and real-text contrast hold across 
       const themeSelect = page.locator('header.header select');
       await expect(themeSelect.locator('xpath=ancestor::label')).toContainText('Select theme');
       await expect(themeSelect.locator('option')).toHaveCount(3);
-      await expect(page.locator('main h1')).toBeVisible();
+      await expect(page.locator(route === '/' ? '.framework-hero h1' : 'main h1').first()).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
 
       for (const theme of ['light', 'dark']) {
         await themeSelect.selectOption(theme, { force: true });
-        const actual = await page.evaluate(async () => {
+        const actual = await page.evaluate(async (currentRoute) => {
           await document.fonts.ready;
           await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
           const opaqueBackground = (node) => {
@@ -232,12 +232,13 @@ test('rendered family frame, theme behavior, and real-text contrast hold across 
             canvas: getComputedStyle(document.body).backgroundColor,
             text: ['main h1', 'main p', 'header .site-title', 'header .right-group', 'header select'].map(sample),
             themeBoundary: (() => { const n = document.querySelector('header select'), s = getComputedStyle(n); return { border: s.borderTopColor, background: opaqueBackground(n), width: s.borderTopWidth }; })(),
-            secondary: document.querySelector('.hero .actions .minimal') && (() => {
-              const n = document.querySelector('.hero .actions .minimal'), s = getComputedStyle(n);
-              return { ...sample('.hero .actions .minimal'), border: s.borderTopColor, width: s.borderTopWidth, radius: s.borderRadius, height: n.getBoundingClientRect().height };
+            secondary: document.querySelector(currentRoute === '/' ? '.framework-action.secondary' : '.hero .actions .minimal') && (() => {
+              const selector = currentRoute === '/' ? '.framework-action.secondary' : '.hero .actions .minimal';
+              const n = document.querySelector(selector), s = getComputedStyle(n);
+              return { ...sample(selector), border: s.borderTopColor, width: s.borderTopWidth, radius: s.borderRadius, height: n.getBoundingClientRect().height };
             })(),
           };
-        });
+        }, route);
         expect(actual.theme).toBe(theme);
         expect(actual.headerHeight).toBe(64);
         expect(actual.docWidth).toBeLessThanOrEqual(width);
