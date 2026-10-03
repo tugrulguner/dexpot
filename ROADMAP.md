@@ -45,7 +45,9 @@ The current release line provides:
   without mutating shared handlers or retaining a process-global annotation-result cache.
 - Serving-time freeze into an immutable `ApplicationPlan`, length-indexed `RouterPlan`, and
   complete `EndpointPlan` metadata before a listener opens.
-- Registration-time rejection of unbound captures and variadic handlers.
+- Registration-time rejection of asynchronous or uninspectable callables, unbound captures,
+  and variadic handlers. Supported callable objects and `functools.partial` handlers retain
+  endpoint-specific direct invokers.
 - Integer path conversion with 422 failures.
 - msgspec JSON body decoding and validation into `Struct` types.
 - Typed public `Request` injection through endpoint-specific direct invokers. A frozen, GC-tracked
@@ -125,15 +127,17 @@ Extend the existing `ApplicationPlan`, `RouterPlan`, and `EndpointPlan` kernel w
 second dispatcher, live route mutation, or a larger decorator language. Deliver this work in
 focused stages:
 
-#### 3.1 Registration ownership and diagnostics
+#### 3.1 Registration ownership and diagnostics (complete)
 
-- Preserve explicit annotation namespaces. Handle eager, stringified, and Python 3.14 deferred
-  annotations deliberately; do not revive caller-frame guessing.
-- Reject detectable unsupported coroutine handlers and signatures before serving.
+- Explicit annotation namespaces preserve eager, stringified, and Python 3.14 deferred
+  annotations without caller-frame guessing.
+- Detectable asynchronous handlers and uninspectable or unsupported signatures fail during
+  registration. Supported wrapped functions, callable objects, and `functools.partial` handlers
+  compile into the same endpoint-specific direct invokers as ordinary functions.
 
-Exit evidence: reuse across applications, failed-registration atomicity, retention and stale
-annotation regressions, wrapped/local aliases, concurrent registration, and unchanged HTTP
-binding behavior on both interpreter modes.
+Exit evidence covers reuse across applications, failed-registration atomicity, retention and
+stale annotation regressions, wrapped/local aliases, callable objects, partials, concurrent
+registration, and unchanged HTTP binding behavior on both interpreter modes.
 
 #### 3.2 Request-aware response handling and output policy
 
