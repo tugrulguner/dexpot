@@ -31,6 +31,7 @@ export default defineConfig({
     sitemap(),
     starlight({
       title: 'dexpot',
+      components: { Header: './src/components/Header.astro' },
       description: 'A synchronous Python API framework with adaptive GIL and free-threaded execution.',
       favicon: '/favicon.svg',
       logo: {
