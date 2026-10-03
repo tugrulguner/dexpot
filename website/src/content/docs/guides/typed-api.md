@@ -11,7 +11,7 @@ python -m venv .venv
 python -m pip install 'dexpot[cli]'
 ```
 
-On Windows PowerShell, activate with `.venv\\Scripts\\Activate.ps1`. This guide uses a local-only listener; it does not expose the example to a network.
+On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`. This guide uses a local-only listener; it does not expose the example to a network.
 
 ## 1. Declare the wire shapes and routes
 

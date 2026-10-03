@@ -50,7 +50,7 @@ main h1 { font-size: clamp(2rem, 3vw, 2.5rem); line-height: 1.15; font-weight: 7
 :root[data-theme='dark'] .hero .actions .minimal { color: var(--mp-ink-dark); background: var(--mp-surface-dark); border-color: var(--mp-control-dark); }
 :where(button, a, input, select, summary):focus-visible { outline: 2px solid var(--mp-accent-light); outline-offset: 2px; }
 :root[data-theme='dark'] :where(button, a, input, select, summary):focus-visible { outline-color: var(--mp-accent-dark); }
-.sl-markdown-content h2 { padding-top: 1.5rem; font-size: clamp(1.8rem, 4vw, 3rem); letter-spacing: -.02em; }
+.sl-markdown-content h2 { padding-top: 1.5rem; font-size: clamp(1.5rem, 2.5vw, 1.75rem); letter-spacing: -.02em; }
 .sl-markdown-content h3 { letter-spacing: -.02em; }
 .sl-markdown-content table { width: 100%; }
 .sl-markdown-content table :is(th, td) { overflow-wrap: anywhere; border-bottom: 1px solid var(--sl-color-gray-5); }
