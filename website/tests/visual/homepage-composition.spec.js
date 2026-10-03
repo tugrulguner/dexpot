@@ -16,7 +16,7 @@ for (const colorScheme of ['light', 'dark']) {
         mkdirSync(process.env.EVIDENCE_DIR, { recursive: true });
         await page.screenshot({ path: `${process.env.EVIDENCE_DIR}/${width}-${colorScheme}.png` });
       }
-      await expect(hero.getByRole('heading', { level: 1 })).toHaveText('Synchronous APIs for every Python interpreter.');
+      await expect(hero.getByRole('heading', { level: 1 })).toHaveText('Synchronous APIs. GIL or free-threaded.');
       const copy = hero.locator('.framework-copy');
       await expect(copy).toBeVisible();
       const art = hero.locator('.framework-art img');
