@@ -3,7 +3,7 @@ title: Routes and handlers
 description: Dexpot route registration, handler binding, msgspec request bodies, response encoding, annotation namespaces, and request context.
 ---
 
-Use `@app.get`, `@app.post`, `@app.put`, `@app.patch`, and `@app.delete`.
+Use `@app.get`, `@app.post`, `@app.put`, `@app.patch`, and `@app.delete`. For a complete runnable typed request/response path, see [Build a typed JSON API](/guides/typed-api/); this page is the symbol-level contract.
 
 ```python
 @app.post(

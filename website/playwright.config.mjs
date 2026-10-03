@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:4342';
+const port = process.env.PLAYWRIGHT_PORT ?? '4342';
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: './tests/visual',
@@ -9,9 +10,9 @@ export default defineConfig({
   reporter: 'list',
   use: { ...devices['Desktop Chrome'], baseURL, screenshot: 'only-on-failure' },
   webServer: process.env.PLAYWRIGHT_BASE_URL ? undefined : {
-    command: 'npm run preview -- --host 127.0.0.1 --port 4342 --ignore-lock',
+    command: `npm run preview -- --host 127.0.0.1 --port ${port} --strictPort`,
     url: `${baseURL}/playground/`,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 30_000,
   },
 });

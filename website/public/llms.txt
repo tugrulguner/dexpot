@@ -6,6 +6,11 @@
 
 - [Documentation](https://dexpot.modepot.io/): Framework overview and current documentation.
 - [Quick start](https://dexpot.modepot.io/quick-start/): Install, define, serve, and call a typed API.
+- [Build guides](https://dexpot.modepot.io/build-guides/): Task-oriented setup and operational walkthroughs; each guide has a same-source Markdown download.
+- [Typed API guide](https://dexpot.modepot.io/guides/typed-api/): Complete path/body/context/response workflow with real HTTP checks. [Markdown](https://dexpot.modepot.io/guides/typed-api.md).
+- [Request lifecycle](https://dexpot.modepot.io/guides/request-lifecycle/): Declaration, immutable plans, parser, admission, binding, and response ownership. [Markdown](https://dexpot.modepot.io/guides/request-lifecycle.md).
+- [Deployment guide](https://dexpot.modepot.io/guides/deployment/): Scheduler capacity, overload, shutdown, and network boundaries. [Markdown](https://dexpot.modepot.io/guides/deployment.md).
+- [Benchmarking guide](https://dexpot.modepot.io/guides/benchmarking/): Correctness-matched methodology and limits on interpreting results. [Markdown](https://dexpot.modepot.io/guides/benchmarking.md).
 - [Execution model](https://dexpot.modepot.io/execution-model/): GIL pools, free-threaded connection threads, overload behavior, and process fan-out.
 - [Route contract](https://dexpot.modepot.io/route-contract/): Registration, path captures, msgspec bodies, responses, and request context.
 - [HTTP boundary](https://dexpot.modepot.io/http-boundary/): Request limits, parser selection, and protocol policy.

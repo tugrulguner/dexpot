@@ -23,6 +23,9 @@ const structuredData = {
 };
 
 export default defineConfig({
+  vite: {
+    preview: { strictPort: true },
+  },
   site: 'https://dexpot.modepot.io',
   integrations: [
     sitemap(),
@@ -46,6 +49,7 @@ export default defineConfig({
         { label: 'Start', items: [
           { label: 'Overview', slug: 'index' },
           { label: 'Quick start', slug: 'quick-start' },
+          { label: 'Build guides', slug: 'build-guides' },
         ] },
         { label: 'Framework contract', items: [
           { label: 'Routes and handlers', slug: 'route-contract' },
