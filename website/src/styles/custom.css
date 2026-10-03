@@ -32,12 +32,12 @@
 body { background-image: none; font: 16px/1.6 var(--mp-font); }
 header.header { height: 64px; padding-inline: max(16px, calc((100vw - 1200px) / 2)); background: var(--sl-color-bg-nav); border-bottom: 1px solid var(--sl-color-gray-5); }
 header.header .header-tools { justify-content: flex-end; }
-header.header .header-tools site-search button { width: max-content; max-width: none; }
+header.header .header-tools site-search button { width: max-content; max-width: none; min-width:44px; min-height:44px; }
 .family-home { color: var(--sl-color-white); font: 600 14px/1.4 var(--mp-font); text-decoration: none; white-space: nowrap; }
 .family-home-mobile { color: var(--sl-color-white); font: 600 13px/1.4 var(--mp-font); text-decoration: none; }
 starlight-theme-select select { min-height: 44px; border: 1px solid var(--mp-control-light); border-radius: 6px; background: var(--mp-raised-light); color: var(--mp-ink-light); }
 :root[data-theme='dark'] starlight-theme-select select { border-color: var(--mp-control-dark); background: var(--mp-raised-dark); color: var(--mp-ink-dark); }
-.site-title { font-size: 1rem; font-weight: 650; letter-spacing: -.02em; }
+.site-title { min-height:44px; font-size: 1rem; font-weight: 650; letter-spacing: -.02em; }
 .hero { padding-block: clamp(2rem, 5vw, 4rem); }
 .hero h1 { max-width: 22ch; font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.1; font-weight: 700; letter-spacing: -.03em; text-transform: none; }
 main h1 { font-size: clamp(2rem, 3vw, 2.5rem); line-height: 1.15; font-weight: 700; letter-spacing: -.03em; text-transform: none; }
@@ -68,5 +68,12 @@ main h1 { font-size: clamp(2rem, 3vw, 2.5rem); line-height: 1.15; font-weight: 7
 .record-details strong { color:var(--sl-color-white); }
 .record-details span:last-child { flex-basis:100%; font-size:13px; line-height:1.5; }
 @media (max-width: 50rem) { .hero { padding-block: 2rem; } }
+@media (max-width: 49.999rem) {
+  .site-title { font-size:14px; }
+  .site-title img { width:20px; height:20px; }
+}
+.creator-credit { margin:0 0 1.25rem; font:600 14px/1.4 var(--mp-font); }
+.creator-credit a { display:inline-flex; align-items:center; min-height:44px; padding-inline:12px; border:1px solid var(--sl-color-gray-5); border-radius:6px; color:var(--sl-color-white); text-decoration:none; }
+.creator-credit a:hover { background:var(--sl-color-bg-nav); }
 
 .crud-playground .code-pane pre, .crud-playground .contract-grid pre { color: var(--mp-ink-dark); }
