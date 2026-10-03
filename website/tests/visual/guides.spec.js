@@ -15,6 +15,15 @@ test('build guide pages and Markdown downloads remain readable at desktop and mo
     const response = await page.goto(`/guides/${slug}/`);
     expect(response?.status()).toBe(200);
     await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible();
+    await expect(page.locator('header.header a.family-home')).toHaveAttribute('href', 'https://modepot.io/');
+    const themeSelect = page.locator('header.header select');
+    await expect(themeSelect.locator('option')).toHaveCount(3);
+    expect(await page.locator('main').evaluate((node) => getComputedStyle(node).fontFamily)).toContain('Avenir Next');
+    await page.emulateMedia({ colorScheme: 'light' });
+    for (const [theme, background] of [['light', 'rgb(248, 247, 244)'], ['dark', 'rgb(22, 24, 27)']]) {
+      await themeSelect.selectOption(theme);
+      await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe(background);
+    }
     await expect(page.getByRole('link', { name: 'Download this guide as Markdown' })).toHaveAttribute('href', `/guides/${slug}.md`);
     const download = await request.get(`/guides/${slug}.md`);
     expect(download.status()).toBe(200);

@@ -119,7 +119,7 @@ test('playground first fold, controls, palette contrast, and responsive bounds',
           responsePre: bounds('#contract-response'),
           title: bounds('main h1'),
           theme: document.documentElement.dataset.theme,
-          colors: Object.fromEntries(['.eyebrow', '.workbench-intro', '.pane-label', '.request-pane label', '.workbench-actions button:first-child', '.workbench-actions button:last-child', '#request-target', '.contract-grid h3', '.contract-note', '.run-timing', '.run-timing span', '.code-pane pre', '.contract-grid pre', '.record-details', '.record-details strong', '.workbench-record summary'].map((selector) => {
+          colors: Object.fromEntries(['.eyebrow', '.workbench-intro', '.pane-label', '.request-pane label', '.workbench-actions button:first-child', '.workbench-actions button:last-child', '#request-target', '.contract-grid h3', '.contract-note', '.run-timing', '.run-timing span', '.code-pane pre', '.contract-grid pre', '.record-details', '.record-details strong', '.workbench-record summary', '#operation', '#item-id', '#item-name', '#item-price'].map((selector) => {
             const node = document.querySelector(selector);
             const style = getComputedStyle(node);
             let ancestor = node;
@@ -244,6 +244,7 @@ test('rendered family frame, theme behavior, and real-text contrast hold across 
         expect(actual.bodyWidth).toBeLessThanOrEqual(width);
         expect(actual.font).toContain('Avenir Next');
         expect(actual.modepot?.href).toBe('https://modepot.io/');
+        if (width < 800) expect(actual.modepot.rect.right).toBeLessThanOrEqual(width - 44);
         expect(actual.search.x).toBeGreaterThan(actual.product.x + actual.product.width);
         if (width >= 800) expect(actual.search.right).toBeLessThanOrEqual(actual.github.x + 1);
         for (const [index, colors] of actual.text.entries()) {
