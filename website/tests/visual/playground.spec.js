@@ -181,3 +181,59 @@ test('playground first fold, controls, palette contrast, and responsive bounds',
     }
   }
 });
+
+
+test('family foundation maps shared tokens across homepage, docs, and playground', async ({ page }) => {
+  for (const route of ['/', '/quick-start/', '/playground/']) {
+    for (const width of [1280, 768, 320]) {
+      await page.setViewportSize({ width, height: width === 320 ? 390 : width === 768 ? 768 : 900 });
+      await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
+      await page.goto(route);
+      for (const theme of ['light', 'dark']) {
+        const actual = await page.evaluate(async (selectedTheme) => {
+          document.documentElement.dataset.theme = selectedTheme;
+          await document.fonts.ready;
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          const root = getComputedStyle(document.documentElement);
+          const title = document.querySelector('.hero h1, main h1');
+          const titleStyle = getComputedStyle(title);
+          let ancestor = title;
+          let background = titleStyle.backgroundColor;
+          while (ancestor && (background === 'transparent' || /rgba\([^)]*,\s*0(?:\.0+)?\)$/.test(background))) {
+            ancestor = ancestor.parentElement;
+            if (ancestor) background = getComputedStyle(ancestor).backgroundColor;
+          }
+          const header = document.querySelector('header.header');
+          const primary = document.querySelector('.hero .actions .primary');
+          return {
+            canvas: root.getPropertyValue('--mp-canvas-light').trim(),
+            darkCanvas: root.getPropertyValue('--mp-canvas-dark').trim(),
+            accent: root.getPropertyValue('--mp-accent-light').trim(),
+            font: root.getPropertyValue('--mp-font').trim(),
+            headerHeight: Math.round(header.getBoundingClientRect().height),
+            headingTransform: titleStyle.textTransform,
+            headingSize: parseFloat(titleStyle.fontSize),
+            headingContrast: { foreground: titleStyle.color, background },
+            documentWidth: document.documentElement.scrollWidth,
+            bodyWidth: document.body.scrollWidth,
+            primary: primary && { height: primary.getBoundingClientRect().height, radius: getComputedStyle(primary).borderRadius },
+          };
+        }, theme);
+        expect(actual.canvas).toBe('#f8f7f4');
+        expect(actual.darkCanvas).toBe('#16181b');
+        expect(actual.accent).toBe('#14665f');
+        expect(actual.font).toContain('Avenir Next');
+        expect(actual.headerHeight).toBe(64);
+        expect(actual.headingTransform).toBe('none');
+        expect(actual.headingSize).toBeLessThanOrEqual(route === '/' ? 56 : 40);
+        expect(contrast(actual.headingContrast.foreground, actual.headingContrast.background)).toBeGreaterThanOrEqual(4.5);
+        expect(actual.documentWidth).toBeLessThanOrEqual(width);
+        expect(actual.bodyWidth).toBeLessThanOrEqual(width);
+        if (actual.primary) {
+          expect(actual.primary.height).toBeGreaterThanOrEqual(44);
+          expect(actual.primary.radius).toBe('6px');
+        }
+      }
+    }
+  }
+});
