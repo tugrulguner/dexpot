@@ -8,8 +8,9 @@
     "test:playground": "node --test tests/*.test.js",
     "test:visual": "playwright test",
     "check": "astro check",
-    "build": "astro build && npm run verify:rendered",
-    "verify:rendered": "node scripts/verify-rendered-output.mjs",
+    "build": "astro build && npm run copy:guides && npm run verify:rendered",
+    "copy:guides": "node scripts/copy-guides.mjs",
+    "verify:rendered": "node scripts/verify-rendered-output.mjs && node scripts/verify-guides.mjs",
     "preview": "astro preview",
     "deploy": "npm run build && wrangler deploy",
     "astro": "astro"
