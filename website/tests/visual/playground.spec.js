@@ -216,7 +216,7 @@ test('rendered family frame, theme behavior, and real-text contrast hold across 
           };
           const header = document.querySelector('header.header');
           const product = header.querySelector('.site-title');
-          const modepot = header.querySelector(innerWidth < 800 ? 'a.family-home-mobile' : 'a.family-home');
+          const modepot = header.querySelector('a[href="https://modepot.io/"]:not(.family-mobile-menu a)');
           const search = header.querySelector('site-search button[data-open-modal]');
           const github = [...header.querySelectorAll('a')].find(a => a.textContent.trim() === 'GitHub');
           return {

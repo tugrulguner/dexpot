@@ -19,7 +19,7 @@ test('build guide pages and Markdown downloads remain readable at desktop and mo
     const subsectionSizes = await page.locator('main h2').evaluateAll((nodes) => nodes.map((node) => parseFloat(getComputedStyle(node).fontSize)));
     expect(subsectionSizes.length).toBeGreaterThan(0);
     expect(Math.max(...subsectionSizes)).toBeLessThan(pageHeadingSize);
-    await expect(page.locator('header.header a.family-home')).toHaveAttribute('href', 'https://modepot.io/');
+    await expect(page.locator('header.header a[href="https://modepot.io/"]:visible').first()).toHaveAttribute('href', 'https://modepot.io/');
     const themeSelect = page.locator('header.header select');
     await expect(themeSelect.locator('option')).toHaveCount(3);
     expect(await page.locator('main').evaluate((node) => getComputedStyle(node).fontFamily)).toContain('Avenir Next');
