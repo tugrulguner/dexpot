@@ -3,7 +3,7 @@ title: Execution model
 description: How Dexpot schedules synchronous handlers on free-threaded and standard GIL CPython, including admission limits and process fan-out.
 ---
 
-Dexpot chooses its scheduler once when the module imports. The application keeps the same synchronous handlers in every mode.
+Dexpot chooses its scheduler once when the module imports. The request ownership and compilation path is traced in [Trace a request through Dexpot](/guides/request-lifecycle/). The application keeps the same synchronous handlers in every mode.
 
 | Runtime | Default serving model | Overload behavior |
 |---|---|---|
