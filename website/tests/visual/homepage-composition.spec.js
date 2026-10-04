@@ -3,6 +3,41 @@ import { expect, test } from '@playwright/test';
 const widths = [1280, 768, 390, 320];
 
 for (const colorScheme of ['light', 'dark']) {
+  test(`320px homepage code blocks are keyboard-scrollable in ${colorScheme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 850 });
+    await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' });
+    await page.goto('/');
+    await page.locator('starlight-theme-select select').selectOption(colorScheme);
+    const blocks = page.locator('main .sl-markdown-content pre');
+    const count = await blocks.count();
+    const overflowing = [];
+    for (let i = 0; i < count; i++) {
+      if (await blocks.nth(i).evaluate((pre) => pre.scrollWidth > pre.clientWidth)) overflowing.push(i);
+    }
+    expect(overflowing.length, 'homepage contains horizontally scrollable code').toBeGreaterThan(0);
+    for (const index of overflowing) {
+      const block = blocks.nth(index);
+      let reachedByTab = false;
+      for (let step = 0; step < 120; step++) {
+        await page.keyboard.press('Tab');
+        if (await block.evaluate((pre) => document.activeElement === pre)) { reachedByTab = true; break; }
+      }
+      expect(reachedByTab, `overflowing homepage code block ${index} is reachable by Tab`).toBe(true);
+      const geometry = await block.evaluate((pre) => ({ tabIndex: pre.tabIndex, outline: getComputedStyle(pre).outlineStyle }));
+      expect(geometry.tabIndex, `code block ${index} explicitly participates in sequential keyboard navigation`).toBe(0);
+      expect(geometry.outline, `code block ${index} has visible keyboard focus`).not.toBe('none');
+      for (let step = 0; step < 100; step++) {
+        if (await block.evaluate((pre) => pre.scrollLeft >= pre.scrollWidth - pre.clientWidth - 1)) break;
+        await page.keyboard.press('ArrowRight');
+      }
+      const end = await block.evaluate((pre) => ({ max: pre.scrollWidth - pre.clientWidth, left: pre.scrollLeft }));
+      expect(end.left, `ArrowRight reveals the complete line in code block ${index}`).toBeGreaterThanOrEqual(end.max - 1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth), 'page remains within the 320px viewport').toBeLessThanOrEqual(320);
+    }
+  });
+}
+
+for (const colorScheme of ['light', 'dark']) {
   test(`framework homepage composition matches the reference in ${colorScheme}`, async ({ page }) => {
     for (const width of widths) {
       await page.setViewportSize({ width, height: 850 });

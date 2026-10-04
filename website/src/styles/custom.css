@@ -57,6 +57,7 @@ main h1 { font-size: clamp(2rem, 3vw, 2.5rem); line-height: 1.15; font-weight: 7
 .sl-markdown-content th { color: var(--sl-color-accent); font: 600 .74rem/1.4 var(--mp-font); }
 .sl-markdown-content img[src='/dexpot-execution.webp'] { width: 100%; margin-block: 2.5rem; border: 1px solid var(--sl-color-gray-5); border-radius: 6px; }
 .expressive-code { --ec-brdRad: 6px; }
+main:has(.framework-hero) .deeper-content pre:focus-visible { outline: 2px solid var(--sl-color-accent); outline-offset: 3px; border-radius: 3px; }
 .latency-record { margin-block: 2rem; padding: clamp(1rem, 3vw, 2rem); border: 1px solid var(--sl-color-gray-5); border-radius: 6px; background: var(--sl-color-bg-nav); }
 .latency-record h2 { margin-block: .35rem; }
 .latency-record .eyebrow { color: var(--sl-color-accent); font: .7rem var(--mp-font-mono); letter-spacing: .08em; text-transform: uppercase; }
