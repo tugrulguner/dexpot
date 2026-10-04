@@ -4,16 +4,14 @@
   <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/assets/dexpot.png" alt="dexpot synchronous Python API framework" width="600">
 </p>
 
-<p align="center">Part of <a href="https://modepot.io/">ModePot</a>. &nbsp; <a href="https://dexpot.modepot.io/">Project website</a></p>
+<p align="center">Part of <a href="https://modepot.io/">ModePot</a>. &nbsp; <a href="https://dexpot.modepot.io/">Project website</a> &nbsp; <a href="https://tugrul.modepot.io/">Created by Tugrul Guner</a></p>
 
 <p align="center">
-  <strong>Synchronous Python APIs that adapt concurrency to the interpreter.</strong>
+  <strong>Synchronous APIs. GIL or free-threaded.</strong>
 </p>
 
 <p align="center">
-  A synchronous Python API framework that compiles routes once, validates JSON with msgspec,
-  can parse request heads in Rust through an optional PyO3 extension, and adapts concurrency
-  to the interpreter running it.
+  A synchronous Python API framework. Its bounded runtime lets applications adapt concurrency to the interpreter while keeping plain synchronous handlers on standard GIL and free-threaded CPython. It can parse request heads in Rust through an optional PyO3 extension.
 </p>
 
 <p align="center">
@@ -35,6 +33,12 @@
   <a href="#community">Community</a> ·
   <a href="#roadmap">Roadmap</a> ·
   <a href="#contributing">Contributing</a>
+</p>
+
+<p align="center">
+  <a href="https://dexpot.modepot.io/quick-start/">Quick start</a> ·
+  <a href="https://dexpot.modepot.io/playground/">Playground</a> ·
+  <a href="https://dexpot.modepot.io/current-boundaries/">Current boundaries</a>
 </p>
 
 <p align="center">
