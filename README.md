@@ -38,7 +38,8 @@
 <p align="center">
   <a href="https://dexpot.modepot.io/quick-start/">Quick start</a> ·
   <a href="https://dexpot.modepot.io/playground/">Playground</a> ·
-  <a href="https://dexpot.modepot.io/current-boundaries/">Current boundaries</a>
+  <a href="https://dexpot.modepot.io/current-boundaries/">Current boundaries</a> ·
+  <a href="https://dexpot.modepot.io/route-contract/">Deep docs</a>
 </p>
 
 <p align="center">

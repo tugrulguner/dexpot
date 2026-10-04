@@ -17,4 +17,5 @@ def test_readme_family_presentation():
     assert 'href="https://dexpot.modepot.io/quick-start/"' in readme[:2500]
     assert 'href="https://dexpot.modepot.io/playground/"' in readme[:2500]
     assert 'href="https://dexpot.modepot.io/current-boundaries/"' in readme[:2500]
+    assert '<a href="https://dexpot.modepot.io/route-contract/">Deep docs</a>' in readme[:3000]
     assert "Synchronous APIs. GIL or free-threaded." in readme[:2500]
