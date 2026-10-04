@@ -52,6 +52,14 @@ test('family navigation stays prominent, ordered, and accessible across routes, 
       await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
 
       if (width >= 1280) {
+        const desktopHeaderOrder = await page.evaluate(() => {
+          const navigation = document.querySelector('.family-links');
+          const theme = document.querySelector('starlight-theme-select');
+          return !theme || Boolean(navigation && navigation.compareDocumentPosition(theme) & Node.DOCUMENT_POSITION_FOLLOWING);
+        });
+        expect(desktopHeaderOrder, 'family navigation must precede theme control like the Intpot reference').toBe(true);
+        const familyLinkStyle = await header.locator('.family-links a').first().evaluate((node) => ({ fontSize: getComputedStyle(node).fontSize, fontWeight: getComputedStyle(node).fontWeight }));
+        expect(familyLinkStyle, 'family link size/weight matches Intpot').toEqual({ fontSize: '16px', fontWeight: '400' });
         const navLinks = resources.map(([name]) => header.locator('.family-links').getByRole('link', { name, exact: true }));
         for (let index = 0; index < navLinks.length; index += 1) {
           await expect(navLinks[index]).toBeVisible();
