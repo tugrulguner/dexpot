@@ -38,6 +38,38 @@ for (const colorScheme of ['light', 'dark']) {
 }
 
 for (const colorScheme of ['light', 'dark']) {
+  test(`homepage code remains keyboard-scrollable after resizing in ${colorScheme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 850 });
+    await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' });
+    await page.goto('/');
+    await page.setViewportSize({ width: 320, height: 850 });
+    await page.evaluate(() => document.fonts.ready);
+    const blocks = page.locator('main .sl-markdown-content pre');
+    const count = await blocks.count();
+    const overflowing = [];
+    for (let i = 0; i < count; i++) {
+      if (await blocks.nth(i).evaluate((pre) => pre.scrollWidth > pre.clientWidth)) overflowing.push(i);
+    }
+    expect(overflowing.length).toBeGreaterThan(0);
+    for (const index of overflowing) {
+      const block = blocks.nth(index);
+      let reachedByTab = false;
+      for (let step = 0; step < 120; step++) {
+        await page.keyboard.press('Tab');
+        if (await block.evaluate((pre) => document.activeElement === pre)) { reachedByTab = true; break; }
+      }
+      expect(reachedByTab, `resized code block ${index} is reachable by Tab`).toBe(true);
+      expect(await block.evaluate((pre) => getComputedStyle(pre).outlineStyle)).not.toBe('none');
+      for (let step = 0; step < 100; step++) {
+        if (await block.evaluate((pre) => pre.scrollLeft >= pre.scrollWidth - pre.clientWidth - 1)) break;
+        await page.keyboard.press('ArrowRight');
+      }
+      const end = await block.evaluate((pre) => ({ max: pre.scrollWidth - pre.clientWidth, left: pre.scrollLeft }));
+      expect(end.left).toBeGreaterThanOrEqual(end.max - 1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+    }
+  });
+
   test(`framework homepage composition matches the reference in ${colorScheme}`, async ({ page }) => {
     for (const width of widths) {
       await page.setViewportSize({ width, height: 850 });
