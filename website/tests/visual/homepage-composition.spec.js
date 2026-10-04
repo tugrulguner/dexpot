@@ -14,7 +14,7 @@ for (const colorScheme of ['light', 'dark']) {
       if (process.env.EVIDENCE_DIR) {
         const { mkdirSync } = await import('node:fs');
         mkdirSync(process.env.EVIDENCE_DIR, { recursive: true });
-        await page.screenshot({ path: `${process.env.EVIDENCE_DIR}/${width}-${colorScheme}.png` });
+        await page.screenshot({ path: `${process.env.EVIDENCE_DIR}/${width}-${colorScheme}.png`, fullPage: true });
       }
       await expect(hero.getByRole('heading', { level: 1 })).toHaveText('Synchronous APIs. GIL or free-threaded.');
       const copy = hero.locator('.framework-copy');
@@ -65,6 +65,19 @@ for (const colorScheme of ['light', 'dark']) {
       expect(order[1]).toBeLessThan(order[2]);
       expect(order[2]).toBeLessThan(order[3]);
       expect(order[3]).toBeLessThan(order[4]);
+      const homepageExample = page.locator('.deeper-content pre').filter({ hasText: 'from dexpot import Dex' });
+      await expect(homepageExample).toBeVisible();
+      await expect(homepageExample).toContainText('@app.get("/items/{item_id}", response=ItemOut)');
+      const runCommand = page.locator('.deeper-content pre').filter({ hasText: 'PYTHONPATH=examples dexpot serve minimal:app' });
+      await expect(runCommand).toBeVisible();
+      await expect(runCommand).toContainText('dexpot serve minimal:app --host 127.0.0.1 --port 8000');
+      const nextQuickstart = page.locator('main .pagination-links a[rel="next"]');
+      await expect(nextQuickstart).toHaveAttribute('href', '/quick-start/');
+      await expect(nextQuickstart).toContainText('Quick start');
+      expect(await homepageExample.evaluate((node) => node.getBoundingClientRect().top)).toBeGreaterThan(order[3]);
+      await nextQuickstart.click();
+      await expect(page).toHaveURL(/\/quick-start\/$/);
+      await expect(page.locator('main h1').first()).toContainText('Quick start');
     }
   });
 }
