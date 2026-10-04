@@ -33,9 +33,10 @@ for (const colorScheme of ['light', 'dark']) {
           const { x, y, right, bottom } = document.querySelector(selector).getBoundingClientRect();
           return { x, y, right, bottom };
         };
-        return { columns: getComputedStyle(document.querySelector('.framework-hero')).gridTemplateColumns, copy: rect('.framework-copy'), art: rect('.framework-art'), page: document.documentElement.scrollWidth };
+        return { columns: getComputedStyle(document.querySelector('.framework-hero')).gridTemplateColumns, hero: rect('.framework-hero'), copy: rect('.framework-copy'), art: rect('.framework-art'), page: document.documentElement.scrollWidth };
       });
       expect(layout.page).toBeLessThanOrEqual(width);
+      expect(layout.hero.y, `${width}px framework hero top aligns with Intpot`).toBe(153);
       if (width > 390) {
         expect(layout.art.x).toBeGreaterThanOrEqual(layout.copy.right);
         expect(layout.art.y).toBeLessThan(layout.copy.bottom);
