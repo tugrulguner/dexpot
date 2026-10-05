@@ -75,6 +75,77 @@ def test_constructor_owner_obeys_mro_before_new_init_priority(derived_method: st
     assert app._compile().endpoints[0].int_captures == ((0, "item_id"),)
 
 
+@pytest.mark.parametrize("kind", ["coroutine", "async-generator", "wrapped-coroutine"])
+def test_partialmethod_constructor_rejects_async_targets_atomically(kind: str) -> None:
+    async def coroutine(self, prefix):
+        return None
+
+    async def generator(self, prefix):
+        yield None
+
+    @functools.wraps(coroutine)
+    def wrapped(self, prefix):
+        return coroutine(self, prefix)
+
+    target = {"coroutine": coroutine, "async-generator": generator, "wrapped-coroutine": wrapped}[
+        kind
+    ]
+    handler = type("Handler", (), {"__init__": functools.partialmethod(target, "prefix")})
+    app = Dex()
+    with pytest.raises(TypeError, match="asynchronous handlers are not supported"):
+        app.get("/")(handler)
+    assert not app._endpoints and not app._literal and not app._parametric
+
+
+def test_partialmethod_constructor_uses_original_annotation_namespace() -> None:
+    handler = _namespace(
+        "class Handler:\n"
+        " def init(self, prefix, item_id: Alias, *, request: Context):\n"
+        "  self.item_id = item_id; self.method = request.method\n"
+        " __init__ = functools.partialmethod(init, 'prefix')\n",
+        functools=functools,
+        Alias=int,
+        Context=Request,
+    )["Handler"]
+    app = Dex()
+    app.get("/{item_id}")(handler)
+    endpoint = app._compile().endpoints[0]
+    assert endpoint.int_captures == ((0, "item_id"),)
+    assert endpoint.needs_request
+    result = endpoint.invoke([7], None, Request("GET", "/7", {}, "", {}))
+    assert result.item_id == 7 and result.method == "GET"
+    instructions = {item.opname for item in dis.get_instructions(endpoint.invoke)}
+    assert not instructions & {"BUILD_LIST", "BUILD_MAP", "CALL_FUNCTION_EX", "LOAD_GLOBAL"}
+
+
+def test_partialmethod_constructor_preserves_explicit_wrapper_signature_scope() -> None:
+    original = _namespace(
+        "def init(self, prefix, item_id: Alias): self.item_id = item_id", Alias=str
+    )["init"]
+    wrapper = _namespace(
+        "@functools.wraps(original)\n"
+        "def wrapped(self, prefix, item_id): return original(self, prefix, item_id)\n",
+        functools=functools,
+        original=original,
+        Alias=int,
+    )["wrapped"]
+    wrapper.__signature__ = inspect.Signature(
+        [
+            inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD),
+            inspect.Parameter("prefix", inspect.Parameter.POSITIONAL_OR_KEYWORD),
+            inspect.Parameter(
+                "item_id", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation="Alias"
+            ),
+        ]
+    )
+    handler = type("Handler", (), {"__init__": functools.partialmethod(wrapper, "prefix")})
+    app = Dex()
+    app.get("/{item_id}")(handler)
+    endpoint = app._compile().endpoints[0]
+    assert endpoint.int_captures == ((0, "item_id"),)
+    assert endpoint.invoke([7], None).item_id == 7
+
+
 def test_new_precedes_init_on_the_same_class() -> None:
     new = _namespace("def new(cls, item_id: Alias): return object.__new__(cls)", Alias=int)["new"]
     init = _namespace("def init(self, item_id: Alias): pass", Alias=str)["init"]
@@ -133,12 +204,25 @@ def test_constructor_closure_overrides_explicit_namespace() -> None:
     assert endpoint.invoke([7], None).item_id == 7
 
 
-def test_class_metaclass_handler_converts_and_injects_context_over_real_http() -> None:
-    handler = _namespace(
+@pytest.mark.parametrize("use_partialmethod", [False, True])
+def test_class_metaclass_handler_converts_and_injects_context_over_real_http(
+    use_partialmethod: bool,
+) -> None:
+    source = (
         "class Meta(type):\n"
+        " def call(cls, prefix, item_id: Alias, *, request: Context):\n"
+        "  return {'item_id': item_id, 'method': request.method}\n"
+        " __call__ = functools.partialmethod(call, 'prefix')\n"
+        "class Handler(metaclass=Meta): pass\n"
+        if use_partialmethod
+        else "class Meta(type):\n"
         " def __call__(cls, item_id: Alias, *, request: Context):\n"
         "  return {'item_id': item_id, 'method': request.method}\n"
-        "class Handler(metaclass=Meta): pass\n",
+        "class Handler(metaclass=Meta): pass\n"
+    )
+    handler = _namespace(
+        source,
+        functools=functools,
         Alias=int,
         Context=Request,
     )["Handler"]

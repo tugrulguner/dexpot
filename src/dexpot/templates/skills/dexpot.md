@@ -69,7 +69,8 @@ The runtime package is `dexpot`; the command requires `dexpot[cli]`.
 - The first non-path, non-Request parameter is the body parameter. Put default-only parameters after it.
 - Keyword-only parameters, callable objects, classes, and `functools.partial` work. Class
   annotation namespaces follow the effective metaclass `__call__` or MRO-selected constructor
-  (`__new__` before `__init__` on the same class). Explicit class `__signature__` aliases need
+  (`__new__` before `__init__` on the same class), including `functools.partialmethod`
+  constructors. Explicit class `__signature__` aliases need
   concrete annotations or `annotation_locals`; do not guess a constructor namespace.
   The effective call
   must remain synchronous; coroutine functions, async generators, and detectable wrapped

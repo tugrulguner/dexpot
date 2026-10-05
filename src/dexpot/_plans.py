@@ -8,7 +8,7 @@ import unicodedata
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
-from functools import lru_cache, partial
+from functools import lru_cache, partial, partialmethod
 from threading import Lock
 from types import CodeType, FunctionType, MappingProxyType
 from typing import Any
@@ -51,6 +51,10 @@ def _is_async_handler(handler: Callable[..., Any]) -> bool:
             return True
         if isinstance(value, partial) and visit(value.func):
             return True
+        # Unbound partialmethod accessors are ordinary functions on CPython 3.12.
+        method = getattr(value, "__partialmethod__", getattr(value, "_partialmethod", None))
+        if isinstance(method, partialmethod) and visit(method.func):
+            return True
 
         wrapped = getattr(value, "__wrapped__", value)
         if wrapped is not value and visit(wrapped):
@@ -75,9 +79,20 @@ def _class_annotation_owner(handler: type) -> Any:
     def user_method(cls: type, name: str) -> Any:
         method = getattr(cls, name)
         target = _unwrap_handler(method, stop_at_signature=True)
+        seen: set[int] = set()
+        while not hasattr(target, "__signature__"):
+            descriptor = getattr(
+                target, "__partialmethod__", getattr(target, "_partialmethod", None)
+            )
+            if not isinstance(descriptor, partialmethod):
+                break
+            if id(target) in seen:
+                raise TypeError("handler signature cannot be inspected")
+            seen.add(id(target))
+            target = _unwrap_handler(descriptor.func, stop_at_signature=True)
         if inspect.isbuiltin(target) or inspect.ismethoddescriptor(target):
             return None
-        return method
+        return target
 
     call = user_method(type(handler), "__call__")
     if call is not None:

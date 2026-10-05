@@ -218,7 +218,8 @@ The handler signature does not have to mirror URL order. dexpot binds path captu
 treats the first non-path, non-Request parameter as the declared body, preserves Python signature order,
 and supports keyword-only parameters, callable objects, classes, and `functools.partial`. Class
 annotations use the effective constructor's namespace: metaclass `__call__` first, otherwise
-`__new__` or `__init__` in MRO order (`__new__` wins on the same class). An explicit class
+`__new__` or `__init__` in MRO order (`__new__` wins on the same class), including
+`functools.partialmethod` constructors. An explicit class
 `__signature__` is a boundary; use concrete annotations or `annotation_locals` for its aliases.
 Put default-only parameters after that body parameter. Every effective handler call must remain synchronous.
 Registration fails before serving when:
