@@ -120,7 +120,7 @@ def test_roadmap_separates_shipped_native_seam_from_promotion_gates() -> None:
 
     assert "optional native request-head seam" in readme
     assert "Remaining work is organized around four gates" in readme
-    assert "Finish registration-time handler diagnostics" in readme
+    assert "Complete request-aware response handling and output policy" in readme
     assert roadmap.index("### 2. Optional native request-head seam") < roadmap.index(
         "## Next milestones"
     )
@@ -128,6 +128,18 @@ def test_roadmap_separates_shipped_native_seam_from_promotion_gates() -> None:
     assert "The accelerator is not yet published" in roadmap
     assert "#### Native parser promotion gates" in roadmap
     assert "#### Optional Rust request-head acceleration" not in roadmap
+
+
+def test_registration_diagnostics_contract_is_synchronized() -> None:
+    readme = " ".join(README.read_text().split())
+    roadmap = " ".join(ROADMAP.read_text().split())
+    skill = " ".join((ROOT / "src/dexpot/templates/skills/dexpot.md").read_text().split())
+
+    for text in (readme, roadmap, skill):
+        assert "callable objects" in text
+        assert "functools.partial" in text
+        assert "asynchronous" in text
+        assert "registration" in text
 
 
 def test_public_names_documented_by_quick_start_are_importable() -> None:
