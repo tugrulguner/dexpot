@@ -8,7 +8,7 @@ import unicodedata
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
-from functools import lru_cache
+from functools import lru_cache, partial, partialmethod
 from threading import Lock
 from types import CodeType, FunctionType, MappingProxyType
 from typing import Any
@@ -28,15 +28,120 @@ class _ApplicationCompilationDuringRegistration(RuntimeError):
     """Keep registration-control failures visible during annotation evaluation."""
 
 
-def _type_hints(fn: Any, localns: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    raw = {
-        name: parameter.annotation for name, parameter in inspect.signature(fn).parameters.items()
-    }
+def _unwrap_handler(handler: Any, *, stop_at_signature: bool = False) -> Any:
+    stop = (lambda value: hasattr(value, "__signature__")) if stop_at_signature else None
+    try:
+        return inspect.unwrap(handler, stop=stop)
+    except (TypeError, ValueError) as exc:
+        raise TypeError("handler signature cannot be inspected") from exc
+
+
+def _is_async_handler(handler: Callable[..., Any]) -> bool:
+    """Detect asynchronous callables without adding request-path inspection."""
+
+    seen: set[int] = set()
+
+    def visit(value: Any) -> bool:
+        identity = id(value)
+        if identity in seen:
+            return False
+        seen.add(identity)
+
+        if inspect.iscoroutinefunction(value) or inspect.isasyncgenfunction(value):
+            return True
+        if isinstance(value, partial) and visit(value.func):
+            return True
+        # Unbound partialmethod accessors are ordinary functions on CPython 3.12.
+        method = getattr(value, "__partialmethod__", getattr(value, "_partialmethod", None))
+        if isinstance(method, partialmethod) and visit(method.func):
+            return True
+
+        wrapped = getattr(value, "__wrapped__", value)
+        if wrapped is not value and visit(wrapped):
+            return True
+        _unwrap_handler(value)
+
+        if inspect.isclass(value):
+            return any(
+                visit(lifecycle)
+                for lifecycle in (type(value).__call__, value.__new__, value.__init__)
+            )
+        if inspect.isroutine(value) or not callable(value):
+            return False
+        return visit(value.__call__)
+
+    return visit(handler)
+
+
+def _class_annotation_owner(handler: type) -> Any:
+    """Mirror inspect.signature's metaclass/MRO constructor precedence."""
+
+    def user_method(cls: type, name: str) -> Any:
+        method = getattr(cls, name)
+        target = _unwrap_handler(method, stop_at_signature=True)
+        seen: set[int] = set()
+        while not hasattr(target, "__signature__"):
+            descriptor = getattr(
+                target, "__partialmethod__", getattr(target, "_partialmethod", None)
+            )
+            if not isinstance(descriptor, partialmethod):
+                break
+            if id(target) in seen:
+                raise TypeError("handler signature cannot be inspected")
+            seen.add(id(target))
+            target = _unwrap_handler(descriptor.func, stop_at_signature=True)
+        if inspect.isbuiltin(target) or inspect.ismethoddescriptor(target):
+            return None
+        return target
+
+    call = user_method(type(handler), "__call__")
+    if call is not None:
+        return _unwrap_handler(call, stop_at_signature=True)
+    new = user_method(handler, "__new__")
+    init = user_method(handler, "__init__")
+    for base in handler.__mro__:
+        if new is not None and "__new__" in base.__dict__:
+            return _unwrap_handler(new, stop_at_signature=True)
+        if init is not None and "__init__" in base.__dict__:
+            return _unwrap_handler(init, stop_at_signature=True)
+    return handler
+
+
+def _annotation_owner(handler: Callable[..., Any]) -> Any:
+    """Return the function that owns a callable's annotation namespace."""
+    owner = _unwrap_handler(handler, stop_at_signature=True)
+    if isinstance(owner, partial):
+        owner = _unwrap_handler(owner.func, stop_at_signature=True)
+    if inspect.isclass(owner) and getattr(owner, "__signature__", None) is None:
+        owner = _class_annotation_owner(owner)
+    if not inspect.isroutine(owner) and not inspect.isclass(owner):
+        owner = owner.__call__
+        if isinstance(owner, partial):
+            owner = owner.func
+        owner = _unwrap_handler(owner, stop_at_signature=True)
+    return getattr(owner, "__func__", owner)
+
+
+def _handler_signature(handler: Callable[..., Any]) -> inspect.Signature:
+    """Inspect a handler with one stable registration diagnostic."""
+    try:
+        return inspect.signature(handler)
+    except (TypeError, ValueError) as exc:
+        raise TypeError("handler signature cannot be inspected") from exc
+
+
+def _type_hints(
+    fn: Any,
+    signature: inspect.Signature,
+    localns: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    raw = {name: parameter.annotation for name, parameter in signature.parameters.items()}
     resolved: dict[str, Any] = {}
-    owner = inspect.unwrap(fn, stop=lambda f: hasattr(f, "__signature__"))
+    owner = _annotation_owner(fn)
     globalns = getattr(owner, "__globals__", {})
-    closure = owner.__closure__ or ()
-    cell_names = owner.__code__.co_freevars
+    closure = getattr(owner, "__closure__", None) or ()
+    code = getattr(owner, "__code__", None)
+    cell_names = code.co_freevars if code is not None else ()
     cells = dict(zip(cell_names, (cell.cell_contents for cell in closure), strict=True))
     for name, annotation in raw.items():
         if isinstance(annotation, str):
@@ -148,6 +253,8 @@ class EndpointPlan:
         path_names: list[str],
         annotation_locals: Mapping[str, Any] | None = None,
     ) -> None:
+        if _is_async_handler(handler):
+            raise TypeError("asynchronous handlers are not supported")
         if body_type is Request:
             raise TypeError("Request is handler context and cannot be used as a body type")
         object.__setattr__(self, "method", method)
@@ -168,8 +275,8 @@ class EndpointPlan:
             msgspec.json.Encoder() if resp_type is not None else None,
         )
 
-        hints = _type_hints(handler, annotation_locals)
-        signature = inspect.signature(handler)
+        signature = _handler_signature(handler)
+        hints = _type_hints(handler, signature, annotation_locals)
         captures_by_name = {name: index for index, name in enumerate(path_names)}
         sources: list[_Source] = []
         int_captures: list[tuple[int, str]] = []
