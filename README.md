@@ -223,9 +223,16 @@ def create_for_account(item: ItemIn, account_id: int) -> ItemOut:
 
 The handler signature does not have to mirror URL order. dexpot binds path captures by name,
 treats the first non-path, non-Request parameter as the declared body, preserves Python signature order,
-and supports keyword-only parameters. Put default-only parameters after that body parameter.
+and supports keyword-only parameters, callable objects, classes, and `functools.partial`. Class
+annotations use the effective constructor's namespace: metaclass `__call__` first, otherwise
+`__new__` or `__init__` in MRO order (`__new__` wins on the same class), including
+`functools.partialmethod` constructors. An explicit class
+`__signature__` is a boundary; use concrete annotations or `annotation_locals` for its aliases.
+Put default-only parameters after that body parameter. Every effective handler call must remain synchronous.
 Registration fails before serving when:
 
+- the handler is a coroutine, async generator, or detectable wrapped asynchronous callable;
+- the callable signature cannot be inspected;
 - a required parameter has no matching path capture, request body, or default;
 - a path capture is not accepted by the handler;
 - the handler uses `*args` or `**kwargs`; or
@@ -466,9 +473,9 @@ grow only as middleware, schemas, deployment support, and other roadmap capabili
 The shipped foundation now includes the HTTP-hardening gate and the optional native
 request-head seam. Remaining work is organized around four gates:
 
-1. Finish registration-time handler diagnostics, then extend the shipped request context with
-   decoded query parameters, cookies, and client metadata, and complete middleware, schemas,
-   and richer response handling;
+1. Complete request-aware response handling and output policy, then extend the shipped request
+   context with decoded query parameters, cookies, and client metadata, and complete middleware
+   and schemas;
 2. publish reproducible GIL and free-threaded benchmarks with correctness parity; and
 3. add production operations without replacing the synchronous execution model; and
 4. grow runnable examples, testing support, deployment guidance, and stable extension points.
