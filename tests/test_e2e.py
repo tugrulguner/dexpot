@@ -16,6 +16,14 @@ import pytest
 from dexpot import Dex, Request
 
 
+def test_class_handler_annotation_binding_over_http(server):
+    url = server
+    response = httpx.get(f"{url}/class/7")
+    assert response.status_code == 200
+    assert response.json() == {"kind": "class", "item_id": 7, "method": "GET"}
+    assert httpx.get(f"{url}/class/invalid").status_code == 422
+
+
 def _free_port() -> int:
     s = socket.socket()
     s.bind(("127.0.0.1", 0))
@@ -74,6 +82,16 @@ def server():
     class CallableHandler:
         def __call__(self, item_id: int) -> dict[str, object]:
             return {"kind": "callable", "item_id": item_id}
+
+    class_namespace = {"Alias": int, "Context": Request}
+    exec(
+        "class Meta(type):\n"
+        " def __call__(cls, item_id: Alias, *, request: Context):\n"
+        "  return {'kind': 'class', 'item_id': item_id, 'method': request.method}\n"
+        "class ClassHandler(metaclass=Meta): pass\n",
+        class_namespace,
+    )
+    app.get("/class/{item_id}")(class_namespace["ClassHandler"])
 
     app.get("/callable/{item_id}")(CallableHandler())
 

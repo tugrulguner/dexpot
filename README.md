@@ -216,8 +216,11 @@ def create_for_account(item: ItemIn, account_id: int) -> ItemOut:
 
 The handler signature does not have to mirror URL order. dexpot binds path captures by name,
 treats the first non-path, non-Request parameter as the declared body, preserves Python signature order,
-and supports keyword-only parameters, callable objects, and `functools.partial`. Put default-only
-parameters after that body parameter. Every effective handler call must remain synchronous.
+and supports keyword-only parameters, callable objects, classes, and `functools.partial`. Class
+annotations use the effective constructor's namespace: metaclass `__call__` first, otherwise
+`__new__` or `__init__` in MRO order (`__new__` wins on the same class). An explicit class
+`__signature__` is a boundary; use concrete annotations or `annotation_locals` for its aliases.
+Put default-only parameters after that body parameter. Every effective handler call must remain synchronous.
 Registration fails before serving when:
 
 - the handler is a coroutine, async generator, or detectable wrapped asynchronous callable;

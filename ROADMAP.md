@@ -132,8 +132,10 @@ focused stages:
 - Explicit annotation namespaces preserve eager, stringified, and Python 3.14 deferred
   annotations without caller-frame guessing.
 - Detectable asynchronous handlers and uninspectable or unsupported signatures fail during
-  registration. Supported wrapped functions, callable objects, and `functools.partial` handlers
-  compile into the same endpoint-specific direct invokers as ordinary functions.
+  registration. Supported wrapped functions, callable objects, classes, and `functools.partial`
+  handlers compile into the same endpoint-specific direct invokers as ordinary functions.
+  Class annotations follow the metaclass or MRO-selected constructor supplying the signature;
+  explicit class signature aliases require concrete annotations or explicit namespaces.
 
 Exit evidence covers reuse across applications, failed-registration atomicity, retention and
 stale annotation regressions, wrapped/local aliases, callable objects, partials, concurrent

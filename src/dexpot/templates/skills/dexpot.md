@@ -67,7 +67,11 @@ The runtime package is `dexpot`; the command requires `dexpot[cli]`.
 - An `int` path annotation converts the capture and returns 422 when conversion fails.
 - Path parameters may appear in any valid signature order because they bind by name.
 - The first non-path, non-Request parameter is the body parameter. Put default-only parameters after it.
-- Keyword-only parameters, callable objects, and `functools.partial` work. The effective call
+- Keyword-only parameters, callable objects, classes, and `functools.partial` work. Class
+  annotation namespaces follow the effective metaclass `__call__` or MRO-selected constructor
+  (`__new__` before `__init__` on the same class). Explicit class `__signature__` aliases need
+  concrete annotations or `annotation_locals`; do not guess a constructor namespace.
+  The effective call
   must remain synchronous; coroutine functions, async generators, and detectable wrapped
   asynchronous callables are rejected at registration.
 - Signatures that cannot be inspected and handlers using `*args` or `**kwargs` are rejected at

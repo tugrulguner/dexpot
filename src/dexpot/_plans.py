@@ -69,11 +69,36 @@ def _is_async_handler(handler: Callable[..., Any]) -> bool:
     return visit(handler)
 
 
+def _class_annotation_owner(handler: type) -> Any:
+    """Mirror inspect.signature's metaclass/MRO constructor precedence."""
+
+    def user_method(cls: type, name: str) -> Any:
+        method = getattr(cls, name)
+        target = _unwrap_handler(method, stop_at_signature=True)
+        if inspect.isbuiltin(target) or inspect.ismethoddescriptor(target):
+            return None
+        return method
+
+    call = user_method(type(handler), "__call__")
+    if call is not None:
+        return _unwrap_handler(call, stop_at_signature=True)
+    new = user_method(handler, "__new__")
+    init = user_method(handler, "__init__")
+    for base in handler.__mro__:
+        if new is not None and "__new__" in base.__dict__:
+            return _unwrap_handler(new, stop_at_signature=True)
+        if init is not None and "__init__" in base.__dict__:
+            return _unwrap_handler(init, stop_at_signature=True)
+    return handler
+
+
 def _annotation_owner(handler: Callable[..., Any]) -> Any:
     """Return the function that owns a callable's annotation namespace."""
     owner = _unwrap_handler(handler, stop_at_signature=True)
     if isinstance(owner, partial):
         owner = _unwrap_handler(owner.func, stop_at_signature=True)
+    if inspect.isclass(owner) and getattr(owner, "__signature__", None) is None:
+        owner = _class_annotation_owner(owner)
     if not inspect.isroutine(owner) and not inspect.isclass(owner):
         owner = owner.__call__
         if isinstance(owner, partial):

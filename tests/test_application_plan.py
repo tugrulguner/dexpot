@@ -306,6 +306,22 @@ def test_endpoint_precompiles_direct_invoker_for_supported_shapes() -> None:
     )
 
 
+def test_class_handler_resolves_constructor_global_annotations() -> None:
+    namespace = {}
+    exec(
+        "Alias = int\n"
+        "class Handler:\n"
+        "    def __init__(self, item_id: Alias):\n"
+        "        self.item_id = item_id\n",
+        namespace,
+    )
+    app = Dex()
+    app.get("/items/{item_id}")(namespace["Handler"])
+    endpoint = app._compile().endpoints[0]
+    assert endpoint.int_captures == ((0, "item_id"),)
+    assert endpoint.invoke([7], None).item_id == 7
+
+
 def test_request_is_frozen_gc_tracked_public_context() -> None:
     minimal = Request("GET", "/", {}, "", {})
     validated = object()
