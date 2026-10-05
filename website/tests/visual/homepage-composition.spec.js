@@ -3,6 +3,73 @@ import { expect, test } from '@playwright/test';
 const widths = [1280, 768, 390, 320];
 
 for (const colorScheme of ['light', 'dark']) {
+  test(`320px homepage code blocks are keyboard-scrollable in ${colorScheme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 850 });
+    await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' });
+    await page.goto('/');
+    await page.locator('starlight-theme-select select').selectOption(colorScheme);
+    const blocks = page.locator('main .sl-markdown-content pre');
+    const count = await blocks.count();
+    const overflowing = [];
+    for (let i = 0; i < count; i++) {
+      if (await blocks.nth(i).evaluate((pre) => pre.scrollWidth > pre.clientWidth)) overflowing.push(i);
+    }
+    expect(overflowing.length, 'homepage contains horizontally scrollable code').toBeGreaterThan(0);
+    for (const index of overflowing) {
+      const block = blocks.nth(index);
+      let reachedByTab = false;
+      for (let step = 0; step < 120; step++) {
+        await page.keyboard.press('Tab');
+        if (await block.evaluate((pre) => document.activeElement === pre)) { reachedByTab = true; break; }
+      }
+      expect(reachedByTab, `overflowing homepage code block ${index} is reachable by Tab`).toBe(true);
+      const geometry = await block.evaluate((pre) => ({ tabIndex: pre.tabIndex, outline: getComputedStyle(pre).outlineStyle }));
+      expect(geometry.tabIndex, `code block ${index} explicitly participates in sequential keyboard navigation`).toBe(0);
+      expect(geometry.outline, `code block ${index} has visible keyboard focus`).not.toBe('none');
+      for (let step = 0; step < 100; step++) {
+        if (await block.evaluate((pre) => pre.scrollLeft >= pre.scrollWidth - pre.clientWidth - 1)) break;
+        await page.keyboard.press('ArrowRight');
+      }
+      const end = await block.evaluate((pre) => ({ max: pre.scrollWidth - pre.clientWidth, left: pre.scrollLeft }));
+      expect(end.left, `ArrowRight reveals the complete line in code block ${index}`).toBeGreaterThanOrEqual(end.max - 1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth), 'page remains within the 320px viewport').toBeLessThanOrEqual(320);
+    }
+  });
+}
+
+for (const colorScheme of ['light', 'dark']) {
+  test(`homepage code remains keyboard-scrollable after resizing in ${colorScheme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 850 });
+    await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' });
+    await page.goto('/');
+    await page.setViewportSize({ width: 320, height: 850 });
+    await page.evaluate(() => document.fonts.ready);
+    const blocks = page.locator('main .sl-markdown-content pre');
+    const count = await blocks.count();
+    const overflowing = [];
+    for (let i = 0; i < count; i++) {
+      if (await blocks.nth(i).evaluate((pre) => pre.scrollWidth > pre.clientWidth)) overflowing.push(i);
+    }
+    expect(overflowing.length).toBeGreaterThan(0);
+    for (const index of overflowing) {
+      const block = blocks.nth(index);
+      let reachedByTab = false;
+      for (let step = 0; step < 120; step++) {
+        await page.keyboard.press('Tab');
+        if (await block.evaluate((pre) => document.activeElement === pre)) { reachedByTab = true; break; }
+      }
+      expect(reachedByTab, `resized code block ${index} is reachable by Tab`).toBe(true);
+      expect(await block.evaluate((pre) => getComputedStyle(pre).outlineStyle)).not.toBe('none');
+      for (let step = 0; step < 100; step++) {
+        if (await block.evaluate((pre) => pre.scrollLeft >= pre.scrollWidth - pre.clientWidth - 1)) break;
+        await page.keyboard.press('ArrowRight');
+      }
+      const end = await block.evaluate((pre) => ({ max: pre.scrollWidth - pre.clientWidth, left: pre.scrollLeft }));
+      expect(end.left).toBeGreaterThanOrEqual(end.max - 1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+    }
+  });
+
   test(`framework homepage composition matches the reference in ${colorScheme}`, async ({ page }) => {
     for (const width of widths) {
       await page.setViewportSize({ width, height: 850 });
@@ -14,7 +81,7 @@ for (const colorScheme of ['light', 'dark']) {
       if (process.env.EVIDENCE_DIR) {
         const { mkdirSync } = await import('node:fs');
         mkdirSync(process.env.EVIDENCE_DIR, { recursive: true });
-        await page.screenshot({ path: `${process.env.EVIDENCE_DIR}/${width}-${colorScheme}.png` });
+        await page.screenshot({ path: `${process.env.EVIDENCE_DIR}/${width}-${colorScheme}.png`, fullPage: true });
       }
       await expect(hero.getByRole('heading', { level: 1 })).toHaveText('Synchronous APIs. GIL or free-threaded.');
       const copy = hero.locator('.framework-copy');
@@ -72,6 +139,19 @@ for (const colorScheme of ['light', 'dark']) {
       expect(order[1]).toBeLessThan(order[2]);
       expect(order[2]).toBeLessThan(order[3]);
       expect(order[3]).toBeLessThan(order[4]);
+      const homepageExample = page.locator('.deeper-content pre').filter({ hasText: 'from dexpot import Dex' });
+      await expect(homepageExample).toBeVisible();
+      await expect(homepageExample).toContainText('@app.get("/items/{item_id}", response=ItemOut)');
+      const runCommand = page.locator('.deeper-content pre').filter({ hasText: 'PYTHONPATH=examples dexpot serve minimal:app' });
+      await expect(runCommand).toBeVisible();
+      await expect(runCommand).toContainText('dexpot serve minimal:app --host 127.0.0.1 --port 8000');
+      const nextQuickstart = page.locator('main .pagination-links a[rel="next"]');
+      await expect(nextQuickstart).toHaveAttribute('href', '/quick-start/');
+      await expect(nextQuickstart).toContainText('Quick start');
+      expect(await homepageExample.evaluate((node) => node.getBoundingClientRect().top)).toBeGreaterThan(order[3]);
+      await nextQuickstart.click();
+      await expect(page).toHaveURL(/\/quick-start\/$/);
+      await expect(page.locator('main h1').first()).toContainText('Quick start');
     }
   });
 }
