@@ -1,1 +1,0 @@
-Keep long runtime and serving-model table content within narrow mobile viewports.

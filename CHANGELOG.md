@@ -10,6 +10,42 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.6.0] - 2026-10-05
+
+### Added
+
+- Browser-local contract explorer on the examples page illustrates bounded CRUD requests and computed responses without running Python or a hosted backend.
+- Launch the Dexpot documentation site at https://dexpot.modepot.io.
+
+### Changed
+
+- Add a compact Dexpot family mark for the documentation header, favicon, and small-size brand contexts.
+- Add a runnable typed endpoint and direct learning links to the Dexpot homepage.
+- Add family, repository, community, and creator links to the Dexpot site header.
+- Added task-oriented guides for building, tracing, deploying, and benchmarking Dexpot, with Markdown downloads generated from their canonical sources.
+- Align the Dexpot homepage, documentation, and playground with the shared ModePot typography, neutral palette, header, and control styles.
+- Align the README introduction and add direct links to the Dexpot website resources.
+- Align the framework homepage hero spacing and family navigation sizing across product sites.
+- Expose the source-generated project roadmap as a secondary action in the homepage hero.
+- Improved the documentation site's search, social-preview, structured-data, and AI-agent discovery metadata.
+- Instrument dexpot.modepot.io with privacy-conscious shared ModePot PostHog page analytics.
+- Match the Dexpot homepage to the shared framework landing composition while preserving its interpreter-adaptive claims and alpha boundary.
+- Move the alpha caution to immediately follow the homepage hero so visitors see adoption boundaries before the feature overview.
+- Reject detectable asynchronous or uninspectable handlers during registration while preserving direct invokers for supported callable objects, classes, and `functools.partial` handlers, with class annotations resolved in the effective constructor namespace, including `functools.partialmethod` constructors.
+- Replaced the crowded Dexpot hero and social artwork with a minimal lockup built from the existing compact mark.
+- Standardized the README hero to 600px and added a visible link to the ModePot family.
+- The README prominently links to the project website beside the ModePot family link.
+- The browser-local CRUD playground now shows measured client-side run time and a clearer request/response layout.
+- The playground now pairs typed Python route code with a bounded browser-local request/response workbench and clearly separated, reproducible loopback latency evidence measured against a local Dexpot server.
+- The website now publishes generated README and roadmap pages with revision-linked snapshot provenance.
+
+### Fixed
+
+- Add a canonical ModePot return link across the documentation site.
+- Keep long runtime and serving-model table content within narrow mobile viewports.
+- Make horizontally scrollable homepage code blocks keyboard-reachable and visibly focused.
+
+
 ## [0.5.1] - 2026-09-22
 
 ### Changed
