@@ -1,1 +1,0 @@
-Align the framework homepage hero spacing and family navigation sizing across product sites.
