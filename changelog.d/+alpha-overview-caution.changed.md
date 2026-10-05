@@ -1,0 +1,1 @@
+Move the alpha caution to immediately follow the homepage hero so visitors see adoption boundaries before the feature overview.

@@ -1,0 +1,24 @@
+---
+title: Request workbench
+template: splash
+description: Run a bounded browser-local preview of Dexpot's typed CRUD example.
+---
+
+import CrudPlayground from '../../components/CrudPlayground.astro';
+
+<div class="workbench-record" aria-label="Optional recorded local server latency and source">
+  <details>
+    <summary>Optional recorded loopback run · separate from this browser-local preview</summary>
+    <div class="record-details">
+      <span><strong>p50 439 µs</strong> · <strong>p90 0.92 ms</strong> · <strong>p99 1.76 ms</strong></span>
+      <a href="https://github.com/tugrulguner/dexpot/blob/main/examples/typed_crud.py">Canonical Python source ↗</a>
+      <a href="https://modepot.io/">ModePot ↗</a>
+      <a href="https://github.com/tugrulguner/dexpot/blob/main/website/benchmarks/loopback-2026-10-02.md">Run details &amp; provenance ↗</a>
+      <span>83,430 checked responses · zero status/body mismatches · one 5-second <code>wrk</code> run · CPython 3.14.7 (GIL on), macOS 26.5.2, Apple M4. Client-observed loopback latency includes transport and generator overhead; exploratory single-machine evidence, not a production benchmark.</span>
+    </div>
+  </details>
+</div>
+
+<CrudPlayground />
+
+<div class="playground-context">This browser-only preview computes bounded CRUD outcomes in this tab; it does not run Python or send requests to a server. It starts with the example item, allows at most 20 live items, and resets on reload. <a href="/current-boundaries/">Review Dexpot's current alpha boundaries ↗</a></div>

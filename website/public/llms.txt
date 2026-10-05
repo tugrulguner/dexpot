@@ -1,0 +1,32 @@
+# Dexpot
+
+> Dexpot is an open-source synchronous Python API framework that adapts concurrency to standard GIL and free-threaded CPython while keeping the same plain synchronous handlers.
+
+## Primary resources
+
+- [Documentation](https://dexpot.modepot.io/): Framework overview and current documentation.
+- [Quick start](https://dexpot.modepot.io/quick-start/): Install, define, serve, and call a typed API.
+- [Build guides](https://dexpot.modepot.io/build-guides/): Task-oriented setup and operational walkthroughs; each guide has a same-source Markdown download.
+- [Typed API guide](https://dexpot.modepot.io/guides/typed-api/): Complete path/body/context/response workflow with real HTTP checks. [Markdown](https://dexpot.modepot.io/guides/typed-api.md).
+- [Request lifecycle](https://dexpot.modepot.io/guides/request-lifecycle/): Declaration, immutable plans, parser, admission, binding, and response ownership. [Markdown](https://dexpot.modepot.io/guides/request-lifecycle.md).
+- [Deployment guide](https://dexpot.modepot.io/guides/deployment/): Scheduler capacity, overload, shutdown, and network boundaries. [Markdown](https://dexpot.modepot.io/guides/deployment.md).
+- [Benchmarking guide](https://dexpot.modepot.io/guides/benchmarking/): Correctness-matched methodology and limits on interpreting results. [Markdown](https://dexpot.modepot.io/guides/benchmarking.md).
+- [Execution model](https://dexpot.modepot.io/execution-model/): GIL pools, free-threaded connection threads, overload behavior, and process fan-out.
+- [Route contract](https://dexpot.modepot.io/route-contract/): Registration, path captures, msgspec bodies, responses, and request context.
+- [HTTP boundary](https://dexpot.modepot.io/http-boundary/): Request limits, parser selection, and protocol policy.
+- [Current boundaries](https://dexpot.modepot.io/current-boundaries/): Explicit alpha limitations and non-features.
+- [Source repository](https://github.com/tugrulguner/dexpot): Source, issues, releases, examples, and contribution guidance.
+- [ModePot](https://modepot.io/): Return to the open-source project family.
+
+## Key facts
+
+- Language: Python 3.12 and newer.
+- License: MIT.
+- Package: [`dexpot` on PyPI](https://pypi.org/project/dexpot/).
+- Handlers are synchronous Python functions.
+- Routes compile into immutable endpoint and application plans before the listener opens.
+- Standard GIL builds use a bounded thread pool and optional POSIX process fan-out.
+- Free-threaded builds use one process with capped connection-owning threads.
+- JSON request bodies use msgspec decoding and validation.
+- The optional Rust/PyO3 extension parses request heads only; Python continues to own sockets, bodies, routing, handlers, and scheduling.
+- Dexpot is alpha software and is not yet recommended for untrusted production traffic.

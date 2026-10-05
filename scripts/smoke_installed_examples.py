@@ -23,7 +23,11 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES = ROOT / "examples"
-EXPECTED_EXAMPLES = {"bounded_api.py", "minimal.py", "typed_crud.py"}
+EXPECTED_EXAMPLES = {
+    "bounded_api.py",
+    "minimal.py",
+    "typed_crud.py",
+}
 
 
 def _free_port() -> int:
@@ -181,7 +185,7 @@ def main() -> None:
     _check_bounded(EXAMPLES / "bounded_api.py")
     print(
         f"installed dexpot {importlib.metadata.version('dexpot')} passed CLI and "
-        f"{len(discovered)} example smokes"
+        f"HTTP smoke checks; examples inventory contains {len(discovered)} files"
     )
 
 

@@ -1,0 +1,122 @@
+---
+title: Python APIs for GIL and Free-Threaded CPython
+description: Build synchronous Python APIs that adapt execution to standard GIL and free-threaded CPython while keeping plain handlers.
+template: splash
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import dexpotImage from '../../assets/dexpot.webp';
+
+<script src="/scripts/homepage-code-keyboard.js"></script>
+
+<section class="framework-hero" aria-labelledby="framework-title">
+  <div class="framework-copy">
+    <p class="framework-eyebrow">SYNCHRONOUS PYTHON APIS</p>
+    <h1 id="framework-title">Synchronous APIs. GIL or free-threaded.</h1>
+    <p class="framework-tagline">Keep plain synchronous handlers while Dexpot adapts bounded admission and scheduling to standard GIL or free-threaded CPython.</p>
+    <nav class="framework-actions" aria-label="Primary actions">
+      <a class="framework-action primary" href="/quick-start/">Quick start</a>
+      <a class="framework-action secondary" href="/playground/">Playground</a>
+      <a class="framework-action secondary" href="/project/roadmap/">Roadmap</a>
+      <a class="framework-action tertiary" href="https://github.com/tugrulguner/dexpot" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
+    </nav>
+    <a class="creator-attribution" href="https://tugrul.modepot.io/">Created by Tugrul Guner</a>
+  </div>
+  <figure class="framework-art">
+    <Image src={dexpotImage} alt="Dexpot lockup: synchronous Python APIs adapt execution to the interpreter." width={1200} height={900} />
+  </figure>
+</section>
+
+<section class="installation-strip" aria-label="Installation">
+  <div><p class="section-eyebrow">GET STARTED</p><h2>Install Dexpot</h2></div>
+  <code>{'pip install "dexpot[cli]"'}</code>
+  <a href="/quick-start/">Quick start guide <span aria-hidden="true">→</span></a>
+</section>
+
+<Aside type="caution" title="Alpha — review boundaries before adopting" className="maturity-notice">
+Dexpot is alpha software and is not yet recommended for untrusted production traffic. Read the [current boundaries](/current-boundaries/) before choosing it for an application.
+</Aside>
+
+<section class="project-demo" aria-label="Project demonstration">
+  <div>
+    <p class="section-eyebrow">EXPLORE THE MECHANISM</p>
+    <h2>Try bounded CRUD behavior.</h2>
+    <p>Explore the existing playground's bounded item operations, response outcomes, and recorded loopback evidence.</p>
+  </div>
+  <a href="/playground/">Open the playground <span aria-hidden="true">→</span></a>
+  <p class="demo-boundary"><strong>Browser-local preview.</strong> JavaScript computes bounded results in this tab; it does not execute Python or send requests. Recorded loopback timings are separate evidence, not this preview's runtime.</p>
+</section>
+
+<div class="deeper-content">
+
+## Run a typed synchronous endpoint
+
+Dexpot keeps the route handler as an ordinary synchronous Python function. This is the same minimal application shipped in [`examples/minimal.py`](https://github.com/tugrulguner/dexpot/blob/main/examples/minimal.py):
+
+```python
+from msgspec import Struct
+
+from dexpot import Dex
+
+app = Dex()
+
+
+class ItemOut(Struct):
+    id: int
+    name: str
+    price: float
+
+
+@app.get("/items/{item_id}", response=ItemOut)
+def get_item(item_id: int) -> ItemOut:
+    """Return one typed item."""
+    return ItemOut(id=item_id, name=f"item-{item_id}", price=float(item_id))
+```
+
+Save it as `examples/minimal.py`, install the CLI extra, and start the public server command from the repository root:
+
+```bash
+pip install "dexpot[cli]"
+PYTHONPATH=examples dexpot serve minimal:app --host 127.0.0.1 --port 8000
+```
+
+In another terminal, call the actual HTTP route:
+
+```bash
+curl -i http://127.0.0.1:8000/items/7
+```
+
+The example responds with the typed item for that path. The homepage preview remains browser-local; this command starts the real Python server.
+
+## Keep learning
+
+- [Quick start](/quick-start/): install, define an app, serve it, and call HTTP routes.
+- [Build guides](/build-guides/): practical setup and operation paths.
+- [Route contract](/route-contract/): handler signatures, path binding, and response behavior.
+- [Execution model](/execution-model/): GIL and free-threaded scheduling boundaries.
+- [Runnable examples](/examples/): complete shipped applications and requests.
+
+## One application. Two interpreter modes.
+
+Dexpot keeps application code synchronous while changing admission and scheduling around the interpreter that runs it.
+
+| Runtime | Serving model | Overload behavior |
+|---|---|---|
+| Free-threaded CPython | One process; each admitted connection owns a thread | A process-wide active-connection cap sheds excess work before thread creation |
+| Standard GIL CPython | A bounded pool of connection-owning threads | A bounded queue sheds excess work with 503 |
+| Standard GIL CPython with workers | POSIX `SO_REUSEPORT` processes, each with its own bounded pool | Each worker sheds independently |
+
+<img src="/dexpot-execution.webp" alt="A Dexpot route compiles into an immutable endpoint plan, then uses the selected request-head parser and interpreter-specific scheduler before both paths execute the same synchronous handler" />
+
+## What dexpot owns
+
+- **Plain synchronous handlers** without an event loop or coroutine bridge.
+- **Compiled endpoint plans** for route matching, argument binding, path conversion, and msgspec codecs.
+- **Interpreter-adaptive scheduling** selected once when the module imports.
+- **A bounded HTTP core** for parsing, routing, scheduling, draining, and response writes.
+- **An optional parser-only Rust extension** without moving sockets, routing, handlers, or scheduling out of Python.
+
+Dexpot is part of [ModePot](https://modepot.io/), an open-source family of modern frameworks, tools, engines, and games.
+
+</div>
