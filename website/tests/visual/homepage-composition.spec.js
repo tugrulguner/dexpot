@@ -91,8 +91,15 @@ for (const colorScheme of ['light', 'dark']) {
       await expect(art).toHaveAttribute('alt', /synchronous Python APIs adapt execution/);
       await expect.poll(() => art.evaluate((image) => ({ complete: image.complete, naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight }))).toEqual({ complete: true, naturalWidth: 1200, naturalHeight: 900 });
       const actions = hero.locator('.framework-actions a');
-      await expect(actions).toHaveText(['Quick start', 'Playground', 'GitHub ↗']);
-      expect(await actions.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href')))).toEqual(['/quick-start/', '/playground/', 'https://github.com/tugrulguner/dexpot']);
+      await expect(actions).toHaveText(['Quick start', 'Playground', 'Roadmap', 'GitHub ↗']);
+      expect(await actions.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href')))).toEqual(['/quick-start/', '/playground/', '/project/roadmap/', 'https://github.com/tugrulguner/dexpot']);
+      const roadmap = hero.getByRole('link', { name: 'Roadmap' });
+      await expect(roadmap).toBeVisible();
+      await roadmap.click();
+      await expect(page).toHaveURL(/\/project\/roadmap\/$/);
+      await expect(page.getByRole('heading', { name: 'Project roadmap', exact: true })).toBeVisible();
+      await page.goBack();
+      await expect(hero).toBeVisible();
       const attribution = hero.getByRole('link', { name: 'Created by Tugrul Guner' });
       await expect(attribution).toHaveAttribute('href', 'https://tugrul.modepot.io/');
       const layout = await page.evaluate(() => {

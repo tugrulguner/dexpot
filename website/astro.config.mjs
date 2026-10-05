@@ -62,6 +62,8 @@ export default defineConfig({
           { label: 'Runnable examples', slug: 'examples' },
           { label: 'Request workbench', slug: 'playground' },
           { label: 'Coding-agent context', slug: 'agent-context' },
+          { label: 'Project README', slug: 'project/readme' },
+          { label: 'Project roadmap', slug: 'project/roadmap' },
         ] },
         { label: 'ModePot', link: 'https://modepot.io/' },
       ],
