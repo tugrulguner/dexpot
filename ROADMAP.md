@@ -148,8 +148,10 @@ allocation. Recursive leak detection uses compiled Struct field names without re
 annotations per response, including mapping keys, dataclasses, enums, containers and cycles.
 Request-aware and checked routes reject nested Request values.
 
-`response=T` now normalizes, strictly converts, projects and validates encoded JSON, including
-malformed existing/nested Structs. Checked output rejects non-finite floats even in optional
+`response=T` uses registration-compiled, schema-directed preparation of owned JSON values,
+including malformed existing/nested Structs and recursively introduced defaults. Native
+encoding follows successful preparation. Sets use a native checked fallback for hashing and
+deduplication after child preparation; native-only scalar schemas retain a checked fallback. Checked output rejects non-finite floats even in optional
 and Any values. `response=None` retains generic JSON encoding without a filtering guarantee.
 Custom schema types and schemas with `__post_init__` or `__attrs_post_init__` are rejected
 atomically at registration; defaults are checked before success bytes are sent.

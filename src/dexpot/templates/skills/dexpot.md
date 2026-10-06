@@ -68,7 +68,7 @@ The runtime package is `dexpot`; the command requires `dexpot[cli]`.
   values and defaults. msgspec strict conversion semantics apply (integers may satisfy floats).
 - Checked schemas support msgspec constraints, aliases, defaults, tagged unions, enums,
   bytes/base64, datetime and UUID strings. Custom types and schemas containing `__post_init__`
-  or `__attrs_post_init__` hooks fail at registration. Invalid static Struct defaults and known
+  or `__attrs_post_init__` hooks fail at registration. Invalid static Struct and dataclass defaults and known
   builtin factory defaults fail at registration, including omitted defaults. Application factories
   are not called at registration; their output is checked and projected before serialization,
   and cannot introduce Request context.

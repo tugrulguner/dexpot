@@ -248,14 +248,18 @@ pre-existing and nested Structs. Extra fields are removed by ordinary Struct sch
 success headers or bytes are sent. `response=None` (the default) uses generic msgspec JSON
 encoding without validation or filtering.
 
-Checked output normalizes values with msgspec, converts strictly to `T`, and validates the
-encoded JSON. This supports msgspec constraints, aliases, defaults, tagged unions, enums,
+Checked output uses registration-compiled, schema-directed preparation to validate and
+project an owned JSON representation before native encoding. Structs, records, lists, tuples,
+mappings and Any combine field validation, defaults and privacy checks in that preparation.
+Sets retain a native checked fallback for hashing and deduplication after child preparation;
+remaining native-only scalar schemas also retain the checked fallback. This supports msgspec
+constraints, aliases, defaults, tagged unions, enums,
 bytes (base64), datetime and UUID strings. Strict conversion follows msgspec semantics
 (for example, integers can satisfy floats); it does not require identical Python types.
 `Any` retains arbitrary JSON fields and is not a privacy filter. Checked output rejects
 non-finite floats (NaN and either infinity), including nested/optional/Any values and defaults.
 Schemas containing custom types or `__post_init__`/`__attrs_post_init__` hooks are rejected at
-registration, including nested schemas. Invalid static Struct defaults and known builtin
+registration, including nested schemas. Invalid static Struct and dataclass defaults and known builtin
 factory defaults also fail at registration, including omitted defaults. Application factories
 are not invoked during registration; their output is checked and projected before serialization,
 including rejection of any Request context introduced by a factory. Unsupported

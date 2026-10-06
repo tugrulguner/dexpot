@@ -168,7 +168,10 @@ Preserve the public Request representation and conditional allocation. Compile r
 schemas per endpoint at registration, with atomic failure for unsupported declarations.
 `response=T` must validate malformed existing/nested Structs, project public fields, reject
 non-finite floats (including Any, optional fields and defaults), and validate the final JSON
-before sending success metadata. Schemas containing custom types or `__post_init__` /
+before sending success metadata. Use registration-compiled schema-directed preparation for
+owned wire values; preserve the native checked fallback for set hashing/deduplication and
+native-only scalar schemas. Never execute application factories indirectly while validating
+nested static defaults at registration. Schemas containing custom types or `__post_init__` /
 `__attrs_post_init__` hooks are rejected; do not imply universal Python schema support.
 `response=None` retains generic encoding. `Response` and bytes-only `RawResponse` must preserve
 immutable header snapshots, status/header bounds, server-owned framing, tuple compatibility,

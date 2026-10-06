@@ -16,6 +16,7 @@ from typing import Any
 
 import msgspec
 
+from ._response import compile_preparer
 from .requests import Request
 
 _json_encode = msgspec.json.encode
@@ -243,6 +244,7 @@ class EndpointPlan:
     resp_decoder: Any
     resp_convert: Any
     resp_type: Any
+    resp_prepare: Any
     summary: str
 
     def __init__(
@@ -291,6 +293,12 @@ class EndpointPlan:
             partial(msgspec.convert, type=resp_type, strict=True)
             if resp_type is not None
             else None,
+        )
+
+        object.__setattr__(
+            self,
+            "resp_prepare",
+            compile_preparer(resp_type, _checked_fallback) if resp_type is not None else None,
         )
 
         signature = _handler_signature(handler)
@@ -353,26 +361,34 @@ class EndpointPlan:
 
     def encode(self, result: Any) -> bytes:
         """Encode a successful result using the endpoint response contract."""
-        if isinstance(result, Request) or (
-            (self.needs_request or self.resp_type is not None) and _contains_request(result, set())
-        ):
+        if self.resp_prepare is not None:
+            return self.resp_encoder.encode(self.resp_prepare(result))
+        if isinstance(result, Request) or (self.needs_request and _contains_request(result, set())):
             raise TypeError("Request context cannot be serialized as a response")
-        if self.resp_type is not None:
-            normalized = msgspec.to_builtins(result)
-            _reject_nonfinite(normalized)
-            projected = self.resp_convert(normalized)
-            # Conversion may introduce defaults that were absent from the
-            # application value. Check them before normalization erases Request
-            # identities, then project default values through the schema too.
-            if _contains_request(projected, set()):
-                raise TypeError("Request context cannot be serialized as a response")
-            normalized_defaults = msgspec.to_builtins(projected)
-            _reject_nonfinite(normalized_defaults)
-            projected = self.resp_convert(normalized_defaults)
-            encoded = self.resp_encoder.encode(projected)
-            self.resp_decoder.decode(encoded)
-            return encoded
         return _json_encode(result)
+
+
+def _checked_fallback(schema: Any) -> Callable[[Any], Any]:
+    """Retain the complete checked codec for shapes not yet fused."""
+    convert = partial(msgspec.convert, type=schema, strict=True)
+    decoder = msgspec.json.Decoder(schema, strict=True)
+
+    def prepare(result: Any) -> Any:
+        if _contains_request(result, set()):
+            raise TypeError("Request context cannot be serialized as a response")
+        normalized = msgspec.to_builtins(result)
+        _reject_nonfinite(normalized)
+        projected = convert(normalized)
+        if _contains_request(projected, set()):
+            raise TypeError("Request context cannot be serialized as a response")
+        normalized = msgspec.to_builtins(projected)
+        _reject_nonfinite(normalized)
+        projected = convert(normalized)
+        encoded = _json_encode(projected)
+        decoder.decode(encoded)
+        return msgspec.json.decode(encoded)
+
+    return prepare
 
 
 def _validate_response_schema(info: Any, seen: set[int]) -> None:
@@ -383,7 +399,8 @@ def _validate_response_schema(info: Any, seen: set[int]) -> None:
     if isinstance(info, msgspec.inspect.CustomType):
         raise TypeError("custom types are not supported in checked responses")
     cls = getattr(info, "cls", None)
-    if cls is Request or (
+    origin = typing.get_origin(cls) or cls
+    if (isinstance(origin, type) and issubclass(origin, Request)) or (
         cls is not None and (hasattr(cls, "__post_init__") or hasattr(cls, "__attrs_post_init__"))
     ):
         raise TypeError("Request and post-init hooks are not supported in checked response schemas")
@@ -394,29 +411,6 @@ def _validate_response_schema(info: Any, seen: set[int]) -> None:
     elif isinstance(info, (tuple, list)):
         for item in info:
             _validate_response_schema(item, seen)
-    if isinstance(info, msgspec.inspect.StructType):
-        # Encoders can omit defaults, and decoders reuse them without checking.
-        # Reject invalid static/known-builtin defaults once at registration.
-        # Never execute an application factory while registering a schema.
-        builtin_factories = (list, dict, set, frozenset, tuple, bytes, str, int, float, bool)
-        assert cls is not None
-        for field in msgspec.structs.fields(cls):
-            default = field.default
-            if default is msgspec.NODEFAULT:
-                if not any(field.default_factory is factory for factory in builtin_factories):
-                    continue
-                default = field.default_factory()
-            try:
-                if _contains_request(default, set()):
-                    raise TypeError("Request context is not a response default")
-                normalized = msgspec.to_builtins(default)
-                _reject_nonfinite(normalized)
-                converted = msgspec.convert(normalized, type=field.type, strict=True)
-                msgspec.json.decode(msgspec.json.encode(converted), type=field.type, strict=True)
-            except (TypeError, ValueError, msgspec.ValidationError, RecursionError) as exc:
-                raise TypeError(
-                    f"invalid checked response default for {cls.__name__}.{field.name}"
-                ) from exc
 
 
 def _reject_nonfinite(value: Any) -> None:

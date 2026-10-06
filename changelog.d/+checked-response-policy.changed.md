@@ -1,1 +1,1 @@
-Validate and project declared response schemas, reject non-finite checked output with sanitized errors, and add immutable Response and bytes-only RawResponse envelopes with custom headers and explicit empty responses.
+Prepare and project declared response schemas with compiled validation, recursively check factory defaults, reject non-finite checked output with sanitized errors, and add immutable Response and bytes-only RawResponse envelopes with custom headers and explicit empty responses.
