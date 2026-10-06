@@ -413,7 +413,7 @@ def _validate_response_schema(info: Any, seen: set[int]) -> None:
                 _reject_nonfinite(normalized)
                 converted = msgspec.convert(normalized, type=field.type, strict=True)
                 msgspec.json.decode(msgspec.json.encode(converted), type=field.type, strict=True)
-            except (TypeError, ValueError, RecursionError) as exc:
+            except (TypeError, ValueError, msgspec.ValidationError, RecursionError) as exc:
                 raise TypeError(
                     f"invalid checked response default for {cls.__name__}.{field.name}"
                 ) from exc
