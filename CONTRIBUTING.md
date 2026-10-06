@@ -161,3 +161,16 @@ Unresolved parameter annotations fail at registration, including defaulted param
 explicit `body=` binding remains authoritative for its body parameter. Use only needed
 bindings rather than retaining all factory locals. Wrapped handlers use their original
 annotation scope. Test repeated factory calls and per-registration namespace isolation.
+
+### Checked response policy
+
+Preserve the public Request representation and conditional allocation. Compile response
+schemas per endpoint at registration, with atomic failure for unsupported declarations.
+`response=T` must validate malformed existing/nested Structs, project public fields, reject
+non-finite floats (including Any, optional fields and defaults), and validate the final JSON
+before sending success metadata. Schemas containing custom types or `__post_init__` /
+`__attrs_post_init__` hooks are rejected; do not imply universal Python schema support.
+`response=None` retains generic encoding. `Response` and bytes-only `RawResponse` must preserve
+immutable header snapshots, status/header bounds, server-owned framing, tuple compatibility,
+HEAD and 204/205/304 behavior, sanitized failures, and pipelined keep-alive recovery. Raw output
+cannot bypass checked schemas. Maintain real-socket regressions for these contracts.

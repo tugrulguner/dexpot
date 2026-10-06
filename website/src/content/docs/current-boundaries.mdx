@@ -18,7 +18,7 @@ The current release deliberately keeps these boundaries visible:
 - Routing distinguishes 404 from 405, returns `Allow`, percent-decodes UTF-8 paths safely, and treats duplicate or trailing slashes as distinct paths.
 - Query strings and headers are parsed internally but are not yet injectable handler parameters.
 - There is no middleware, OpenAPI generation, authentication, TLS termination, streaming, WebSocket support, or proxy-header policy.
-- `response=` selects an encoder but does not validate the handler's return type.
+- `response=T` validates and projects output; `response=None` uses generic JSON encoding.
 - Uncaught handler exceptions produce a stable public 500 body while the traceback is logged server-side. Structured logging and request IDs remain roadmap work.
 - Multiprocess serving is POSIX-only. Windows uses one process in the current release.
 

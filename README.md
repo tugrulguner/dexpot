@@ -242,8 +242,55 @@ For example, `GET /users/{id}` and `GET /users/{name}` conflict because only one
 match a request.
 
 A handler may return a JSON-encodable value, a msgspec struct, or `(status, payload)`.
-`response=` precompiles the successful-response encoder, but the current release does not
-yet enforce the returned type at runtime.
+`response=T` strictly validates and projects JSON onto the declared public schema, including
+pre-existing and nested Structs. Extra fields are removed by ordinary Struct schemas;
+`forbid_unknown_fields=True` rejects them. Invalid output produces a sanitized 500 before
+success headers or bytes are sent. `response=None` (the default) uses generic msgspec JSON
+encoding without validation or filtering.
+
+Checked output normalizes values with msgspec, converts strictly to `T`, and validates the
+encoded JSON. This supports msgspec constraints, aliases, defaults, tagged unions, enums,
+bytes (base64), datetime and UUID strings. Strict conversion follows msgspec semantics
+(for example, integers can satisfy floats); it does not require identical Python types.
+`Any` retains arbitrary JSON fields and is not a privacy filter. Checked output rejects
+non-finite floats (NaN and either infinity), including nested/optional/Any values and defaults.
+Schemas containing custom types or `__post_init__`/`__attrs_post_init__` hooks are rejected at
+registration, including nested schemas. Invalid static Struct defaults and known builtin
+factory defaults also fail at registration, including omitted defaults. Application factories
+are not invoked during registration; their output is checked and projected before serialization,
+including rejection of any Request context introduced by a factory. Unsupported
+schema declarations fail atomically; this is not a promise to support every Python type.
+
+Use immutable envelopes for explicit metadata:
+
+```python
+from dexpot import Response, RawResponse
+
+# The body still follows the route's response=T policy.
+created = Response({"name": "alice"}, status=201, headers=[("Set-Cookie", "a=1"),
+                                                        ("Set-Cookie", "b=2")])
+# RawResponse requires response=None and an immutable bytes body.
+text = RawResponse(b"hello\n", content_type="text/plain; charset=utf-8")
+empty = Response(status=204)
+```
+
+Headers are copied into an immutable snapshot; repeated pairs preserve duplicate headers.
+Envelope immutability is shallow: a JSON body may still be mutable. Status must be an integer
+(not bool) from 200 through 599. Headers are limited to 64 pairs and 16,384 encoded bytes;
+names must be HTTP tokens and values Latin-1 without control characters. Framing and server
+headers cannot be overridden: Content-Length, Transfer-Encoding, Connection, Keep-Alive,
+Upgrade, Trailer, TE, Server and Proxy-Connection are reserved. Content-Type is also reserved;
+JSON uses application/json and raw output uses `content_type` (nonempty, at most 256 characters).
+Invalid envelopes raised inside handlers return sanitized 500 errors.
+
+204 and 304 omit body bytes and Content-Length; 205 sends an empty body with Content-Length: 0.
+`Response(status=204)` (also 205/304) explicitly skips the checked body requirement; otherwise
+JSON bodies are validated before bodyless status suppression. `RawResponse()` sends zero bytes
+with status 200. Raw output cannot bypass a checked route, even with a bodyless status.
+Parsed HEAD responses remain bodyless; automatic GET-to-HEAD routing is not provided.
+Existing `(status, payload)` returns retain their meaning and use the same checked policy.
+The declared schema applies to returned payloads at every status, including error statuses.
+Use `response=None` when returning differently shaped bodies that do not share a supported schema.
 
 ### Annotation namespaces
 
@@ -306,9 +353,9 @@ the received bytes; `request.body` is the same validated object passed to the de
 parameter. The request object is frozen and GC-tracked. Handlers without a `Request` annotation
 do not allocate one. Freezing prevents attribute reassignment; it does not deep-freeze the
 request-local `params`, `headers`, or validated body values. Returning a Request directly is
-always rejected. On Request-aware routes, nested Request values in supported response containers
+always rejected. On Request-aware and checked routes, nested Request values in supported response containers
 are also rejected. Explicit extraction of sensitive fields and nested, manually created Request
-values returned by requestless handlers are outside the recursive guard.
+values returned by unchecked requestless handlers are outside the recursive guard.
 
 ## Execution model
 
@@ -402,7 +449,7 @@ The current alpha release has these boundaries:
   parameters.
 - There is no middleware, OpenAPI generation, authentication, TLS termination, streaming,
   WebSocket support, or proxy-header policy.
-- `response=` selects an encoder but does not validate the handler's return type.
+- Checked `response=T` validates output; `response=None` retains generic JSON encoding.
 - Uncaught handler exceptions produce a stable public 500 body while the traceback is logged
   server-side. Structured logging and request IDs remain production-operations work.
 - Multiprocess serving is POSIX-only. Windows users must use one process in the current
@@ -458,6 +505,8 @@ pip install "dexpot[cli]"   # framework runtime + dexpot command
 The runnable progression under [`examples/`](examples/README.md) exercises the shipped framework
 through its real socket server:
 
+- [`response_policy.py`](examples/response_policy.py): checked projection, invalid output, custom
+  headers, raw bytes, empty responses, and existing tuple returns;
 - [`minimal.py`](examples/minimal.py): typed path capture and response;
 - [`typed_crud.py`](examples/typed_crud.py): thread-safe shared state, typed JSON writes, and a
   complete create/read/update/delete lifecycle; and

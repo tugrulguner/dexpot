@@ -26,6 +26,7 @@ EXAMPLES = ROOT / "examples"
 EXPECTED_EXAMPLES = {
     "bounded_api.py",
     "minimal.py",
+    "response_policy.py",
     "typed_crud.py",
 }
 
@@ -112,7 +113,11 @@ def _request(
         response_headers = {name.lower(): value for name, value in response.getheaders()}
     finally:
         connection.close()
-    decoded = json.loads(data) if data else None
+    decoded = (
+        (json.loads(data) if response_headers.get("content-type") == "application/json" else data)
+        if data
+        else None
+    )
     return response.status, response_headers, decoded
 
 
@@ -175,6 +180,25 @@ def _check_bounded(path: Path) -> None:
         assert wrong_method[1]["allow"] == "GET"
 
 
+def _check_response_policy(path: Path) -> None:
+    with _serve(path) as port:
+        projected = _request(port, "GET", "/public")
+        assert projected[0] == 201
+        assert projected[2] == {"name": "alice"}
+        assert projected[1]["set-cookie"] == "b=2"
+        invalid = _request(port, "GET", "/invalid")
+        assert invalid[0] == 500
+        assert invalid[2] == {"detail": "internal server error"}
+        raw = _request(port, "GET", "/raw")
+        assert raw[2] == b"hello\n"
+        assert raw[1]["content-type"] == "text/plain; charset=utf-8"
+        empty = _request(port, "GET", "/empty")
+        assert empty[0] == 204 and empty[2] is None
+        assert "content-length" not in empty[1]
+        legacy = _request(port, "GET", "/tuple")
+        assert legacy[0] == 202 and legacy[2] == {"name": "legacy"}
+
+
 def main() -> None:
     discovered = {path.name for path in EXAMPLES.glob("*.py")}
     assert discovered == EXPECTED_EXAMPLES, discovered
@@ -183,6 +207,7 @@ def main() -> None:
     _check_minimal(EXAMPLES / "minimal.py")
     _check_crud(EXAMPLES / "typed_crud.py")
     _check_bounded(EXAMPLES / "bounded_api.py")
+    _check_response_policy(EXAMPLES / "response_policy.py")
     print(
         f"installed dexpot {importlib.metadata.version('dexpot')} passed CLI and "
         f"HTTP smoke checks; examples inventory contains {len(discovered)} files"

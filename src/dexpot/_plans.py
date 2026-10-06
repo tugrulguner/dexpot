@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import math
 import typing
 import unicodedata
 from collections.abc import Callable, Mapping, Sequence
@@ -239,6 +240,8 @@ class EndpointPlan:
     path: str
     path_names: tuple[str, ...]
     resp_encoder: Any
+    resp_decoder: Any
+    resp_convert: Any
     resp_type: Any
     summary: str
 
@@ -273,6 +276,21 @@ class EndpointPlan:
             self,
             "resp_encoder",
             msgspec.json.Encoder() if resp_type is not None else None,
+        )
+
+        if resp_type is not None:
+            _validate_response_schema(msgspec.inspect.type_info(resp_type), set())
+        object.__setattr__(
+            self,
+            "resp_decoder",
+            msgspec.json.Decoder(resp_type, strict=True) if resp_type is not None else None,
+        )
+        object.__setattr__(
+            self,
+            "resp_convert",
+            partial(msgspec.convert, type=resp_type, strict=True)
+            if resp_type is not None
+            else None,
         )
 
         signature = _handler_signature(handler)
@@ -335,17 +353,91 @@ class EndpointPlan:
 
     def encode(self, result: Any) -> bytes:
         """Encode a successful result using the endpoint response contract."""
-        if isinstance(result, Request) or (self.needs_request and _contains_request(result, set())):
+        if isinstance(result, Request) or (
+            (self.needs_request or self.resp_type is not None) and _contains_request(result, set())
+        ):
             raise TypeError("Request context cannot be serialized as a response")
-        if self.resp_encoder is not None and type(result) is self.resp_type:
-            return self.resp_encoder.encode(result)
+        if self.resp_type is not None:
+            normalized = msgspec.to_builtins(result)
+            _reject_nonfinite(normalized)
+            projected = self.resp_convert(normalized)
+            # Conversion may introduce defaults that were absent from the
+            # application value. Check them before normalization erases Request
+            # identities, then project default values through the schema too.
+            if _contains_request(projected, set()):
+                raise TypeError("Request context cannot be serialized as a response")
+            normalized_defaults = msgspec.to_builtins(projected)
+            _reject_nonfinite(normalized_defaults)
+            projected = self.resp_convert(normalized_defaults)
+            encoded = self.resp_encoder.encode(projected)
+            self.resp_decoder.decode(encoded)
+            return encoded
         return _json_encode(result)
+
+
+def _validate_response_schema(info: Any, seen: set[int]) -> None:
+    """Inspect once at registration, including recursive schema graphs."""
+    if id(info) in seen:
+        return
+    seen.add(id(info))
+    if isinstance(info, msgspec.inspect.CustomType):
+        raise TypeError("custom types are not supported in checked responses")
+    cls = getattr(info, "cls", None)
+    if cls is Request or (
+        cls is not None and (hasattr(cls, "__post_init__") or hasattr(cls, "__attrs_post_init__"))
+    ):
+        raise TypeError("Request and post-init hooks are not supported in checked response schemas")
+    if isinstance(info, msgspec.Struct):
+        for name in type(info).__struct_fields__:
+            if name not in ("cls", "default", "default_factory"):
+                _validate_response_schema(getattr(info, name), seen)
+    elif isinstance(info, (tuple, list)):
+        for item in info:
+            _validate_response_schema(item, seen)
+    if isinstance(info, msgspec.inspect.StructType):
+        # Encoders can omit defaults, and decoders reuse them without checking.
+        # Reject invalid static/known-builtin defaults once at registration.
+        # Never execute an application factory while registering a schema.
+        builtin_factories = (list, dict, set, frozenset, tuple, bytes, str, int, float, bool)
+        assert cls is not None
+        for field in msgspec.structs.fields(cls):
+            default = field.default
+            if default is msgspec.NODEFAULT:
+                if not any(field.default_factory is factory for factory in builtin_factories):
+                    continue
+                default = field.default_factory()
+            try:
+                if _contains_request(default, set()):
+                    raise TypeError("Request context is not a response default")
+                normalized = msgspec.to_builtins(default)
+                _reject_nonfinite(normalized)
+                converted = msgspec.convert(normalized, type=field.type, strict=True)
+                msgspec.json.decode(msgspec.json.encode(converted), type=field.type, strict=True)
+            except (TypeError, ValueError, RecursionError) as exc:
+                raise TypeError(
+                    f"invalid checked response default for {cls.__name__}.{field.name}"
+                ) from exc
+
+
+def _reject_nonfinite(value: Any) -> None:
+    """Reject floats that JSON encoding would otherwise silently turn into null."""
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError("non-finite floats are not supported in checked responses")
+    if isinstance(value, dict):
+        for key, item in value.items():
+            _reject_nonfinite(key)
+            _reject_nonfinite(item)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            _reject_nonfinite(item)
 
 
 def _contains_request(value: Any, seen: set[int]) -> bool:
     """Find a Request nested in response shapes supported by msgspec JSON."""
     if isinstance(value, Request):
         return True
+    if isinstance(value, (str, bytes, int, float, bool, type(None))):
+        return False
     dataclass_instance = is_dataclass(value) and not isinstance(value, type)
     if not dataclass_instance and not isinstance(
         value, (Mapping, list, tuple, set, frozenset, msgspec.Struct, Enum)
@@ -363,8 +455,7 @@ def _contains_request(value: Any, seen: set[int]) -> bool:
         return any(_contains_request(item, seen) for pair in value.items() for item in pair)
     if isinstance(value, msgspec.Struct):
         return any(
-            _contains_request(getattr(value, field.name), seen)
-            for field in msgspec.structs.fields(type(value))
+            _contains_request(getattr(value, name), seen) for name in type(value).__struct_fields__
         )
     if isinstance(value, (list, tuple, set, frozenset)):
         return any(_contains_request(item, seen) for item in value)

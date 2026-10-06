@@ -37,7 +37,11 @@ A handler may return:
 - a msgspec struct; or
 - `(status, payload)`.
 
-`response=` precompiles the successful-response encoder. The current release does not yet enforce the returned type at runtime.
+`response=T` strictly validates and projects the returned value onto the public schema, including malformed existing/nested Structs. Ordinary Struct schemas drop extra fields; `forbid_unknown_fields=True` rejects them. `response=None` uses generic JSON encoding without validation or filtering. Checked output rejects non-finite floats, including optional, nested, Any and default values. Custom schema types and schemas containing `__post_init__` or `__attrs_post_init__` hooks fail atomically at registration. Invalid output returns a sanitized 500 before success bytes are sent.
+
+`Response(body=None, status=200, headers=())` adds JSON metadata with a copied header snapshot; pair sequences preserve duplicates. `RawResponse(body=b"", status=200, headers=(), content_type="application/octet-stream")` requires bytes and `response=None`. Envelopes are shallowly immutable. Status must be an integer (not bool), 200..599. Headers are bounded to 64 pairs/16,384 encoded bytes, with token names and Latin-1 values without controls. Framing/server headers and Content-Type cannot be overridden; use raw `content_type` (nonempty, at most 256 characters).
+
+`Response(status=204)` (also 205/304) explicitly permits an absent checked body. Other JSON bodies are validated before bodyless suppression. 204/304 omit Content-Length; 205 sends length zero. `RawResponse()` sends an empty 200. Raw output cannot bypass a checked schema. Existing `(status, payload)` returns remain supported.
 
 ## Annotation namespaces
 

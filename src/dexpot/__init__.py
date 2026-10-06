@@ -5,10 +5,11 @@ from importlib.metadata import PackageNotFoundError, version
 from ._http import HttpLimits
 from .app import Dex
 from .requests import Request
+from .responses import RawResponse, Response
 
 try:
     __version__ = version("dexpot")
 except PackageNotFoundError:  # running from source without installation
     __version__ = "0.0.0.dev0"
 
-__all__ = ["Dex", "HttpLimits", "Request", "__version__"]
+__all__ = ["Dex", "HttpLimits", "RawResponse", "Request", "Response", "__version__"]

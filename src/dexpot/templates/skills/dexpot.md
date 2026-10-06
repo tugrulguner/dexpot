@@ -60,9 +60,32 @@ The runtime package is `dexpot`; the command requires `dexpot[cli]`.
 - Methods currently shipped: `get`, `post`, `put`, `patch`, and `delete`.
 - Declare JSON bodies explicitly with `body=YourStruct`. Use msgspec `Struct`, not a
   Pydantic model.
-- `response=YourStruct` selects a precompiled encoder. It does **not** currently validate
-  the handler return type, so return the declared type yourself.
-- A handler may return a payload or `(status, payload)`.
+- `response=T` strictly validates and projects output, including existing/nested Structs.
+  Ordinary Struct schemas drop extra fields; `forbid_unknown_fields=True` rejects them.
+  Invalid output returns a sanitized 500 before success bytes are sent.
+- `response=None` is generic JSON encoding without validation or filtering. `Any` is not a
+  privacy filter. Checked output rejects non-finite floats, including nested/optional/Any
+  values and defaults. msgspec strict conversion semantics apply (integers may satisfy floats).
+- Checked schemas support msgspec constraints, aliases, defaults, tagged unions, enums,
+  bytes/base64, datetime and UUID strings. Custom types and schemas containing `__post_init__`
+  or `__attrs_post_init__` hooks fail at registration. Invalid static Struct defaults and known
+  builtin factory defaults fail at registration, including omitted defaults. Application factories
+  are not called at registration; their output is checked and projected before serialization,
+  and cannot introduce Request context.
+- `Response(body=None, status=200, headers=())` adds explicit JSON metadata.
+  `RawResponse(body=b"", status=200, headers=(), content_type="application/octet-stream")`
+  requires immutable bytes and `response=None`; it cannot bypass checked schemas.
+  Envelopes are shallowly immutable. Headers are copied; pair sequences preserve duplicates.
+- Status must be an integer (not bool), 200..599. Headers allow at most 64 pairs/16,384 encoded
+  bytes, token names and Latin-1 values without controls. Content-Length, Transfer-Encoding,
+  Connection, Keep-Alive, Upgrade, Trailer, TE, Server and Proxy-Connection remain server-owned.
+  Content-Type is also reserved: use raw `content_type` (nonempty, at most 256 characters).
+- `Response(status=204)` (also 205/304) permits an absent checked body. Other JSON bodies are
+  validated before bodyless suppression. 204/304 omit Content-Length; 205 sends length zero.
+  `RawResponse()` is an empty 200. Invalid envelopes inside handlers return sanitized 500.
+- A handler may return a payload or `(status, payload)`. The declared response schema applies
+  at every returned status, including errors. Use `response=None` for differently shaped bodies
+  that do not share a supported schema.
 - Path captures bind by parameter name, not by handler position.
 - An `int` path annotation converts the capture and returns 422 when conversion fails.
 - Path parameters may appear in any valid signature order because they bind by name.
@@ -103,9 +126,9 @@ The frozen, GC-tracked object exposes `method`, `path`, raw string `params`, the
 string, lowercase-name `headers`, received `raw_body` bytes, and the validated `body`. Handlers
 without a `Request` annotation do not allocate the public context object. Freezing is shallow:
 contained dictionaries and body values remain request-local application objects. Dexpot always
-rejects a directly returned Request. On Request-aware routes, it also rejects nested Request values
-in supported response containers. Explicit extraction of sensitive fields and nested, manually
-created Request values returned by requestless handlers are outside the recursive guard.
+rejects a directly returned Request. On Request-aware and checked routes, it also rejects nested Request values in supported
+response containers. Explicit extraction of sensitive fields and nested, manually
+created Request values returned by unchecked requestless handlers are outside the recursive guard.
 
 Prefer errors at registration. If a declaration can be proven invalid while the module is
 imported, do not defer it until a request.
@@ -189,7 +212,6 @@ Do not claim these as shipped:
 - OpenAPI, middleware, dependency injection, authentication, streaming, WebSockets, or TLS.
 - Chunked request bodies; transfer encodings are deliberately rejected.
 - Query/header injection into handler parameters.
-- Runtime enforcement of `response=` types.
 - Cross-platform multiprocess serving.
 
 Structured request IDs, access logs, metrics, trusted-proxy policy, and deployment TLS guidance

@@ -185,7 +185,8 @@ def test_readme_does_not_claim_unshipped_framework_features() -> None:
 
     assert "not yet recommended for untrusted production traffic" in text
     assert source.index("alpha software") < source.index("## Quick start")
-    assert "does not yet enforce the returned type" in text
+    assert "strictly validates" in text
+    assert "RawResponse" in text
     assert "are not yet injectable" in text
 
 
@@ -306,3 +307,15 @@ def test_readme_uses_pypi_install_for_the_release() -> None:
     assert 'pip install "dexpot[cli]"' in text
     assert "img.shields.io/pypi/v/dexpot" in text
     assert "git+https://github.com/tugrulguner/dexpot.git" not in text
+
+
+def test_checked_response_contract_is_synchronized():
+    for name in (
+        "README.md",
+        "ROADMAP.md",
+        "CONTRIBUTING.md",
+        "src/dexpot/templates/skills/dexpot.md",
+    ):
+        text = (ROOT / name).read_text()
+        for term in ("response=None", "RawResponse", "__post_init__", "non-finite"):
+            assert term in text

@@ -81,3 +81,15 @@ DEXPOT_MAX_CONNECTIONS=512 uv run python examples/typed_crud.py
 
 Dexpot is still alpha software. These examples validate the current framework contract; they
 are not production deployment recipes. See the root README and roadmap for current boundaries.
+
+## Checked response policy
+
+Run `uv run python examples/response_policy.py` and request `/public` for projected JSON
+with duplicate Set-Cookie headers, `/invalid` for a sanitized output-validation 500, `/raw`
+for plain bytes, `/empty` for a bodyless 204, and `/tuple` for the existing status/payload API.
+The `/invalid` route deliberately logs a server-side validation error. Checked schemas reject
+non-finite floats and post-init hooks; raw responses require an unchecked route.
+
+In `typed_crud.py`, GET and PUT explicitly use `response=None` because their success and
+404 bodies have different shapes. POST still checks `response=Item`. A declared response schema
+applies to returned payloads at every status, including tuple and Response error bodies.
