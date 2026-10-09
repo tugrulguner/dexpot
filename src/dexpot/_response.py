@@ -629,10 +629,23 @@ def compile_preparer(schema: Any, fallback: Callable[[Any], Prepare]) -> Prepare
         msgspec.inspect.NoneType,
     )
     root = factory.infos[schema]
-    flat = type(root) in primitive_infos or (
-        isinstance(root, msgspec.inspect.StructType)
-        and all(type(field.type) in primitive_infos for field in root.fields)
+    flat_struct = isinstance(root, msgspec.inspect.StructType) and all(
+        type(field.type) in primitive_infos for field in root.fields
     )
+    if (
+        flat_struct
+        and all(
+            field.default is msgspec.NODEFAULT and field.default_factory is msgspec.NODEFAULT
+            for field in root.fields
+        )
+        and getattr(schema, "__post_init__", None) is None
+        and sys.platform == "darwin"
+        and not getattr(sys, "_is_gil_enabled", lambda: True)()
+    ):
+        # The native checked codec preserves the flat-contract compatibility
+        # path rather than making every tiny response a Python graph walk.
+        return fallback(schema)
+    flat = type(root) in primitive_infos or flat_struct
     policy = None if flat else darwin_policy()
     bound_prepare = prepare
     if policy is not None:
