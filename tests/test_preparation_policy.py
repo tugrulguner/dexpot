@@ -133,3 +133,39 @@ def test_gil_routes_use_unchanged_compiler():
     if not getattr(sys, "_is_gil_enabled", lambda: True)():
         pytest.skip("GIL preservation")
     assert plans.compile_preparer.__module__ == "dexpot._response_legacy"
+
+
+def test_unknown_policy_does_not_bypass_preparation():
+    p = Policy()
+    p.value = -1
+    calls = []
+    assert scoped_preparer(lambda value: calls.append(value) or value, p)(42) == 42
+    assert calls == [42]
+    assert p.events == []
+
+
+@pytest.mark.parametrize("validation_fails", [False, True])
+def test_restore_failure_is_reported_with_validation_context(validation_fails):
+    p = Policy()
+
+    def setter(value):
+        p.events.append(value)
+        if value == 1:
+            return 5
+        p.value = value
+        return 0
+
+    p.set = setter  # pyright: ignore[reportAttributeAccessIssue]
+
+    def prepare(value):
+        if validation_fails:
+            raise ValueError("validation failed")
+        return value
+
+    with pytest.raises(RuntimeError, match="could not restore") as caught:
+        scoped_preparer(prepare, p)(42)
+    assert p.events == [0, 1]
+    if validation_fails:
+        assert isinstance(caught.value.__context__, ValueError)
+    else:
+        assert caught.value.__context__ is None
