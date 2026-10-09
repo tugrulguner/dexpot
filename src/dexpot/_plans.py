@@ -367,10 +367,23 @@ class EndpointPlan:
     def encode(self, result: Any) -> bytes:
         """Encode a successful result using the endpoint response contract."""
         if self.resp_prepare is not None:
+            if isinstance(self.resp_prepare, _NativeCheckedPreparation):
+                return self.resp_prepare.encode(result)
             return self.resp_encoder.encode(self.resp_prepare(result))
         if isinstance(result, Request) or (self.needs_request and _contains_request(result, set())):
             raise TypeError("Request context cannot be serialized as a response")
         return _json_encode(result)
+
+
+@dataclass(frozen=True, slots=True)
+class _NativeCheckedPreparation:
+    """Reuse privately encoded bytes only after the complete checked codec."""
+
+    encode: Callable[[Any], bytes]
+    __name__: typing.ClassVar[str] = "prepare"
+
+    def __call__(self, result: Any) -> Any:
+        return msgspec.json.decode(self.encode(result))
 
 
 def _checked_fallback(schema: Any) -> Callable[[Any], Any]:
@@ -391,9 +404,9 @@ def _checked_fallback(schema: Any) -> Callable[[Any], Any]:
         projected = convert(normalized)
         encoded = _json_encode(projected)
         decoder.decode(encoded)
-        return msgspec.json.decode(encoded)
+        return encoded
 
-    return prepare
+    return _NativeCheckedPreparation(prepare)
 
 
 def _validate_response_schema(info: Any, seen: set[int]) -> None:

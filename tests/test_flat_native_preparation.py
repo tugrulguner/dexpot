@@ -78,6 +78,27 @@ def test_flat_factory_and_post_init_keep_compiled_path():
             assert prepare(PostInit("alice")) == {"name": "ALICE"}
 
 
+@pytest.mark.skipif(
+    sys.platform != "darwin" or getattr(sys, "_is_gil_enabled", lambda: True)(),
+    reason="Darwin FT native flat-contract preparation",
+)
+def test_flat_endpoint_reuses_typed_validated_bytes(monkeypatch):
+    from dexpot._plans import EndpointPlan
+
+    class Public(msgspec.Struct):
+        name: str
+
+    plan = EndpointPlan("GET", "/", lambda: None, None, Public, "", [])
+
+    def forbidden_untyped_decode(*args, **kwargs):
+        raise AssertionError("validated native bytes must not be decoded and re-encoded")
+
+    monkeypatch.setattr(msgspec.json, "decode", forbidden_untyped_decode)
+    assert plan.encode(Public("alice")) == b'{"name":"alice"}'
+    with pytest.raises(ValueError):
+        plan.encode(Public(cast(Any, 123)))
+
+
 def test_flat_native_path_keeps_registration_field_metadata():
     class Public(msgspec.Struct):
         name: str
