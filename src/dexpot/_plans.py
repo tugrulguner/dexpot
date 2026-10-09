@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import math
+import sys
 import typing
 import unicodedata
 from collections.abc import Callable, Mapping, Sequence
@@ -16,7 +17,11 @@ from typing import Any
 
 import msgspec
 
-from ._response import compile_preparer
+# Keep the established compiler outside the measured free-threaded Darwin path.
+if sys.platform == "darwin" and not getattr(sys, "_is_gil_enabled", lambda: True)():
+    from ._response import compile_preparer
+else:
+    from ._response_legacy import compile_preparer
 from .requests import Request
 
 _json_encode = msgspec.json.encode

@@ -149,7 +149,11 @@ annotations per response, including mapping keys, dataclasses, enums, containers
 Request-aware and checked routes reject nested Request values.
 
 `response=T` uses registration-compiled, schema-directed preparation of owned JSON values,
-including malformed existing/nested Structs and recursively introduced defaults. Native
+including malformed existing/nested Structs and recursively introduced defaults. On free-threaded
+macOS, nested-schema preparation temporarily restores the serving thread's prior scheduling
+policy and restores it before encoding or socket I/O; flat schemas and GIL routes retain their
+existing preparation path. This is a scoped platform-specific scheduling adjustment, not a
+cross-platform policy or performance guarantee. Native
 encoding follows successful preparation. Sets use a native checked fallback for hashing and
 deduplication after child preparation; native-only scalar schemas retain a checked fallback. Checked output rejects non-finite floats even in optional
 and Any values. `response=None` retains generic JSON encoding without a filtering guarantee.

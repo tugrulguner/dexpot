@@ -6,10 +6,7 @@ values; unsupported preparation shapes retain the complete native checked path.
 
 from __future__ import annotations
 
-import copy
 import math
-import sys
-import threading
 import types
 import typing
 from collections.abc import Callable
@@ -25,14 +22,7 @@ from .requests import Request
 Prepare = Callable[[Any], Any]
 
 
-def _compile_graph(
-    schema: Any,
-    fallback: Callable[[Any], Prepare],
-    infos: dict,
-    records: dict,
-    *,
-    registration: bool,
-) -> Prepare:
+def compile_preparer(schema: Any, fallback: Callable[[Any], Prepare]) -> Prepare:
     """Compile field access and scalar validators once per endpoint."""
     memo: dict[Any, Prepare] = {}
     defaults_to_check: list[tuple[str, Prepare, Any]] = []
@@ -40,17 +30,12 @@ def _compile_graph(
     deferred_defaults = 0
     builtin_factories = (list, dict, set, frozenset, tuple, bytes, str, int, float, bool)
 
-    def inspect(annotation):
-        if registration and annotation not in infos:
-            infos[annotation] = type_info(annotation)
-        return infos[annotation]
-
     def compile_type(annotation: Any) -> Prepare:
         if get_origin(annotation) in (Required, NotRequired):
             annotation = get_args(annotation)[0]
         if annotation in memo:
             return lambda value: memo[annotation](value)
-        info = inspect(annotation)
+        info = type_info(annotation)
         # Install a recursive reference before compiling child fields.
         memo[annotation] = lambda value: None
         prepare = build(annotation, info)
@@ -64,7 +49,7 @@ def _compile_graph(
         if isinstance(info, msgspec.inspect.AnyType):
             return dynamic
         if isinstance(info, msgspec.inspect.UnionType):
-            members = tuple((inspect(a), compile_type(a)) for a in get_args(bare))
+            members = tuple((type_info(a), compile_type(a)) for a in get_args(bare))
             tagged = {
                 member.tag: (member, prepare)
                 for member, prepare in members
@@ -154,22 +139,16 @@ def _compile_graph(
         ):
             cls = info.cls
             is_struct = isinstance(info, msgspec.inspect.StructType)
-            if registration and cls not in records:
-                if is_struct:
-                    annotations = {f.name: f.type for f in msgspec.structs.fields(cls)}
-                else:
-                    origin = get_origin(cls) or cls
-                    parameters = getattr(origin, "__parameters__", ())
-                    bindings = dict(zip(parameters, get_args(cls), strict=False))
-                    annotations = {
-                        name: substitute(hint, bindings)
-                        for name, hint in get_type_hints(origin, include_extras=True).items()
-                    }
-                records[cls] = (
-                    annotations,
-                    cls.__struct_config__.omit_defaults if is_struct else False,
-                )
-            annotations, omit = records[cls]
+            if is_struct:
+                annotations = {f.name: f.type for f in msgspec.structs.fields(cls)}
+            else:
+                origin = get_origin(cls) or cls
+                parameters = getattr(origin, "__parameters__", ())
+                bindings = dict(zip(parameters, get_args(cls), strict=False))
+                annotations = {
+                    name: substitute(hint, bindings)
+                    for name, hint in get_type_hints(origin, include_extras=True).items()
+                }
             field_info = info.fields
             fields = tuple(
                 (
@@ -179,7 +158,7 @@ def _compile_graph(
                 )
                 for f in field_info
             )
-            for field, prepare, _ in fields if registration else ():
+            for field, prepare, _ in fields:
                 default = field.default
                 if default is msgspec.NODEFAULT:
                     if not any(field.default_factory is factory for factory in builtin_factories):
@@ -187,6 +166,7 @@ def _compile_graph(
                     default = field.default_factory()
                 defaults_to_check.append((f"{cls.__name__}.{field.name}", prepare, default))
             by_name = {f.encode_name: (f, prepare, default) for f, prepare, default in fields}
+            omit = cls.__struct_config__.omit_defaults if is_struct else False
             tag = info.tag if is_struct else None
             tag_field = info.tag_field if is_struct else None
             forbid_unknown = (
@@ -539,9 +519,7 @@ def _compile_graph(
             for item in info:
                 visit_defaults(item)
 
-    if not registration:
-        return prepared
-    visit_defaults(inspect(schema))
+    visit_defaults(type_info(schema))
     validating_defaults = True
     try:
         for name, prepare, default in defaults_to_check:
@@ -552,96 +530,6 @@ def _compile_graph(
     finally:
         validating_defaults = False
     return prepared
-
-
-def _metadata_copy(value, memo):
-    """Clone trusted inspect descriptors only; keep user types/default identities."""
-    if id(value) in memo:
-        return memo[id(value)]
-    if isinstance(value, msgspec.Struct) and type(value).__module__ == "msgspec.inspect":
-        out = copy.copy(value)
-        memo[id(value)] = out
-        for name in type(value).__struct_fields__:
-            if name not in ("cls", "default", "default_factory"):
-                msgspec.structs.force_setattr(out, name, _metadata_copy(getattr(value, name), memo))
-        return out
-    if isinstance(value, tuple):
-        out = tuple(_metadata_copy(item, memo) for item in value)
-        memo[id(value)] = out
-        return out
-    if isinstance(value, list):
-        out = []
-        memo[id(value)] = out
-        out.extend(_metadata_copy(item, memo) for item in value)
-        return out
-    return value
-
-
-class PreparationBinding:
-    def __init__(self, schema, fallback):
-        self.schema = schema
-        self.infos = {}
-        self.records = {}
-        self.fallbacks = {}
-
-        def capture(annotation):
-            if annotation not in self.fallbacks:
-                self.fallbacks[annotation] = fallback(annotation)
-            return self.fallbacks[annotation]
-
-        self.canonical = _compile_graph(
-            schema, capture, self.infos, self.records, registration=True
-        )
-
-    def bind(self):
-        memo = {}
-        infos = {annotation: _metadata_copy(info, memo) for annotation, info in self.infos.items()}
-        records = {cls: (dict(fields), omit) for cls, (fields, omit) in self.records.items()}
-        return _compile_graph(
-            self.schema, self.fallbacks.__getitem__, infos, records, registration=False
-        )
-
-
-def compile_binding(schema, fallback):
-    return PreparationBinding(schema, fallback)
-
-
-def compile_preparer(schema: Any, fallback: Callable[[Any], Prepare]) -> Prepare:
-    factory = compile_binding(schema, fallback)
-    if getattr(sys, "_is_gil_enabled", lambda: True)():
-        return factory.canonical
-    local = threading.local()
-
-    def prepare(value):
-        if not hasattr(local, "prepare"):
-            local.prepare = factory.bind()
-        return local.prepare(value)
-
-    # Apply only to graph-shaped contracts on free-threaded Darwin. Flat
-    # contracts keep the same owned preparation path without policy syscalls.
-    from ._preparation_policy import darwin_policy, scoped_preparer
-
-    primitive_infos = (
-        msgspec.inspect.IntType,
-        msgspec.inspect.FloatType,
-        msgspec.inspect.StrType,
-        msgspec.inspect.BoolType,
-        msgspec.inspect.NoneType,
-    )
-    root = factory.infos[schema]
-    flat = type(root) in primitive_infos or (
-        isinstance(root, msgspec.inspect.StructType)
-        and all(type(field.type) in primitive_infos for field in root.fields)
-    )
-    policy = None if flat else darwin_policy()
-    bound_prepare = prepare
-    if policy is not None:
-        guarded = scoped_preparer(bound_prepare, policy)
-
-        def prepare(value):
-            return guarded(value)
-
-    return prepare
 
 
 def reject_nonfinite(value: Any) -> None:
