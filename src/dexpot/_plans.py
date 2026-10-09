@@ -368,7 +368,21 @@ class EndpointPlan:
         """Encode a successful result using the endpoint response contract."""
         if self.resp_prepare is not None:
             if isinstance(self.resp_prepare, _NativeCheckedPreparation):
-                return self.resp_prepare.encode(result)
+                # Preserve the established native codec directly: no Python
+                # bridge, untyped decoding, or second public encoding pass.
+                if _contains_request(result, set()):
+                    raise TypeError("Request context cannot be serialized as a response")
+                normalized = msgspec.to_builtins(result)
+                _reject_nonfinite(normalized)
+                projected = self.resp_convert(normalized)
+                if _contains_request(projected, set()):
+                    raise TypeError("Request context cannot be serialized as a response")
+                normalized = msgspec.to_builtins(projected)
+                _reject_nonfinite(normalized)
+                projected = self.resp_convert(normalized)
+                encoded = self.resp_encoder.encode(projected)
+                self.resp_decoder.decode(encoded)
+                return encoded
             return self.resp_encoder.encode(self.resp_prepare(result))
         if isinstance(result, Request) or (self.needs_request and _contains_request(result, set())):
             raise TypeError("Request context cannot be serialized as a response")

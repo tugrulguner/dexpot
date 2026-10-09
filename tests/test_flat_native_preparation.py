@@ -99,6 +99,27 @@ def test_flat_endpoint_reuses_typed_validated_bytes(monkeypatch):
         plan.encode(Public(cast(Any, 123)))
 
 
+@pytest.mark.skipif(
+    sys.platform != "darwin" or getattr(sys, "_is_gil_enabled", lambda: True)(),
+    reason="Darwin FT native flat-contract preparation",
+)
+def test_native_endpoint_validates_with_registration_codecs_without_bridge_call():
+    from dexpot._plans import EndpointPlan, _NativeCheckedPreparation
+
+    class Public(msgspec.Struct):
+        name: str
+
+    plan = EndpointPlan("GET", "/", lambda: None, None, Public, "", [])
+
+    def forbidden_bridge(value):
+        raise AssertionError("native endpoint must not add a Python codec bridge call")
+
+    object.__setattr__(plan, "resp_prepare", _NativeCheckedPreparation(forbidden_bridge))
+    assert plan.encode(Public("alice")) == b'{"name":"alice"}'
+    with pytest.raises(ValueError):
+        plan.encode(Public(cast(Any, 123)))
+
+
 def test_flat_native_path_keeps_registration_field_metadata():
     class Public(msgspec.Struct):
         name: str
