@@ -2,6 +2,21 @@ import { expect, test } from '@playwright/test';
 
 const widths = [1280, 768, 390, 320];
 
+test('homepage diagrams render in execution-then-response order at desktop and mobile widths', async ({ page }) => {
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 850 });
+    await page.goto('/');
+    const diagrams = page.locator('main .content-panel figure.homepage-diagram');
+    await expect(diagrams).toHaveCount(2);
+    await expect(diagrams.nth(0).locator('img')).toHaveAttribute('src', /dexpot-execution\.webp\?v=127306a$/);
+    await expect(diagrams.nth(1).locator('img')).toHaveAttribute('src', /dexpot-response-contract\.webp\?v=070-response-v1$/);
+    const positions = await diagrams.evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().top));
+    expect(positions[0]).toBeLessThan(positions[1]);
+    await expect(page.getByText('The original execution diagram is a conceptual overview')).toBeVisible();
+    await expect(page.getByText('In v0.7.0,')).toBeVisible();
+  }
+});
+
 for (const colorScheme of ['light', 'dark']) {
   test(`320px homepage code blocks are keyboard-scrollable in ${colorScheme}`, async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 850 });
