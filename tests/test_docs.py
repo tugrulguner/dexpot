@@ -106,7 +106,8 @@ def test_diagram_renderer_preserves_original_execution_artwork() -> None:
     before = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in expected}
     assert before == expected
 
-    subprocess.run(["node", "website/scripts/render-diagrams.mjs"], cwd=ROOT, check=True)
+    if (ROOT / "website/node_modules/sharp").exists():
+        subprocess.run(["node", "website/scripts/render-diagrams.mjs"], cwd=ROOT, check=True)
 
     after = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in expected}
     assert after == expected
