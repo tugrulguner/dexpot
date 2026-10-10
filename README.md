@@ -43,8 +43,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/dexpot-execution.png?v=0.7.0" alt="Registration compiles an immutable endpoint plan before listening. Each admitted connection uses a bounded request-head parser, interpreter-selected scheduler, route binding and synchronous Python handler; declared output is prepared, encoded and sent." width="960">
+  <a href="docs/assets/dexpot-execution.png?v=127306a"><img src="docs/assets/dexpot-execution.png?v=127306a" alt="Conceptual overview of Dexpot's execution and scheduling architecture; the arrows are not a literal request sequence." width="960"></a>
 </p>
+
+<p align="center">Conceptual overview of Dexpot's execution architecture; not a literal request sequence.</p>
 
 dexpot is interpreter-adaptive and agent-ready. The same synchronous application adapts to
 standard GIL and free-threaded execution, can use a compatible Rust parser on the request
@@ -249,8 +251,10 @@ success headers or bytes are sent. `response=None` (the default) uses generic ms
 encoding without validation or filtering.
 
 <p align="center">
-  <img src="docs/assets/dexpot-response-contract.png?v=0.7.0" alt="For response=T, a handler result is schema-validated and projected to public fields before encoding and sending; malformed or non-finite output takes a sanitized 500 path before success bytes. response=None keeps generic encoding, and RawResponse is only for unchecked routes." width="960">
+  <a href="docs/assets/dexpot-response-contract.png?v=070-response-v1"><img src="docs/assets/dexpot-response-contract.png?v=070-response-v1" alt="For response=T, a handler result is schema-validated and projected to public fields before encoding and sending; malformed or non-finite output takes a sanitized 500 path before success bytes. response=None keeps generic encoding, and RawResponse is only for unchecked routes." width="960"></a>
 </p>
+
+<p align="center">The response-contract diagram shows checked projection, generic encoding, raw responses, and rejection paths.</p>
 
 The diagram shows the response boundary, not a single-pass guarantee: schema-directed preparation preserves defaults and factory identity, and sets or native-only scalar schemas retain checked native fallbacks. Application factories are not called during registration; free-threaded macOS nested preparation completes before encoding or socket I/O. msgspec-compatible conversions apply rather than exact Python type identity. `Response` envelopes are shallowly immutable.
 

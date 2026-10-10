@@ -91,6 +91,13 @@ The example responds with the typed item for that path. The homepage preview rem
 
 In v0.7.0, `response=ItemOut` also checks the returned data and projects it onto the declared public fields before sending success bytes. Malformed or non-finite output returns a sanitized 500. Leave `response=None` for generic JSON, or use `RawResponse` on an unchecked route for bytes. The [response-contract illustration](/route-contract/#responses) shows the public-field and rejection paths.
 
+<figure class="homepage-diagram response-contract-diagram">
+  <a href="/dexpot-response-contract.webp?v=070-response-v1" aria-label="Open full-size response-contract diagram">
+    <img src="/dexpot-response-contract.webp?v=070-response-v1" alt="Response contract illustration: checked public-field projection, generic encoding for response=None, raw bytes, rejection of malformed or non-finite values, and factory/default caveats." />
+  </a>
+  <figcaption>Checked responses project declared public fields; generic and raw response paths remain distinct, and unsupported schemas are limited. <a href="/dexpot-response-contract.webp?v=070-response-v1">Open full size</a>.</figcaption>
+</figure>
+
 ## Keep learning
 
 - [Quick start](/quick-start/): install, define an app, serve it, and call HTTP routes.
@@ -101,7 +108,7 @@ In v0.7.0, `response=ItemOut` also checks the returned data and projects it onto
 
 ## One application. Two interpreter modes.
 
-Dexpot keeps application code synchronous while changing admission and scheduling around the interpreter that runs it.
+Dexpot keeps application code synchronous while changing admission and scheduling around the interpreter that runs it. The original execution diagram is a conceptual overview, not a literal request sequence.
 
 | Runtime | Serving model | Overload behavior |
 |---|---|---|
@@ -109,7 +116,12 @@ Dexpot keeps application code synchronous while changing admission and schedulin
 | Standard GIL CPython | A bounded pool of connection-owning threads | A bounded queue sheds excess work with 503 |
 | Standard GIL CPython with workers | POSIX `SO_REUSEPORT` processes, each with its own bounded pool | Each worker sheds independently |
 
-<img src="/dexpot-execution.webp?v=070-response-v1" alt="Registration compiles an immutable endpoint plan before listening. Each admitted connection uses bounded request-head parsing, interpreter-specific scheduling, route binding and a synchronous Python handler; the declared response is prepared, encoded and sent." />
+<figure class="homepage-diagram">
+  <a href="/dexpot-execution.webp?v=127306a" aria-label="Open full-size original Dexpot execution overview">
+    <img src="/dexpot-execution.webp?v=127306a" alt="Conceptual overview of Dexpot's execution and scheduling architecture; the arrows are not a literal request sequence." />
+  </a>
+  <figcaption>Conceptual overview of Dexpot's execution architecture; not a literal request sequence. <a href="/dexpot-execution.webp?v=127306a">Open full size</a>.</figcaption>
+</figure>
 
 ## What dexpot owns
 
