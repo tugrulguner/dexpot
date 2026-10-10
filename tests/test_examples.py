@@ -15,7 +15,7 @@ import httpx
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES = ROOT / "examples"
-EXPECTED_EXAMPLES = {"bounded_api.py", "minimal.py", "typed_crud.py"}
+EXPECTED_EXAMPLES = {"bounded_api.py", "minimal.py", "typed_crud.py", "response_policy.py"}
 
 
 def _free_port() -> int:
@@ -129,3 +129,24 @@ def test_bounded_api_example_validates_success_and_failure_paths() -> None:
     assert oversized.json() == {"detail": "request body too large"}
     assert wrong_method.status_code == 405
     assert wrong_method.headers["allow"] == "GET"
+
+
+def test_response_policy_example_covers_checked_and_explicit_responses() -> None:
+    with _run_example("response_policy.py") as base, httpx.Client(base_url=base) as client:
+        projected = client.get("/public")
+        invalid = client.get("/invalid")
+        raw = client.get("/raw")
+        empty = client.get("/empty")
+        legacy = client.get("/tuple")
+    assert projected.status_code == 201
+    assert projected.json() == {"name": "alice"}
+    assert projected.headers.get_list("set-cookie") == ["a=1", "b=2"]
+    assert invalid.status_code == 500
+    assert invalid.json() == {"detail": "internal server error"}
+    assert raw.content == b"hello\n"
+    assert raw.headers["content-type"] == "text/plain; charset=utf-8"
+    assert empty.status_code == 204
+    assert empty.content == b""
+    assert "content-length" not in empty.headers
+    assert legacy.status_code == 202
+    assert legacy.json() == {"name": "legacy"}

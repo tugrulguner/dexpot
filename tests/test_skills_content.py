@@ -51,7 +51,7 @@ def test_skill_documents_current_boundaries() -> None:
         "OpenAPI",
         "Chunked request bodies",
         "Query/header injection",
-        "does **not** currently validate",
+        "strictly validates",
         "internal server error",
         "Structured request IDs",
     ):
@@ -65,12 +65,12 @@ def test_skill_documents_current_body_binding_order() -> None:
     assert body.index("### Explicit annotation namespaces") < body.index("## HTTP boundary")
     assert "Dexpot always rejects a directly returned Request" in normalized
     assert (
-        "On Request-aware routes, it also rejects nested Request values in supported "
+        "On Request-aware and checked routes, it also rejects nested Request values in supported "
         "response containers"
     ) in normalized
     assert (
         "Explicit extraction of sensitive fields and nested, manually created Request values "
-        "returned by requestless handlers are outside the recursive guard"
+        "returned by unchecked requestless handlers are outside the recursive guard"
     ) in normalized
     assert "default-only parameters after it" in body
 

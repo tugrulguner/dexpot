@@ -28,7 +28,9 @@ _next_id = 2
 _lock = threading.Lock()
 
 
-@app.get("/items/{item_id}", response=Item)
+# This route returns either an Item or a differently shaped error dictionary.
+# Use generic output explicitly; response=Item would validate both status paths.
+@app.get("/items/{item_id}", response=None)
 def get_item(item_id: int) -> Item | tuple[int, dict[str, str]]:
     with _lock:
         item = _items.get(item_id)
@@ -57,7 +59,7 @@ def create_item(item: ItemIn) -> tuple[int, Item]:
     return 201, created
 
 
-@app.put("/items/{item_id}", body=ItemIn, response=Item)
+@app.put("/items/{item_id}", body=ItemIn, response=None)
 def replace_item(item_id: int, item: ItemIn) -> Item | tuple[int, dict[str, str]]:
     with _lock:
         if item_id not in _items:

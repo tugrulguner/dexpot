@@ -22,7 +22,7 @@ accept -> scheduler admission -> connection-owning worker
        -> JSON encoding + response write -> next keep-alive request or close
 ```
 
-The Python socket server owns deadlines, request bodies, pipelining, target decoding, routing, handler invocation, scheduling, and worker supervision. `msgspec` provides typed JSON decode/validation and JSON encoding. `response=` selects a precompiled encoder; it does not runtime-check the returned type. Handler exceptions are logged server-side and map to a stable public 500 response. Binding and validation errors are distinguished from unknown routes and unsupported methods; see the detailed [route contract](/route-contract/).
+The Python socket server owns deadlines, request bodies, pipelining, target decoding, routing, handler invocation, scheduling, and worker supervision. `msgspec` provides typed JSON decode/validation and JSON encoding. `response=T` strictly validates and projects output, including existing nested Structs; `response=None` uses generic JSON encoding. Handler exceptions are logged server-side and map to a stable public 500 response. Binding and validation errors are distinguished from unknown routes and unsupported methods; see the detailed [route contract](/route-contract/).
 
 ## Parser selection is not server selection
 

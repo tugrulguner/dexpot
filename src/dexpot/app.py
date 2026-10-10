@@ -35,6 +35,7 @@ from ._plans import (
     _handler_signature,
 )
 from .requests import Request
+from .responses import RawResponse, Response
 
 # "fork" is safe here because dexpot forks workers before starting any threads
 # (the supervisor process never starts pools/reactors). It preserves the
@@ -323,6 +324,8 @@ class Dex:
                 )
             return request.keep_alive, buf
 
+        extra_headers = ()
+        content_type = "application/json"
         try:
             request_params = (
                 dict(zip(route.path_names, captures_list, strict=True))
@@ -373,12 +376,28 @@ class Dex:
                 result = route.invoke(captures_list, body_arg, context)
             else:
                 result = route.invoke(captures_list, body_arg)
-            if isinstance(result, tuple):
-                status, payload = result
-                out = route.encode(payload)
+            if isinstance(result, Response):
+                status = result.status
+                if isinstance(result, RawResponse):
+                    if route.resp_type is not None:
+                        raise TypeError("raw responses cannot bypass response= schemas")
+                    out = result.body
+                elif result.body is None and status in _BODYLESS_STATUSES:
+                    out = b""
+                else:
+                    out = route.encode(result.body)
+                status, out = _handler_response(status, out)
+                # Publish metadata only after every fallible preparation step.
+                extra_headers = result.headers
+                if isinstance(result, RawResponse):
+                    content_type = result.content_type
             else:
-                status, out = 200, route.encode(result)
-            status, out = _handler_response(status, out)
+                if isinstance(result, tuple):
+                    status, payload = result
+                    out = route.encode(payload)
+                else:
+                    status, out = 200, route.encode(result)
+                status, out = _handler_response(status, out)
         except HTTPError as exc:
             try:
                 status, out = _handler_response(exc.status, _json_encode({"detail": exc.detail}))
@@ -403,6 +422,8 @@ class Dex:
             keep_alive=request.keep_alive,
             version=request.version,
             suppress_body=request.method == "HEAD",
+            extra_headers=extra_headers,
+            content_type=content_type,
         )
         return request.keep_alive, buf
 
@@ -416,6 +437,7 @@ class Dex:
         version: str = "HTTP/1.1",
         extra_headers: tuple[tuple[str, str], ...] = (),
         suppress_body: bool = False,
+        content_type: str = "application/json",
     ) -> None:
         if type(status) is not int or not 100 <= status <= 599:
             _logger.error("invalid response status %r; sending 500", status)
@@ -439,7 +461,10 @@ class Dex:
             b"keep-alive" if keep_alive else b"close",
         )
         if not omit_length:
-            header += b"Content-Type: application/json\r\nContent-Length: %d\r\n" % len(out)
+            header += b"Content-Type: %s\r\nContent-Length: %d\r\n" % (
+                content_type.encode("latin-1"),
+                len(out),
+            )
         for name, value in extra_headers:
             header += f"{name}: {value}\r\n".encode("latin-1")
         conn.sendall(header + b"\r\n" + out)

@@ -143,26 +143,33 @@ registration, and unchanged HTTP binding behavior on both interpreter modes.
 
 #### 3.2 Request-aware response handling and output policy
 
-Local response-size and HTTP experiments identify recursive Request-aware response traversal
-as a priority bottleneck, including poor free-threaded scaling in the tested cases. These are
-diagnostic findings, not a competitor ranking or a qualified replacement design. Earlier
-constructor measurements do not settle complete request/response cost.
+The implementation preserves the original frozen, GC-tracked msgspec Request and conditional
+allocation. Recursive leak detection uses compiled Struct field names without resolving
+annotations per response, including mapping keys, dataclasses, enums, containers and cycles.
+Request-aware and checked routes reject nested Request values.
 
-- Compare an experimental specialized traversal intended to preserve compatibility with a
-  GC-enabled opaque context prototype. Keep Request allocation conditional and already parsed
-  wire values shared within their request lifetime.
-- Test dictionaries and typed Structs, fresh and shared payloads, response sizes, and thread
-  counts. Profile generic inspection and shared-object costs before attributing FT contention.
-- Require nested-container, custom-hook, cycle, logging, and compatibility tests before changing
-  Request representation. Do not remove protections or disable GC simply to improve a score.
-- Define response validation, coercion, public-field projection, and serialization separately.
-  A malformed same-type or nested Struct must not bypass a promised checked contract.
-- Consolidate status codes, headers, empty responses, sanitized errors, and explicit raw-output
-  escape hatches. Preserve or explicitly migrate existing tuple-response behavior.
+`response=T` uses registration-compiled, schema-directed preparation of owned JSON values,
+including malformed existing/nested Structs and recursively introduced defaults. On free-threaded
+macOS, nested-schema preparation temporarily disables ordinary timesharing on the serving
+thread, then restores its prior policy before encoding or socket I/O; flat schemas and GIL routes retain their
+existing preparation path. This is a scoped platform-specific scheduling adjustment, not a
+cross-platform policy or performance guarantee. Native
+encoding follows successful preparation. Sets use a native checked fallback for hashing and
+deduplication after child preparation; native-only scalar schemas retain a checked fallback. Checked output rejects non-finite floats even in optional
+and Any values. `response=None` retains generic JSON encoding without a filtering guarantee.
+Custom schema types and schemas with `__post_init__` or `__attrs_post_init__` are rejected
+atomically at registration; defaults are checked before success bytes are sent.
 
-Exit evidence: full response-contract corpus, a representation/migration decision, no
-requestless allocation regression, and repeatable GIL/FT end-to-end results. Opaque context and
-specialized traversal remain hypotheses until these gates pass.
+Immutable `Response` and bytes-only `RawResponse` envelopes add copied custom headers and
+explicit status/content type. Framing stays server-owned, raw output requires `response=None`,
+204/205/304 are bodyless, and `(status, payload)` remains supported. Invalid output returns a
+sanitized 500 and preserves keep-alive recovery.
+
+Local regression coverage includes projection, schema edge cases, metadata validation,
+requestless allocation, HEAD and pipelining. Remaining exit evidence includes the supported
+GIL/FT matrix, installed artifacts, and repeatable correctness-matched end-to-end measurements
+of this production implementation. Earlier experiment timings are not performance claims for
+this change; no Request representation migration or benchmark qualification is implied.
 
 #### 3.3 Paired lifecycle and typed input sources
 

@@ -41,7 +41,7 @@ def create_item(item: ItemIn) -> tuple[int, ItemOut]:
     return 201, ItemOut(1, item.name, item.price)
 ```
 
-The explicit `body=ItemIn` selects and precompiles a msgspec JSON decoder; the matching handler parameter receives the decoded `ItemIn`. A path capture is converted according to the `int` annotation. `response=ItemOut` precompiles the successful response encoder; it does **not** enforce the returned value's type at runtime. Annotate an optional `request: Request` parameter to receive the frozen public request context; see [routes and handlers](/route-contract/#request-context).
+The explicit `body=ItemIn` selects and precompiles a msgspec JSON decoder; the matching handler parameter receives the decoded `ItemIn`. A path capture is converted according to the `int` annotation. `response=ItemOut` strictly validates and projects the returned value onto the public schema; invalid output produces a sanitized 500. Annotate an optional `request: Request` parameter to receive the frozen public request context; see [routes and handlers](/route-contract/#request-context).
 
 ## 2. Run and exercise the public HTTP interface
 
