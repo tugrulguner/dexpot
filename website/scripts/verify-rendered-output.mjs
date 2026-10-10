@@ -135,24 +135,33 @@ const visualContracts = [
   {
     route: 'route-contract/index.html',
     image: 'dexpot-response-contract.webp',
-    marker: 'RawResponse is only permitted on unchecked routes',
+    marker: '/dexpot-response-contract.webp?v=070-response-v1',
     alt: 'For response=T, the handler result is schema-validated and projected to public fields',
+    width: 1200,
   },
   {
     route: 'index.html',
     image: 'dexpot-execution.webp',
-    marker: '/dexpot-execution.webp?v=070-response-v1',
-    alt: 'Registration compiles an immutable endpoint plan before listening',
+    marker: '/dexpot-execution.webp?v=127306a',
+    alt: "Conceptual overview of Dexpot's execution and scheduling architecture",
+    width: 2400,
+  },
+  {
+    route: 'index.html',
+    image: 'dexpot-response-contract.webp',
+    marker: '/dexpot-response-contract.webp?v=070-response-v1',
+    alt: 'Response contract illustration: checked public-field projection',
+    width: 1200,
   },
 ];
-for (const { route, image, marker, alt } of visualContracts) {
+for (const { route, image, marker, alt, width } of visualContracts) {
   const html = await readFile(join(distRoot, route), 'utf8');
   if (!html.includes(marker)) failures.push(`${route}: missing diagram contract marker ${marker}`);
   if (!html.includes(`alt="${alt}`)) failures.push(`${route}: missing meaningful diagram alt text`);
   const imagePath = join(distRoot, image);
   const imageInfo = await sharp(imagePath).metadata();
-  if (imageInfo.format !== 'webp' || imageInfo.width !== 1200) {
-    failures.push(`${image}: expected 1200px-wide WebP, received ${imageInfo.format} ${imageInfo.width}x${imageInfo.height}`);
+  if (imageInfo.format !== 'webp' || imageInfo.width !== width) {
+    failures.push(`${image}: expected ${width}px-wide WebP, received ${imageInfo.format} ${imageInfo.width}x${imageInfo.height}`);
   }
 }
 

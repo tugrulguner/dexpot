@@ -5,11 +5,7 @@ import sharp from 'sharp';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const diagrams = [
-  {
-    source: 'docs/assets/dexpot-execution.svg',
-    png: 'docs/assets/dexpot-execution.png',
-    webp: 'website/public/dexpot-execution.webp',
-  },
+  // Preserve the original execution artwork byte-for-byte; corrective artwork is additive.
   {
     source: 'docs/assets/dexpot-response-contract.svg',
     png: 'docs/assets/dexpot-response-contract.png',

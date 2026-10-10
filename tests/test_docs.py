@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import struct
+import subprocess
 import tomllib
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -70,27 +72,54 @@ def test_readme_execution_diagram_is_rendered_and_editable() -> None:
     source = EXECUTION_DIAGRAM_SOURCE.read_text()
 
     assert data.startswith(b"\x89PNG\r\n\x1a\n")
-    assert (width, height) == (2000, 1120)
+    assert (width, height) == (2400, 1350)
     assert len(data) < 700_000
     assert ET.fromstring(source).tag.endswith("svg")
     font_sizes = [int(size) for size in re.findall(r"font-size:\s*(\d+)px", source)]
     assert font_sizes
     assert min(font_sizes) >= 26
-    for phrase in (
-        "registration, request parsing, scheduling and response flow",
-        "immutable EndpointPlan",
-        "Auto: compatible Rust / PyO3",
-        "Python if native absent or forced",
-        "Match · bind · decode",
-        "Free-threaded: capped connection-owned threads",
-        "Standard GIL: bounded pool · optional POSIX processes",
-        "Synchronous Python handler",
-        "Prepare · encode · send",
-    ):
-        assert phrase in source
-    assert 'src="docs/assets/dexpot-execution.png?v=0.7.0"' in text
-    assert "99d3ec8" not in text
-    assert 'width="960"' in text
+    assert (
+        hashlib.sha256(data).hexdigest()
+        == "9623ca1ce172ed958852fe585635ec87fb086cc56ee815f96f06c60fdc3c6c13"
+    )
+    assert (
+        hashlib.sha256(EXECUTION_DIAGRAM_SOURCE.read_bytes()).hexdigest()
+        == "0757f10b2dc378ea406cf77365c4f66097585145b8ea88b6cad105e903abebfd"
+    )
+    assert (
+        hashlib.sha256((ROOT / "website/public/dexpot-execution.webp").read_bytes()).hexdigest()
+        == "53a5045c73d6c355c8030cd104457e925ee3aa3df22c244ec2e1899b8eb05c20"
+    )
+    assert "docs/assets/dexpot-execution.png?v=127306a" in text
+    assert "conceptual overview" in text.lower()
+
+
+def test_diagram_renderer_preserves_original_execution_artwork() -> None:
+    expected = {
+        ROOT
+        / "docs/assets/dexpot-execution.svg": "0757f10b2dc378ea406cf77365c4f66097585145b8ea88b6cad105e903abebfd",
+        ROOT
+        / "docs/assets/dexpot-execution.png": "9623ca1ce172ed958852fe585635ec87fb086cc56ee815f96f06c60fdc3c6c13",
+        ROOT
+        / "website/public/dexpot-execution.webp": "53a5045c73d6c355c8030cd104457e925ee3aa3df22c244ec2e1899b8eb05c20",
+    }
+    before = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in expected}
+    assert before == expected
+
+    if (ROOT / "website/node_modules/sharp").exists():
+        subprocess.run(["node", "website/scripts/render-diagrams.mjs"], cwd=ROOT, check=True)
+
+    after = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in expected}
+    assert after == expected
+
+
+def test_root_documentation_displays_both_diagrams() -> None:
+    readme = (ROOT / "README.md").read_text()
+    homepage = (ROOT / "website/src/content/docs/index.mdx").read_text()
+    for content in (readme, homepage):
+        assert "dexpot-execution" in content
+        assert "dexpot-response-contract" in content
+        assert "Open full size" in content or "Conceptual overview" in content
 
 
 def test_response_contract_diagram_matches_the_public_policy():
