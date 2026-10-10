@@ -7,6 +7,29 @@ const guides = [
   ['benchmarking', 'Benchmark without overclaiming'],
 ];
 
+test('response-contract illustration renders with accessible text in both themes and narrow layout', async ({ page }) => {
+  for (const [theme, background] of [['light', 'rgb(248, 247, 244)'], ['dark', 'rgb(22, 24, 27)']]) {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('/route-contract/');
+    await page.locator('header.header select').selectOption(theme);
+    await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe(background);
+    const diagram = page.getByRole('img', { name: /For response=T, the handler result is schema-validated/ });
+    await expect(diagram).toBeVisible();
+    await expect.poll(() => diagram.evaluate((image) => image.complete && image.naturalWidth)).toBe(1200);
+    await expect(page.getByText(/public projection removes undeclared fields/)).toBeVisible();
+    const rendered = await diagram.boundingBox();
+    const figure = await diagram.locator('..').boundingBox();
+    expect(Math.abs(rendered.width - figure.width)).toBeLessThanOrEqual(1);
+    await expect(page.getByRole('link', { name: 'Open the response-contract diagram at full size' }))
+      .toHaveAttribute('href', '/dexpot-response-contract.webp?v=070-response-v1');
+    await page.setViewportSize({ width: 375, height: 812 });
+    const narrow = await diagram.boundingBox();
+    expect(narrow.width).toBeLessThan(375);
+    expect(await page.locator('body').evaluate((node) => node.scrollWidth)).toBeLessThanOrEqual(376);
+  }
+});
+
 test('build guide pages and Markdown downloads remain readable at desktop and mobile widths', async ({ page, request }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/build-guides/');

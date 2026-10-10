@@ -55,7 +55,10 @@ main h1 { font-size: clamp(2rem, 3vw, 2.5rem); line-height: 1.15; font-weight: 7
 .sl-markdown-content table { width: 100%; }
 .sl-markdown-content table :is(th, td) { overflow-wrap: anywhere; border-bottom: 1px solid var(--sl-color-gray-5); }
 .sl-markdown-content th { color: var(--sl-color-accent); font: 600 .74rem/1.4 var(--mp-font); }
-.sl-markdown-content img[src='/dexpot-execution.webp'] { width: 100%; margin-block: 2.5rem; border: 1px solid var(--sl-color-gray-5); border-radius: 6px; }
+.sl-markdown-content img[src^='/dexpot-execution.webp'],
+.sl-markdown-content img[src^='/dexpot-response-contract.webp'] { width: 100%; margin-block: 2rem; border: 1px solid var(--sl-color-gray-5); border-radius: 6px; }
+.sl-markdown-content figure:has(> img[src^='/dexpot-response-contract.webp']) { margin: 2rem 0; }
+.sl-markdown-content figure:has(> img[src^='/dexpot-response-contract.webp']) figcaption { margin-top: .75rem; color: var(--sl-color-gray-2); font-size: .9rem; }
 .expressive-code { --ec-brdRad: 6px; }
 main:has(.framework-hero) .deeper-content pre:focus-visible { outline: 2px solid var(--sl-color-accent); outline-offset: 3px; border-radius: 3px; }
 .latency-record { margin-block: 2rem; padding: clamp(1rem, 3vw, 2rem); border: 1px solid var(--sl-color-gray-5); border-radius: 6px; background: var(--sl-color-bg-nav); }

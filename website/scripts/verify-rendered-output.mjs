@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import sharp from 'sharp';
 
 const websiteRoot = fileURLToPath(new URL('..', import.meta.url));
 const distRoot = join(websiteRoot, 'dist');
@@ -127,6 +128,31 @@ for await (const path of htmlFiles(distRoot)) {
     } catch (error) {
       failures.push(`${outputPath}: invalid JSON-LD (${error.message})`);
     }
+  }
+}
+
+const visualContracts = [
+  {
+    route: 'route-contract/index.html',
+    image: 'dexpot-response-contract.webp',
+    marker: 'RawResponse is only permitted on unchecked routes',
+    alt: 'For response=T, the handler result is schema-validated and projected to public fields',
+  },
+  {
+    route: 'index.html',
+    image: 'dexpot-execution.webp',
+    marker: '/dexpot-execution.webp?v=070-response-v1',
+    alt: 'Registration compiles an immutable endpoint plan before listening',
+  },
+];
+for (const { route, image, marker, alt } of visualContracts) {
+  const html = await readFile(join(distRoot, route), 'utf8');
+  if (!html.includes(marker)) failures.push(`${route}: missing diagram contract marker ${marker}`);
+  if (!html.includes(`alt="${alt}`)) failures.push(`${route}: missing meaningful diagram alt text`);
+  const imagePath = join(distRoot, image);
+  const imageInfo = await sharp(imagePath).metadata();
+  if (imageInfo.format !== 'webp' || imageInfo.width !== 1200) {
+    failures.push(`${image}: expected 1200px-wide WebP, received ${imageInfo.format} ${imageInfo.width}x${imageInfo.height}`);
   }
 }
 

@@ -70,35 +70,60 @@ def test_readme_execution_diagram_is_rendered_and_editable() -> None:
     source = EXECUTION_DIAGRAM_SOURCE.read_text()
 
     assert data.startswith(b"\x89PNG\r\n\x1a\n")
-    assert (width, height) == (2400, 1350)
+    assert (width, height) == (2000, 1120)
     assert len(data) < 700_000
     assert ET.fromstring(source).tag.endswith("svg")
-    assert "ONE ENDPOINT PLAN · TWO RUNTIME PATHS" in source
-    assert "Plain Python handlers · msgspec codecs · interpreter-aware scheduling." in source
-    assert "FREE-THREADED CPYTHON" in source
-    assert "STANDARD GIL CPYTHON" in source
     font_sizes = [int(size) for size in re.findall(r"font-size:\s*(\d+)px", source)]
     assert font_sizes
-    assert min(font_sizes) >= 28
-    assert "literal + params" in source
-    assert "literal / parametric match" not in source
-    assert "bound + parse request head" in source
-    assert "auto: compatible Rust / PyO3" in source
-    assert "absent or forced: Python" in source
-    assert "SAME PYTHON HANDLER" in source
-    assert 'x="2235" y="565"' in source
-    assert "SAME HANDLER PATH" not in source
-    assert "compatible native" not in source
-    assert "Python if absent" not in source
-    assert "native if installed" not in source
-    assert "Python fallback" not in source
-    assert "msgspec I/O" not in source
-    assert "Python only if absent" not in source
-    assert (
-        'src="https://raw.githubusercontent.com/tugrulguner/dexpot/'
-        'main/docs/assets/dexpot-execution.png?v=99d3ec8"' in text
-    )
+    assert min(font_sizes) >= 26
+    for phrase in (
+        "registration, request parsing, scheduling and response flow",
+        "immutable EndpointPlan",
+        "Auto: compatible Rust / PyO3",
+        "Python if native absent or forced",
+        "Match · bind · decode",
+        "Free-threaded: capped connection-owned threads",
+        "Standard GIL: bounded pool · optional POSIX processes",
+        "Synchronous Python handler",
+        "Prepare · encode · send",
+    ):
+        assert phrase in source
+    assert 'src="docs/assets/dexpot-execution.png?v=0.7.0"' in text
+    assert "99d3ec8" not in text
     assert 'width="960"' in text
+
+
+def test_response_contract_diagram_matches_the_public_policy():
+    image = ROOT / "docs/assets/dexpot-response-contract.png"
+    source_path = ROOT / "docs/assets/dexpot-response-contract.svg"
+    webp = ROOT / "website/public/dexpot-response-contract.webp"
+    data = image.read_bytes()
+    width, height = struct.unpack(">II", data[16:24])
+    source = source_path.read_text()
+    readme = README.read_text()
+    website_contract = (ROOT / "website/src/content/docs/route-contract.md").read_text()
+
+    assert data.startswith(bytes([137, 80, 78, 71, 13, 10, 26, 10]))
+    assert (width, height) == (2000, 1040)
+    assert len(data) < 700_000
+    assert ET.fromstring(source).tag.endswith("svg")
+    assert webp.read_bytes().startswith(b"RIFF")
+    assert min(int(size) for size in re.findall(r"font-size:\s*(\d+)px", source)) >= 26
+    for phrase in (
+        "Malformed value / NaN / Infinity → sanitized 500",
+        "undeclared private_token removed",
+        "response=None",
+        "RawResponse(bytes)",
+        "not called at registration",
+        "before encoding or socket I/O",
+        "Defaults + factory identity preserved",
+        "shallowly immutable",
+    ):
+        assert phrase in source
+    assert "response=None" in readme and "shallowly immutable" in readme
+    assert "/dexpot-response-contract.webp" in website_contract
+    assert "not a promise of a literal single pass" in website_contract
+    assert "before encoding or socket I/O" in website_contract
 
 
 def test_readme_surfaces_the_optional_rust_parser_before_quick_start() -> None:
