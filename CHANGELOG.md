@@ -10,6 +10,24 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.7.0] - 2026-10-10
+
+### Added
+
+- Add immutable `Response` and bytes-only `RawResponse` envelopes for custom headers, raw bodies, and explicit empty responses.
+- Add a runnable `examples/response_policy.py` showing checked JSON, raw output, custom headers, and bodyless responses.
+
+### Changed
+
+- Validate and project declared `response=T` values before sending success bytes, including existing and nested Structs and factory defaults. Reject malformed or non-finite checked output with sanitized errors; keep `response=None` generic.
+- Preserve registration-owned response schema metadata and default-factory identity without executing application factories during registration or serving-thread binding.
+- On free-threaded macOS, retain native checked preparation for default-free flat Struct contracts without post-init callbacks, avoiding redundant untyped decoding and re-encoding.
+
+### Fixed
+
+- Scope free-threaded macOS scheduling changes to nested checked preparation and restore the worker's original policy before encoding or socket I/O, including validation-failure paths.
+
+
 ## [0.6.0] - 2026-10-05
 
 ### Added
