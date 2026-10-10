@@ -89,6 +89,8 @@ curl -i http://127.0.0.1:8000/items/7
 
 The example responds with the typed item for that path. The homepage preview remains browser-local; this command starts the real Python server.
 
+In v0.7.0, `response=ItemOut` also checks the returned data and projects it onto the declared public fields before sending success bytes. Malformed or non-finite output returns a sanitized 500. Leave `response=None` for generic JSON, or use `RawResponse` on an unchecked route for bytes. The [response-contract illustration](/route-contract/#responses) shows the public-field and rejection paths.
+
 ## Keep learning
 
 - [Quick start](/quick-start/): install, define an app, serve it, and call HTTP routes.
@@ -107,7 +109,7 @@ Dexpot keeps application code synchronous while changing admission and schedulin
 | Standard GIL CPython | A bounded pool of connection-owning threads | A bounded queue sheds excess work with 503 |
 | Standard GIL CPython with workers | POSIX `SO_REUSEPORT` processes, each with its own bounded pool | Each worker sheds independently |
 
-<img src="/dexpot-execution.webp" alt="A Dexpot route compiles into an immutable endpoint plan, then uses the selected request-head parser and interpreter-specific scheduler before both paths execute the same synchronous handler" />
+<img src="/dexpot-execution.webp?v=070-response-v1" alt="Registration compiles an immutable endpoint plan before listening. Each admitted connection uses bounded request-head parsing, interpreter-specific scheduling, route binding and a synchronous Python handler; the declared response is prepared, encoded and sent." />
 
 ## What dexpot owns
 

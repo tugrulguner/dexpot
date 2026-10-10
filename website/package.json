@@ -8,7 +8,7 @@
     "test:playground": "node --test tests/*.test.js",
     "test:visual": "playwright test",
     "check": "astro check",
-    "build": "node scripts/sync-project-docs.mjs && astro build && npm run copy:guides && npm run verify:rendered",
+    "build": "node scripts/render-diagrams.mjs && node scripts/sync-project-docs.mjs && astro build && npm run copy:guides && npm run verify:rendered",
     "copy:guides": "node scripts/copy-guides.mjs",
     "verify:rendered": "node scripts/verify-rendered-output.mjs && node scripts/verify-guides.mjs",
     "preview": "astro preview",

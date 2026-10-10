@@ -43,7 +43,7 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/docs/assets/dexpot-execution.png?v=99d3ec8" alt="A dexpot route compiles once into an immutable endpoint plan. Automatic mode parses each bounded request head with a compatible Rust and PyO3 dexpot-native parser or the Python reference when native is absent; Python mode forces the reference parser. Execution then uses either a connection-owned thread on free-threaded CPython or a bounded worker pool with optional process fan-out on standard GIL CPython before both paths execute the same synchronous Python handler" width="960">
+  <img src="docs/assets/dexpot-execution.png?v=0.7.0" alt="Registration compiles an immutable endpoint plan before listening. Each admitted connection uses a bounded request-head parser, interpreter-selected scheduler, route binding and synchronous Python handler; declared output is prepared, encoded and sent." width="960">
 </p>
 
 dexpot is interpreter-adaptive and agent-ready. The same synchronous application adapts to
@@ -247,6 +247,12 @@ pre-existing and nested Structs. Extra fields are removed by ordinary Struct sch
 `forbid_unknown_fields=True` rejects them. Invalid output produces a sanitized 500 before
 success headers or bytes are sent. `response=None` (the default) uses generic msgspec JSON
 encoding without validation or filtering.
+
+<p align="center">
+  <img src="docs/assets/dexpot-response-contract.png?v=0.7.0" alt="For response=T, a handler result is schema-validated and projected to public fields before encoding and sending; malformed or non-finite output takes a sanitized 500 path before success bytes. response=None keeps generic encoding, and RawResponse is only for unchecked routes." width="960">
+</p>
+
+The diagram shows the response boundary, not a single-pass guarantee: schema-directed preparation preserves defaults and factory identity, and sets or native-only scalar schemas retain checked native fallbacks. Application factories are not called during registration; free-threaded macOS nested preparation completes before encoding or socket I/O. msgspec-compatible conversions apply rather than exact Python type identity. `Response` envelopes are shallowly immutable.
 
 Checked output uses registration-compiled, schema-directed preparation to validate and
 project an owned JSON representation before native encoding. Structs, records, lists, tuples,

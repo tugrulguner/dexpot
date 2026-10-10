@@ -39,6 +39,15 @@ A handler may return:
 
 `response=T` strictly validates and projects the returned value onto the public schema, including malformed existing/nested Structs. Ordinary Struct schemas drop extra fields; `forbid_unknown_fields=True` rejects them. `response=None` uses generic JSON encoding without validation or filtering. Checked output rejects non-finite floats, including optional, nested, Any and default values. Custom schema types and schemas containing `__post_init__` or `__attrs_post_init__` hooks fail atomically at registration. Invalid output returns a sanitized 500 before success bytes are sent.
 
+<figure>
+  <img src="/dexpot-response-contract.webp?v=070-response-v1" alt="For response=T, the handler result is schema-validated and projected to public fields before encoding and sending. Malformed or non-finite output instead returns a sanitized 500 before success bytes. response=None keeps generic encoding; RawResponse is only permitted on unchecked routes." />
+  <figcaption>Checked response flow: public projection removes undeclared fields; invalid output takes the sanitized error branch before success bytes. Application factories stay deferred, checked fallbacks preserve schema semantics, and envelopes are shallowly immutable.</figcaption>
+</figure>
+
+[Open the response-contract diagram at full size](/dexpot-response-contract.webp?v=070-response-v1).
+
+The diagram is a contract overview, not a promise of a literal single pass or exact Python type-identity validation. Dexpot applies msgspec-compatible conversions (an integer can satisfy a float field); preparation preserves default semantics and the registered factory objects. Static default checks run at registration, but arbitrary application factories are not invoked during registration. Free-threaded macOS nested preparation is fully checked before encoding or socket I/O. Sets and native-only scalar schemas retain checked native fallbacks.
+
 `Response(body=None, status=200, headers=())` adds JSON metadata with a copied header snapshot; pair sequences preserve duplicates. `RawResponse(body=b"", status=200, headers=(), content_type="application/octet-stream")` requires bytes and `response=None`. Envelopes are shallowly immutable. Status must be an integer (not bool), 200..599. Headers are bounded to 64 pairs/16,384 encoded bytes, with token names and Latin-1 values without controls. Framing/server headers and Content-Type cannot be overridden; use raw `content_type` (nonempty, at most 256 characters).
 
 `Response(status=204)` (also 205/304) explicitly permits an absent checked body. Other JSON bodies are validated before bodyless suppression. 204/304 omit Content-Length; 205 sends length zero. `RawResponse()` sends an empty 200. Raw output cannot bypass a checked schema. Existing `(status, payload)` returns remain supported.

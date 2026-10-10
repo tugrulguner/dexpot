@@ -44,3 +44,5 @@ SIGINT and SIGTERM stop admission and allow active connections up to five second
 ## Compiled plans
 
 Registration produces immutable `EndpointPlan` objects for binding, path conversion, and body and response codecs. Serving freezes those endpoints into one `ApplicationPlan` and a length-grouped `RouterPlan` before opening a listener. Late route registration fails instead of diverging from the plan traffic uses.
+
+The [execution map](/dexpot-execution.webp?v=070-response-v1) follows the full ownership path: registration, interpreter-specific scheduling and connection admission, request-head parsing, route matching and binding, the synchronous handler, and response preparation/encoding. In automatic parser mode a compatible optional Rust/PyO3 parser handles the bounded request head; Python mode forces the reference, and automatic mode falls back to Python when native is absent. A broken or incompatible native installation remains visible.

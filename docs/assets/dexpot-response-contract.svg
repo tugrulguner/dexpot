@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1040" viewBox="0 0 2000 1040" role="img" aria-labelledby="title desc">
+<title id="title">Dexpot checked responses: validate, project, encode and send</title>
+<desc id="desc">A response=T route checks the handler result against its declared public schema. An ordinary Struct projection removes undeclared private_token; forbid_unknown_fields rejects extras instead. Malformed value / NaN / Infinity → sanitized 500 before success status, headers or body bytes. Encoding and final JSON checks also finish before sending. Defaults + factory identity preserved: arbitrary application factories are not called at registration or serving-thread binding. Free-threaded macOS restores scoped scheduling before encoding or socket I/O. This is a contract overview, not a single-pass guarantee. response=None keeps generic JSON; RawResponse(bytes) is only allowed on unchecked routes. Response envelopes are shallowly immutable. Any is not a privacy filter.</desc>
+<defs>
+<linearGradient id="bg" x2="1" y2="1"><stop stop-color="#050817"/><stop offset="1" stop-color="#0a1230"/></linearGradient>
+<marker id="ok" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#6ee7b7"/></marker>
+<marker id="bad" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#fb7185"/></marker>
+<style>.sans{font-family:Inter,Arial,sans-serif}.mono{font-family:ui-monospace,Consolas,monospace}.title{font-size:58px;font-weight:750;fill:#f8fafc}.head{font-size:38px;font-weight:700;fill:#f8fafc}.label{font-size:32px;font-weight:700;letter-spacing:2px}.body{font-size:34px;fill:#e2e8f0}.small{font-size:32px;fill:#cbd5e1}.card{fill:#0c1427;stroke-width:3}.line{fill:none;stroke-width:5}</style>
+</defs>
+<rect width="2000" height="1040" rx="32" fill="url(#bg)"/>
+<rect x="2" y="2" width="1996" height="1036" rx="30" fill="none" stroke="#334155" stroke-width="3"/>
+<text x="1000" y="68" text-anchor="middle" class="sans label" fill="#fbbf24">DECLARED OUTPUT · response=T</text>
+<text x="1000" y="144" text-anchor="middle" class="sans title">Return only what the public contract allows</text>
+<text x="1000" y="193" text-anchor="middle" class="sans body">Every checked path completes before success bytes leave the server.</text>
+<!-- Draw connections behind their cards. -->
+<path d="M470 345H527" class="line" stroke="#6ee7b7" marker-end="url(#ok)"/>
+<path d="M1075 345H1132" class="line" stroke="#6ee7b7" marker-end="url(#ok)"/>
+<path d="M1540 345H1597" class="line" stroke="#6ee7b7" marker-end="url(#ok)"/>
+<path d="M1340 450V490" class="line" stroke="#fb7185"/>
+<path d="M805 450V490H1350V536" class="line" stroke="#fb7185" marker-end="url(#bad)"/>
+<rect x="60" y="250" width="410" height="200" rx="22" class="card" stroke="#60a5fa"/>
+<text x="90" y="295" class="sans label" fill="#93c5fd">HANDLER RESULT</text>
+<text x="90" y="352" class="sans head">Returned data</text>
+<text x="90" y="405" class="sans body">Public + extra fields</text>
+<rect x="535" y="250" width="540" height="200" rx="22" class="card" stroke="#a78bfa"/>
+<text x="565" y="295" class="sans label" fill="#c4b5fd">DECLARED SCHEMA</text>
+<text x="565" y="352" class="sans head">Validate + project</text>
+<text x="565" y="405" class="sans body">Keep allowed public fields</text>
+<rect x="1140" y="250" width="400" height="200" rx="22" class="card" stroke="#34d399"/>
+<text x="1170" y="295" class="sans label" fill="#6ee7b7">ENCODE</text>
+<text x="1170" y="352" class="sans head">Prepare bytes</text>
+<text x="1170" y="405" class="sans body">Final JSON checks</text>
+<rect x="1605" y="250" width="335" height="200" rx="22" class="card" stroke="#34d399"/>
+<text x="1635" y="295" class="sans label" fill="#6ee7b7">SEND</text>
+<text x="1635" y="352" class="sans head">Success</text>
+<text x="1635" y="405" class="sans body">HTTP response</text>
+<rect x="60" y="540" width="920" height="240" rx="22" class="card" stroke="#475569"/>
+<text x="92" y="587" class="sans label" fill="#e2e8f0">ORDINARY STRUCT PROJECTION</text>
+<text x="92" y="642" class="mono body">input  { name, private_token }</text>
+<text x="92" y="694" class="mono body">output { name }</text>
+<text x="92" y="746" class="sans body" style="fill:#6ee7b7">undeclared private_token removed</text>
+<rect x="1030" y="540" width="910" height="240" rx="22" class="card" stroke="#fb7185"/>
+<text x="1062" y="587" class="sans label" fill="#fda4af">REJECT BEFORE SUCCESS BYTES</text>
+<text x="1062" y="642" class="sans body">Malformed or non-finite output</text>
+<text x="1062" y="694" class="sans head" style="fill:#fda4af">Sanitized 500</text>
+<text x="1062" y="746" class="sans small">No success status, headers or body sent.</text>
+<text x="60" y="855" class="sans body"><tspan class="mono">response=None</tspan>: generic JSON. <tspan class="mono">RawResponse(bytes)</tspan>: unchecked routes only.</text>
+<text x="60" y="912" class="sans small">Static defaults checked at registration; application factories deferred to preparation.</text>
+<text x="60" y="967" class="sans small">Any is not a privacy filter. Extra fields can instead be rejected with forbid_unknown_fields.</text>
+<text x="60" y="1010" class="sans small">Contract overview, not a literal single-pass guarantee. Envelopes are shallowly immutable.</text>
+</svg>
