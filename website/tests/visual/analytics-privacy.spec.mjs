@@ -59,6 +59,13 @@ test('SDK outbound payloads omit playground inputs, URL secrets, and campaign va
   expect(outgoing.some(({ url }) => /\/flags\/?(?:\?|$)/.test(url))).toBeFalsy();
   const eventBodies = outgoing.filter(({ url }) => /\/e\//.test(url)).map(({ body }) => body);
   expect(eventBodies.some((body) => body.includes('$pageview')), JSON.stringify(outgoing)).toBeTruthy();
+  const decodedEvents = eventBodies.flatMap((body) => { try { const parsed = JSON.parse(body); return Array.isArray(parsed.batch) ? parsed.batch : Array.isArray(parsed) ? parsed : [parsed]; } catch { return []; } });
+  const outcomes = decodedEvents.filter(({ event }) => event === 'playground_preview_started' || event === 'playground_preview_completed');
+  expect(outcomes.map(({ event }) => event)).toEqual(['playground_preview_started', 'playground_preview_completed']);
+  expect(outcomes[0].properties).toMatchObject({ project: 'dexpot', mode: 'crud' });
+  expect(outcomes[1].properties).toMatchObject({ project: 'dexpot', mode: 'crud', result: 'success' });
+  expect(outcomes[0].properties.attempt_id).toBe(outcomes[1].properties.attempt_id);
+  expect(payloadText).not.toContain('INPUT_SENTINEL');
 
   const config = await page.evaluate(() => ({
     capturing: posthog.is_capturing(), optedOut: posthog.has_opted_out_capturing(),

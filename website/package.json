@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "test:playground": "node --test tests/*.test.js",
+    "test:playground": "node --test tests/*.test.js tests/*.test.mjs",
     "test:visual": "playwright test",
     "check": "astro check",
     "build": "node scripts/render-diagrams.mjs && node scripts/sync-project-docs.mjs && astro build && npm run copy:guides && npm run verify:rendered",
