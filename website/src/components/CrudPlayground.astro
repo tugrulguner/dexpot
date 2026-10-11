@@ -60,10 +60,10 @@ import { createState, execute, measureRun } from '../scripts/crud-playground.js'
     const timing = document.querySelector<HTMLElement>('#run-timing');
     if (timing) timing.firstChild!.textContent = '— ';
     const rawPrice = priceField.value;
+    const attempt = outcomes.start('crud');
     const measured = measureRun(() => {
       const result = execute(state, { operation: operation.value, id: Number(idField.value), name: nameField.value, price: rawPrice === '' ? Number.NaN : Number(rawPrice) });
       Object.assign(state, result.state);
-      const attempt = outcomes.start('crud');
       const status = result.result.response.status;
       outcomes.complete(attempt, status >= 400 ? 'rejected' : 'success', status >= 400 ? (status === 404 ? 'not_found' : status === 422 && result.result.response.body.detail.includes('limited') ? 'capacity' : 'validation') : undefined);
       text('#contract-request', JSON.stringify(result.result.request, null, 2));
