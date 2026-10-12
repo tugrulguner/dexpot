@@ -48,23 +48,71 @@ test('SDK outbound payloads omit playground inputs, URL secrets, and campaign va
 
   await page.goto('/playground/?utm_source=UTM_SENTINEL&gclid=CLICK_SENTINEL#HASH_SENTINEL', { waitUntil: 'networkidle' });
   await expect(page.locator('#contract-run')).toBeVisible();
+  const decodeEvents = () => outgoing
+    .filter(({ url }) => /\/e\//.test(url))
+    .flatMap(({ body }) => {
+      try {
+        const parsed = JSON.parse(body);
+        return Array.isArray(parsed.batch) ? parsed.batch : Array.isArray(parsed) ? parsed : [parsed];
+      } catch { return []; }
+    });
+  const pageOrigin = await page.evaluate(() => location.origin);
+  await expect.poll(() => decodeEvents().some(({ event, properties }) =>
+    event === '$pageview' && properties.$current_url === `${pageOrigin}/playground/`
+  )).toBeTruthy();
+  const outcomeEvents = () => decodeEvents().filter(({ event }) =>
+    event === 'playground_preview_started' || event === 'playground_preview_completed'
+  );
+  expect(outcomeEvents()).toEqual([]);
+
+  // Create a real local item, read that returned ID, then exercise an actual 404.
+  await page.locator('#operation').selectOption('create');
   await page.locator('#item-name').fill('INPUT_SENTINEL');
+  await page.locator('#item-price').fill('12.5');
   await page.locator('#contract-run').click();
-  await page.waitForTimeout(3500);
+  await expect(page.locator('#contract-response')).toContainText('201');
+  const createdItem = JSON.parse(await page.locator('#contract-response').innerText()).body;
+  expect(createdItem).toMatchObject({ name: 'INPUT_SENTINEL', price: 12.5 });
+
+  await page.locator('#operation').selectOption('get');
+  await page.locator('#item-id').fill(String(createdItem.id));
+  await page.locator('#contract-run').click();
+  await expect(page.locator('#contract-response')).toContainText('200');
+  expect(JSON.parse(await page.locator('#contract-response').innerText()).body).toEqual(createdItem);
+
+  await page.locator('#item-id').fill('999');
+  await page.locator('#contract-run').click();
+  await expect(page.locator('#contract-response')).toContainText('404');
+  await expect(page.locator('#contract-error')).toHaveText('item not found');
+  await expect.poll(() => outcomeEvents().length).toBe(6);
   await page.goto('/quick-start/?campaign=CAMPAIGN_SENTINEL#DOC_HASH_SENTINEL', { waitUntil: 'networkidle' });
-  await page.waitForTimeout(3500);
+  await expect.poll(() => decodeEvents().some(({ event, properties }) =>
+    event === '$pageview' && properties.$current_url === `${pageOrigin}/quick-start/`
+  )).toBeTruthy();
 
   const payloadText = JSON.stringify(outgoing);
   for (const sentinel of sentinels) expect(payloadText, `${sentinel} leaked via SDK request`).not.toContain(sentinel);
   expect(outgoing.some(({ url }) => /\/flags\/?(?:\?|$)/.test(url))).toBeFalsy();
-  const eventBodies = outgoing.filter(({ url }) => /\/e\//.test(url)).map(({ body }) => body);
-  expect(eventBodies.some((body) => body.includes('$pageview')), JSON.stringify(outgoing)).toBeTruthy();
-  const decodedEvents = eventBodies.flatMap((body) => { try { const parsed = JSON.parse(body); return Array.isArray(parsed.batch) ? parsed.batch : Array.isArray(parsed) ? parsed : [parsed]; } catch { return []; } });
-  const outcomes = decodedEvents.filter(({ event }) => event === 'playground_preview_started' || event === 'playground_preview_completed');
-  expect(outcomes.map(({ event }) => event)).toEqual(['playground_preview_started', 'playground_preview_completed']);
-  expect(outcomes[0].properties).toMatchObject({ project: 'dexpot', mode: 'crud' });
-  expect(outcomes[1].properties).toMatchObject({ project: 'dexpot', mode: 'crud', result: 'success' });
-  expect(outcomes[0].properties.attempt_id).toBe(outcomes[1].properties.attempt_id);
+  const outcomes = outcomeEvents();
+  expect(outcomes.map(({ event }) => event)).toEqual([
+    'playground_preview_started', 'playground_preview_completed',
+    'playground_preview_started', 'playground_preview_completed',
+    'playground_preview_started', 'playground_preview_completed',
+  ]);
+  const starts = outcomes.filter(({ event }) => event === 'playground_preview_started');
+  const completions = outcomes.filter(({ event }) => event === 'playground_preview_completed');
+  expect(starts).toHaveLength(3);
+  expect(completions).toHaveLength(3);
+  const attemptIds = starts.map(({ properties }) => properties.attempt_id);
+  expect(new Set(attemptIds).size).toBe(3);
+  for (let index = 0; index < 3; index += 1) {
+    expect(starts[index].properties).toMatchObject({ project: 'dexpot', mode: 'crud', attempt_id: attemptIds[index] });
+    expect(completions[index].properties.attempt_id).toBe(attemptIds[index]);
+    expect(completions[index].properties).toMatchObject({ project: 'dexpot', mode: 'crud' });
+  }
+  expect(completions.map(({ properties }) => properties.result)).toEqual(['success', 'success', 'rejected']);
+  expect(completions[2].properties.failure_class).toBe('not_found');
+  expect(completions.slice(0, 2).every(({ properties }) => !('failure_class' in properties))).toBeTruthy();
   expect(payloadText).not.toContain('INPUT_SENTINEL');
 
   const config = await page.evaluate(() => ({
