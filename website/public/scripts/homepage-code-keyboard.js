@@ -4,12 +4,15 @@ function enableHomepageCodeKeyboardScrolling() {
   });
 }
 
+let homepageCodeObserver;
+
 function watchHomepageCodeKeyboardScrolling() {
+  homepageCodeObserver?.disconnect();
   enableHomepageCodeKeyboardScrolling();
   const content = document.querySelector('main .sl-markdown-content');
   if (!content) return;
 
-  const observer = new ResizeObserver(enableHomepageCodeKeyboardScrolling);
+  const observer = homepageCodeObserver ??= new ResizeObserver(enableHomepageCodeKeyboardScrolling);
   observer.observe(content);
   content.querySelectorAll('pre').forEach((pre) => observer.observe(pre));
 }
