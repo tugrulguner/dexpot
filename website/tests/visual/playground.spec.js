@@ -17,6 +17,28 @@ const contrast = (foreground, background) => {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 };
 
+test('presentation failure completes one execution as failed, not successful', async ({ page }) => {
+  await page.addInitScript(() => { window.__playgroundEvents = []; });
+  await page.goto('/playground/');
+  await page.evaluate(() => {
+    window.posthog = { capture: (name, properties) => window.__playgroundEvents.push({ name, properties }) };
+    const response = document.querySelector('#contract-response');
+    Object.defineProperty(response, 'textContent', {
+      configurable: true,
+      get: () => 'No response yet.',
+      set: () => { throw new Error('injected response presentation failure'); },
+    });
+  });
+  await page.locator('#contract-run').click();
+  await expect.poll(() => page.evaluate(() => window.__playgroundEvents.filter(event => event.name === 'playground_preview_completed').length)).toBe(1);
+  const events = await page.evaluate(() => window.__playgroundEvents);
+  expect(events.filter(event => event.name === 'playground_preview_started')).toHaveLength(1);
+  expect(events.filter(event => event.name === 'playground_preview_completed')).toHaveLength(1);
+  expect(events.find(event => event.name === 'playground_preview_completed').properties).toMatchObject({ project: 'dexpot', mode: 'crud', result: 'failed', failure_class: 'execution' });
+  expect(events.filter(event => event.name === 'playground_preview_completed' && event.properties.result === 'success')).toHaveLength(0);
+  expect(JSON.stringify(events)).not.toContain('injected response presentation failure');
+});
+
 test('run timing stays beside the action that produced it', async ({ page }) => {
   for (const width of [1280, 768, 320]) {
     await page.setViewportSize({ width, height: 900 });
