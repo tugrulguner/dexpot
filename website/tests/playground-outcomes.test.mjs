@@ -25,3 +25,12 @@ test('rejects unbounded project, mode, result, and failure values', () => {
   const attempt = tracker.start('crud');
   assert.throws(() => tracker.complete(attempt, 'free text'), /result/);
 });
+
+test('capture exceptions never block attempts and completion remains deduplicated', () => {
+  let calls = 0;
+  const tracker = createOutcomeTracker('dexpot', () => { calls += 1; throw new Error('analytics offline'); }, () => 'attempt');
+  const attempt = tracker.start('crud');
+  assert.equal(tracker.complete(attempt, 'success'), true);
+  assert.equal(tracker.complete(attempt, 'success'), false);
+  assert.equal(calls, 2);
+});
