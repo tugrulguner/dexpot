@@ -21,7 +21,7 @@ def create_item(item: ItemIn) -> tuple[int, Item]:
         <label>Item ID <input id="item-id" type="number" value="1"></label><label>Name <input id="item-name" value="Notebook"></label><label>Price <input id="item-price" type="number" step="any" value="12.5"></label>
         <div class="workbench-actions"><button type="button" id="contract-run">Run locally</button><button type="button" id="contract-reset">Reset</button></div>
         <p id="run-timing" class="run-timing" aria-live="polite">— <span>Browser-local processing only. Excludes Dexpot Python/server and network latency.</span></p>
-        <p class="contract-note">Local contract preview, not a Python server. No network calls. Starts with the example item; maximum 20 live items. Editing clears the last result. Only Run executes.</p>
+        <p class="contract-note">Local contract preview, not a Python server. No network calls. Starts with the example item; maximum 20 live items. Editing clears the last result. Only Run executes. State changes persist if result presentation fails; use an explicit follow-up operation (such as GET) to inspect state—there is no automatic rollback.</p>
       </div>
       <div class="result-pane"><div class="contract-grid"><article><h3>Request</h3><pre id="contract-request">Awaiting run()</pre></article><article><h3>Computed response</h3><pre id="contract-response" aria-live="polite">No response yet.</pre></article></div></div>
     </div>
