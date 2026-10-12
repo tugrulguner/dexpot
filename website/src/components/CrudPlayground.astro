@@ -21,7 +21,7 @@ def create_item(item: ItemIn) -> tuple[int, Item]:
         <label>Item ID <input id="item-id" type="number" value="1"></label><label>Name <input id="item-name" value="Notebook"></label><label>Price <input id="item-price" type="number" step="any" value="12.5"></label>
         <div class="workbench-actions"><button type="button" id="contract-run">Run locally</button><button type="button" id="contract-reset">Reset</button></div>
         <p id="run-timing" class="run-timing" aria-live="polite">— <span>Browser-local processing only. Excludes Dexpot Python/server and network latency.</span></p>
-        <p class="contract-note">Local contract preview, not a Python server. No network calls. Starts with the example item; maximum 20 live items. Editing clears the last result. Only Run executes.</p>
+        <p class="contract-note">Local contract preview, not a Python server. No network calls. Starts with the example item; maximum 20 live items. Editing clears the last result. Only Run executes. State changes persist if result presentation fails; use an explicit follow-up operation (such as GET) to inspect state—there is no automatic rollback.</p>
       </div>
       <div class="result-pane"><div class="contract-grid"><article><h3>Request</h3><pre id="contract-request">Awaiting run()</pre></article><article><h3>Computed response</h3><pre id="contract-response" aria-live="polite">No response yet.</pre></article></div></div>
     </div>
@@ -30,6 +30,8 @@ def create_item(item: ItemIn) -> tuple[int, Item]:
 </section>
 <script>
 import { createState, execute, measureRun } from '../scripts/crud-playground.js';
+  import { createOutcomeTracker } from '../scripts/playground-outcomes.mjs';
+  const outcomes = createOutcomeTracker('dexpot', (event: string, properties: Record<string, string>) => (window as typeof window & { posthog?: { capture: (name: string, props: Record<string, string>) => void } }).posthog?.capture(event, properties));
   const state = createState();
   const operation = document.querySelector<HTMLSelectElement>('#operation');
   const idField = document.querySelector<HTMLInputElement>('#item-id');
@@ -58,14 +60,25 @@ import { createState, execute, measureRun } from '../scripts/crud-playground.js'
     const timing = document.querySelector<HTMLElement>('#run-timing');
     if (timing) timing.firstChild!.textContent = '— ';
     const rawPrice = priceField.value;
-    const measured = measureRun(() => {
-      const result = execute(state, { operation: operation.value, id: Number(idField.value), name: nameField.value, price: rawPrice === '' ? Number.NaN : Number(rawPrice) });
-      Object.assign(state, result.state);
-      text('#contract-request', JSON.stringify(result.result.request, null, 2));
-      text('#contract-response', JSON.stringify(result.result.response, null, 2));
-      text('#contract-error', result.result.response.status >= 400 ? result.result.response.body.detail : '');
-    });
-    if (timing) timing.firstChild!.textContent = `${measured.elapsedMs.toFixed(3)} ms `;
+    const attempt = outcomes.start('crud');
+    try {
+      const measured = measureRun(() => {
+        const result = execute(state, { operation: operation.value, id: Number(idField.value), name: nameField.value, price: rawPrice === '' ? Number.NaN : Number(rawPrice) });
+        Object.assign(state, result.state);
+        const status = result.result.response.status;
+        text('#contract-request', JSON.stringify(result.result.request, null, 2));
+        text('#contract-response', JSON.stringify(result.result.response, null, 2));
+        text('#contract-error', status >= 400 ? result.result.response.body.detail : '');
+        return result.result.response;
+      });
+      if ('error' in measured) throw measured.error;
+      if (timing) timing.firstChild!.textContent = `${measured.elapsedMs.toFixed(3)} ms `;
+      const response = measured.value!;
+      const status = response.status;
+      outcomes.complete(attempt, status >= 400 ? 'rejected' : 'success', status >= 400 ? (status === 404 ? 'not_found' : status === 422 && response.body.detail.includes('limited') ? 'capacity' : 'validation') : undefined);
+    } catch {
+      outcomes.complete(attempt, 'failed', 'execution');
+    }
   });
   document.querySelector<HTMLButtonElement>('#contract-reset')?.addEventListener('click', () => {
     Object.assign(state, createState());
