@@ -33,6 +33,33 @@ conditional feature allocation, and the parser-only native boundary. Prefer remo
 state and duplicate work over adding abstraction layers. New complexity must earn its place
 through representative measurements on both interpreter modes.
 
+Public simplicity and internal simplicity are separate acceptance criteria. Keep one ordinary
+synchronous application model while allowing measured runtime-specific execution strategies.
+Consolidate duplicated semantic decisions rather than pursuing fewer files or classes as an
+end in itself. A portable contract does not require identical scheduling on every interpreter
+or operating system; platform adapters must stay narrow, documented, and independently tested.
+
+## Delivery order and status
+
+- **Shipped:** HTTP hardening, registration ownership/direct invocation, and the v0.7.0 checked
+  response and envelope contracts. Their completed release gates do not establish broad
+  benchmark leadership or performance parity with older, weaker response contracts.
+- **Implemented but not published:** the optional native request-head parser distribution;
+  publication remains subject to the native promotion gates below.
+- **Next engineering priority:** establish the continuous performance gate in milestone 4 and
+  consolidate response semantics under milestone 3.2a. Local compiler, ownership, and pass-removal
+  experiments are not shipped improvements and do not clear their own promotion gates.
+- **Next application capabilities:** paired lifecycle, typed input sources, and OpenAPI in 3.3,
+  followed by evidence-driven hooks and scoped factories in 3.4. Build on the existing plans;
+  these capabilities are not contingent on first winning every external benchmark.
+- **Parallel work:** production observability and resource budgets in milestone 5. Expand the
+  ecosystem in milestone 6 as its underlying contracts become stable.
+
+Milestone numbers identify workstreams, not a waterfall. Every runtime-affecting change needs
+the applicable correctness, performance, and resource gates before promotion. Long-term goals
+remain a full, useful API framework; the current small surface is a foundation, not a permanent
+restriction to JSON microbenchmarks.
+
 ## Shipped foundation
 
 The current release line provides:
@@ -54,6 +81,10 @@ The current release line provides:
   msgspec object is constructed only for Request-aware endpoints and exposes method, path, raw path
   parameters, raw query, headers, raw body, and the already validated body without a facade.
 - msgspec response encoding and `(status, payload)` handler returns.
+- Declared `response=T` validation and public projection, malformed/nested/default value
+  checks, non-finite rejection, Request-leak protection, and sanitized output failures.
+- Immutable `Response` and bytes-only `RawResponse` envelopes with server-owned framing;
+  `response=None` remains generic and does not acquire schema filtering implicitly.
 - HTTP/1.1 keep-alive with one connection owned by one worker until close.
 - Bounded HTTP/1.0 and HTTP/1.1 request parsing with configurable request-line, header, body,
   idle-read, and absolute head/body deadlines.
@@ -141,7 +172,7 @@ Exit evidence covers reuse across applications, failed-registration atomicity, r
 stale annotation regressions, wrapped/local aliases, callable objects, partials, concurrent
 registration, and unchanged HTTP binding behavior on both interpreter modes.
 
-#### 3.2 Request-aware response handling and output policy
+#### 3.2 Request-aware response handling and output policy (shipped in v0.7.0)
 
 The implementation preserves the original frozen, GC-tracked msgspec Request and conditional
 allocation. Recursive leak detection uses compiled Struct field names without resolving
@@ -165,11 +196,48 @@ explicit status/content type. Framing stays server-owned, raw output requires `r
 204/205/304 are bodyless, and `(status, payload)` remains supported. Invalid output returns a
 sanitized 500 and preserves keep-alive recovery.
 
-Local regression coverage includes projection, schema edge cases, metadata validation,
-requestless allocation, HEAD and pipelining. Remaining exit evidence includes the supported
-GIL/FT matrix, installed artifacts, and repeatable correctness-matched end-to-end measurements
-of this production implementation. Earlier experiment timings are not performance claims for
-this change; no Request representation migration or benchmark qualification is implied.
+Release verification covered projection, schema edge cases, metadata validation, requestless
+allocation, HEAD/pipelining, supported GIL/FT tests, installed artifacts, and scoped
+correctness-matched measurements. This contract is shipped; broad cross-platform comparative
+leadership, fixed-offered-load latency, and production resource qualification remain ongoing
+milestone 4 work. Preserve the boundaries and adverse outcomes of earlier measurements rather
+than treating a completed release as proof of universal speedups.
+
+#### 3.2a Consolidate response semantics and qualify execution strategies (next)
+
+Evolve the existing endpoint-plan kernel rather than rewrite the framework:
+
+```text
+one normalized response contract
+    -> shared validation and projection rules
+    -> execution strategy selected during registration
+    -> checked public output
+    -> encoding and server-owned transmission
+```
+
+- Reduce semantic duplication across `_response.py`, `_response_legacy.py`, and the native
+  checked fallback in `_plans.py`. Maintain a shared semantic oracle and explicit fallback
+  boundaries while migrating incrementally; removing a file is not an acceptance criterion.
+- Permit shared canonical execution on GIL builds and thread-owned execution on FT builds
+  when measurements justify them. Bind from registration-owned metadata without repeated
+  annotation inspection, application callbacks, or default-factory execution during binding.
+- Select strategies from proven schema capabilities and runtime requirements, not accumulating
+  operating-system-specific copies of validation logic. Keep the existing Darwin adapter
+  isolated; changing or removing it requires equivalent-contract evidence and restoration tests.
+- Preserve malformed existing/nested object checks, public projection, defaults/factories,
+  Request leakage checks, non-finite rejection, recursive schemas, and sanitized failures.
+  Preserve the documented generic `response=None` and raw-response boundaries.
+- Investigate normalization, conversion, encoding, decoding, allocation, and graph ownership
+  at actual endpoint call sites. Fewer passes are an optimization hypothesis, not proof of
+  improved useful throughput or latency. Retain unsuccessful controls.
+- Measure registration cost, first use per thread, retained memory per graph, connection churn,
+  and native-fallback concurrency as well as steady-state replies.
+
+Exit evidence: the same semantic corpus through every strategy; real HTTP and installed-artifact
+tests on supported GIL/FT configurations; matched small, nested, fallback, and mixed workloads;
+fixed-offered-load latency and resource budgets from milestone 4. A candidate must preserve
+correctness and show a repeatable scoped benefit without violating mandatory workload budgets.
+Do not replace a failed throughput/tail gate with a source-level simplification argument.
 
 #### 3.3 Paired lifecycle and typed input sources
 
@@ -178,6 +246,9 @@ this change; no Request representation migration or benchmark qualification is i
 - Distinguish process/application, worker/thread, connection, and request lifetimes. A leased
   database connection need not have the sharing rules of its pool; a process-local singleton
   is not shared state across workers.
+- Document that the same application source does not imply identical state sharing: GIL
+  process fan-out replicates pools and caches, whereas FT threads share process-local state.
+  Validate pool ownership, leases, thread safety, and total connection budgets explicitly.
 - Extend request context with lazy decoded query/cookie views and explicitly sourced client
   metadata. Define repeated values, missing versus null, and trusted-proxy behavior.
 - Add typed query/header/cookie binding with explicit ambiguity resolution and registration-time
@@ -187,7 +258,9 @@ this change; no Request representation migration or benchmark qualification is i
 
 Exit evidence: runnable examples under `examples/` for typed CRUD, pagination/repeated values,
 header authentication, transaction failure, outbound blocking I/O, custom response headers,
-and invalid outputs; runtime/schema agreement and exact acquire/use/cleanup traces.
+and invalid outputs; runtime/schema agreement and exact acquire/use/cleanup traces. Verify
+cleanup after partial startup, handler/encoding failures, and shutdown in both modes. Measure
+unused-feature cost and resource retention against the continuous baseline before promotion.
 
 #### 3.4 Optional hooks and scoped factories
 
@@ -234,9 +307,17 @@ claims and native promotion remain gated on complete contract and native-parser 
 allocation and retention profiling, longer bare-metal Linux campaigns, and unchanged 404/405,
 overload, memory, and shutdown behavior.
 
-### 4. Performance evidence and scheduler evolution
+### 4. Continuous performance evidence and scheduler evolution
 
-Start the baseline before optimizing or broadening contracts, then repeat it as contracts evolve:
+This workstream starts before the next runtime optimization and accompanies every feature
+milestone. Use a bounded regression screen for routine changes and a separate, longer held-out
+qualification for promotion. Freeze workloads, versions, expected responses, and quantitative
+budgets before running either; a short screen does not replace release qualification.
+
+Maintain separate comparisons for released-version regressions, equivalent-contract mechanism
+changes, and external framework leadership. Stronger guarantees may legitimately add work;
+report that cost rather than calling weaker-contract speed an optimization target to recover by
+removing checks. Start the baseline before broadening contracts, then repeat it as they evolve:
 
 - Separate normal product facilities, equivalent-feature services, controlled-codec experiments,
   and best deployable stacks. Do not compare unchecked encoding to validated/filtered output
@@ -255,6 +336,12 @@ Start the baseline before optimizing or broadening contracts, then repeat it as 
 - Use `wrk` for saturation diagnostics and an arrival-scheduled generator for latency/SLO
   qualification. Account for coordinated omission, calibration, client validation overhead,
   and generator saturation; short local runs are not promotion evidence.
+- Specify each latency distribution: upstream wrk 4.2 adjusts its histogram with synthetic
+  samples using an interval derived from achieved throughput. Its reported percentiles are
+  not simply percentiles of completed replies. When investigating tails, retain both raw and
+  adjusted histograms from the same run; never select whichever reverses a loss. Raw closed-loop
+  timing still suffers coordinated omission. Qualify latency at the same fixed offered load
+  using intended-send-time accounting and a verified, unsaturated generator.
 - Use randomized paired trials, separate tuning from held-out confirmation, retain every trial
   and invalidation reason, and report uncertainty and losing cells. Do not average percentiles
   into a fictitious pooled distribution or hide a losing runtime in a combined score.
@@ -268,6 +355,10 @@ Start the baseline before optimizing or broadening contracts, then repeat it as 
   thread, file-descriptor, and mixed-workload pressure. Measure idle-connection fairness and
   admission behavior while preserving one owner at a time; reconsider idle-socket scheduling
   only if measured resource/SLO failures justify it.
+- Treat exclusive connection ownership and permanent thread attachment as separate decisions.
+  The shipped worker owns keep-alive until close. Any future idle-connection handoff needs a
+  separate reviewed contract proving single ownership, ordering, buffer preservation,
+  pipelining, fairness, timeout, and drain correctness before changing that behavior.
 - Preserve the issue #18 parser parity and goodput gates; moving additional work into native
   code requires measured end-to-end benefit and supported GIL/FT artifacts.
 
@@ -275,6 +366,12 @@ Exit evidence: a correctness-matched baseline and reproducible qualification man
 observed semantic mismatches in the acceptance corpus, bounded resource recovery, and a
 meaningful repeatable benefit without material regressions in mandatory workloads. Agree
 quantitative budgets before confirmation rather than choosing them after seeing results.
+
+For each mandatory workload, record a maximum error budget, successful-response latency target,
+minimum useful throughput, and total CPU/memory/thread/fd limits. Separate capacity tests from
+below-capacity latency tests. Preserve every failure and unknown cause; CPU-heavy builds and
+other owned tests must not overlap timed trials. Disclose unavoidable unrelated host load and
+separate Docker portability evidence from bare-metal or separate-client performance evidence.
 
 A future publishable benchmark harness and results require their own reviewed scope. Keep raw
 local spike scripts and outputs outside this roadmap change; only research conclusions belong
