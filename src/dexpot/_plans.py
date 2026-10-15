@@ -300,10 +300,14 @@ class EndpointPlan:
             else None,
         )
 
+        from ._scalar_response import compile_scalar
+
         object.__setattr__(
             self,
             "resp_prepare",
-            compile_preparer(resp_type, _checked_fallback) if resp_type is not None else None,
+            compile_scalar(resp_type, compile_preparer(resp_type, _checked_fallback))
+            if resp_type is not None
+            else None,
         )
 
         signature = _handler_signature(handler)

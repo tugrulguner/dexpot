@@ -95,7 +95,8 @@ The current release line provides:
 - One-process thread-per-connection execution on free-threaded CPython, bounded by a
   configurable process-wide active-connection cap with immediate 503 shedding.
 - Bounded GIL thread pools with queue limits and immediate 503 shedding.
-- Optional POSIX `SO_REUSEPORT` worker processes on GIL builds.
+- Released v0.7.0: optional POSIX `SO_REUSEPORT` worker processes on GIL builds.
+  This experimental branch evaluates a shared listener; see [qualification status](docs/experimental-execution.md).
 - Worker restart, partial-startup cleanup, SIGINT/SIGTERM handling, and bounded draining.
 - A CLI for loading `module:attribute` applications.
 - Installable coding-agent guidance for six agent formats.
@@ -356,7 +357,7 @@ removing checks. Start the baseline before broadening contracts, then repeat it 
   admission behavior while preserving one owner at a time; reconsider idle-socket scheduling
   only if measured resource/SLO failures justify it.
 - Treat exclusive connection ownership and permanent thread attachment as separate decisions.
-  The shipped worker owns keep-alive until close. Any future idle-connection handoff needs a
+  The released v0.7.0 worker owns keep-alive until close. Any future idle-connection handoff needs a
   separate reviewed contract proving single ownership, ordering, buffer preservation,
   pipelining, fairness, timeout, and drain correctness before changing that behavior.
 - Preserve the issue #18 parser parity and goodput gates; moving additional work into native

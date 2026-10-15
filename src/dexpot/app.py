@@ -22,7 +22,7 @@ import threading
 import time
 from collections import deque
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, cast
 
 import msgspec
 
@@ -105,6 +105,46 @@ class Dex:
         self._cond = threading.Condition()
         self._stopping = threading.Event()
         self._active_connections: set[socket.socket] = set()
+        self._gil_hub: Any = None
+        self._gil_workers_ready = 0
+
+    def _ensure_gil_hub(self) -> Any:
+        from ._gil_idle import GILIdleHub
+
+        with self._cond:
+            if self._gil_hub is None:
+                self._gil_hub = GILIdleHub(self, POOL_SIZE, MAX_QUEUE, MAX_CONNECTIONS)
+            return self._gil_hub
+
+    def _start_gil_workers(self, listener: socket.socket) -> None:
+        workers: list[threading.Thread] = []
+        try:
+            self._ensure_gil_hub()
+            for index in range(POOL_SIZE):
+                worker = threading.Thread(
+                    target=self._worker_gil, name=f"dexpot-gil-worker-{index}", daemon=True
+                )
+                worker.start()
+                workers.append(worker)
+            ready_deadline = time.monotonic() + 3
+            with self._cond:
+                while self._gil_workers_ready < POOL_SIZE:
+                    remaining = ready_deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise RuntimeError("GIL worker pool failed to become ready")
+                    self._cond.wait(timeout=min(0.1, remaining))
+            if self._gil_hub.closed or not self._gil_hub.thread.is_alive():
+                raise RuntimeError("GIL readiness owner failed during startup")
+        except BaseException:
+            with contextlib.suppress(OSError):
+                listener.close()
+            try:
+                self._begin_drain(timeout=0)
+            finally:
+                deadline = time.monotonic() + 1
+                for worker in workers:
+                    worker.join(timeout=max(0.0, deadline - time.monotonic()))
+            raise
 
     # ---- route registration ----
 
@@ -472,7 +512,13 @@ class Dex:
     # ---- scheduling ----
 
     def _worker_gil(self) -> None:
+        hub = self._ensure_gil_hub()
+        import select
+
         cond = self._cond
+        with cond:
+            self._gil_workers_ready += 1
+            cond.notify_all()
         while True:
             with cond:
                 while not self._work and not self._stopping.is_set():
@@ -481,38 +527,54 @@ class Dex:
                     return
                 conn, buf = self._work.popleft()
                 self._active_connections.add(conn)
+            hub.started(conn)
+            park = False
+            idle_deadline: float | None = None
             try:
-                while not self._stopping.is_set():
+                # Bound buffered pipeline work before yielding to queued peers.
+                for _ in range(8):
+                    if self._stopping.is_set():
+                        break
                     keep_alive, buf = self._process(conn, buf)
                     if not keep_alive:
+                        park = False
                         break
-                conn.close()
+                    park = True
+                    idle_deadline = (
+                        time.monotonic()
+                        + min(self.limits.idle_read_seconds, self.limits.head_read_seconds)
+                        if not buf
+                        else None
+                    )
+                    # Do not retain a hot connection ahead of queued peers.
+                    if self._work:
+                        break
+                    if not buf:
+                        assert idle_deadline is not None
+                        try:
+                            grace = min(
+                                0.005,
+                                max(0.0, idle_deadline - time.monotonic()),
+                            )
+                            readable = bool(select.select([conn], [], [], grace)[0])
+                        except ValueError:
+                            # Some select implementations cannot represent
+                            # high fds; the main selector can still own them.
+                            readable = False
+                        if not readable or time.monotonic() >= idle_deadline:
+                            break
+                else:
+                    park = True
             except (ConnectionError, OSError, ValueError):
-                with contextlib.suppress(OSError):
-                    conn.close()
+                park = False
             finally:
                 with cond:
                     self._active_connections.discard(conn)
                     cond.notify_all()
-
-    def _start_gil_workers(self, listener: socket.socket) -> None:
-        """Roll back a partially started pool before propagating startup failure."""
-        workers: list[threading.Thread] = []
-        try:
-            for _ in range(POOL_SIZE):
-                worker = threading.Thread(target=self._worker_gil, daemon=True)
-                worker.start()
-                workers.append(worker)
-        except BaseException:
-            with contextlib.suppress(OSError):
-                listener.close()
-            try:
-                self._begin_drain(timeout=0)
-            finally:
-                deadline = time.monotonic() + 1.0
-                for worker in workers:
-                    worker.join(timeout=max(0.0, deadline - time.monotonic()))
-            raise
+                if park and not self._stopping.is_set():
+                    hub.park(conn, buf, deadline=idle_deadline)
+                else:
+                    hub.release(conn)
 
     def _own_connection(self, conn: socket.socket, buf: bytes, *, registered: bool = False) -> None:
         if not registered:
@@ -602,7 +664,12 @@ class Dex:
                         finally:
                             slots.release()
             return
-        # GIL build: bounded pool + fast-shed on saturation.
+        # GIL build: park idle sockets without occupying an application worker.
+        if self._gil_hub is not None:
+            if not self._gil_hub.admit(conn, buf):
+                self._reject_overload(conn)
+            return
+        # Preserve pre-serving admission behavior for direct/internal callers.
         with self._cond:
             saturated = len(self._work) >= MAX_QUEUE
             if not saturated:
@@ -647,22 +714,26 @@ class Dex:
         if threading.current_thread() is threading.main_thread():
             signal.signal(signal.SIGTERM, stop)
             signal.signal(signal.SIGINT, stop)
-        while not stopping.is_set():
-            try:
-                conn, _addr = srv.accept()
-            except TimeoutError:
-                continue
-            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            conn.settimeout(self.limits.idle_read_seconds)
-            self._handle_admission(conn, b"")
-        with contextlib.suppress(OSError):
-            srv.close()
-        self._begin_drain(timeout=5.0)
+        try:
+            while not stopping.is_set():
+                try:
+                    conn, _addr = srv.accept()
+                except TimeoutError:
+                    continue
+                conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                conn.settimeout(self.limits.idle_read_seconds)
+                self._handle_admission(conn, b"")
+        finally:
+            with contextlib.suppress(OSError):
+                srv.close()
+            self._begin_drain(timeout=5.0)
 
     def _begin_drain(self, timeout: float) -> None:
         """Stop new work, discard queued idle connections, and wait for active
         connections up to *timeout*. Close survivors after the deadline."""
         self._stopping.set()
+        if self._gil_hub is not None:
+            self._gil_hub.stop()
         deadline = time.monotonic() + timeout
         with self._cond:
             while self._work:
@@ -689,15 +760,11 @@ class Dex:
             self._handle_admission(conn, b"")
 
     def _serve_multiprocess(self, host: str, port: int, n_workers: int) -> None:
-        """Supervise one process-local SO_REUSEPORT listener per GIL worker."""
+        """Supervise workers sharing one inherited listening socket."""
         if os.name != "posix":
             raise OSError(
-                "DEXPOT_WORKERS > 1 requires POSIX fork + SO_REUSEPORT; "
+                "DEXPOT_WORKERS > 1 requires POSIX fork; "
                 f"found {os.name!r}. Use DEXPOT_WORKERS=1 on this platform."
-            )
-        if not hasattr(socket, "SO_REUSEPORT"):
-            raise OSError(
-                "DEXPOT_WORKERS > 1 requires SO_REUSEPORT; use DEXPOT_WORKERS=1 on this platform."
             )
         if threading.current_thread() is not threading.main_thread():
             raise RuntimeError(
@@ -705,32 +772,24 @@ class Dex:
                 "start dexpot from its CLI or a process, not a background thread"
             )
 
-        # Preflight bind before launching anything. Workers create their own
-        # process-local listeners after fork, so no child inherits unused peers.
-        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-            probe.bind((host, port))
-        finally:
-            probe.close()
-
-        print(
-            f"dexpot serving on http://{host}:{port} pid={os.getpid()} "
-            f"mode=pooled-gil({POOL_SIZE})x{n_workers}",
-            flush=True,
-        )
-
         procs: list[Any] = []
         stopping = threading.Event()
 
         def stop(*_args: object) -> None:
             stopping.set()
 
-        signal.signal(signal.SIGTERM, stop)
-        signal.signal(signal.SIGINT, stop)
-
+        # Keep every allocation after socket creation inside the ownership
+        # boundary, including IPC and signal setup failures before fork.
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.bind((host, port))
+            listener.listen(SOCKET_BACKLOG)
+            listener.settimeout(0.5)
+            self._shared_listener = listener
+            self._worker_accept_gate = _multiprocessing.Event()
+            signal.signal(signal.SIGTERM, stop)
+            signal.signal(signal.SIGINT, stop)
             for _ in range(n_workers):
                 proc = self._new_worker(host, port)
                 proc.start()
@@ -743,28 +802,42 @@ class Dex:
             startup_deadline = time.monotonic() + 3.0
             while True:
                 dead = [i for i, p in enumerate(procs) if not p.is_alive()]
-                if not dead:
+                pending = [p for p in procs if not p._dexpot_ready.is_set()]
+                if not dead and not pending:
                     break
                 if time.monotonic() >= startup_deadline:
-                    raise RuntimeError(f"{len(dead)} dexpot worker(s) failed during startup")
+                    raise RuntimeError("Dexpot worker set failed to become ready")
                 for i in dead:
                     replacement = self._new_worker(host, port)
                     replacement.start()
                     procs[i] = replacement
                 time.sleep(0.2)
 
+            self._worker_accept_gate.set()
+            print(
+                f"dexpot serving on http://{host}:{port} pid={os.getpid()} "
+                f"mode=pooled-gil({POOL_SIZE})x{n_workers}",
+                flush=True,
+            )
             while not stopping.is_set():
                 self._restart_dead_workers(self, host, port, procs)
                 stopping.wait(1.0)
         finally:
             self._teardown(procs)
+            with contextlib.suppress(OSError):
+                listener.close()
+            self._shared_listener = None
+            self._worker_accept_gate = None
 
     def _new_worker(self, host: str, port: int) -> Any:
-        return _multiprocessing.Process(
+        ready = _multiprocessing.Event()
+        proc = _multiprocessing.Process(
             target=self._worker_process,
-            args=(host, port),
+            args=(host, port, ready),
             daemon=True,
         )
+        cast(Any, proc)._dexpot_ready = ready
+        return proc
 
     @staticmethod
     def _restart_dead_workers(owner: Dex, host: str, port: int, procs: list[Any]) -> None:
@@ -793,14 +866,14 @@ class Dex:
                     proc.kill()
                     proc.join(timeout=1)
 
-    def _worker_process(self, host: str, port: int) -> None:
+    def _worker_process(self, host: str, port: int, ready: Any = None) -> None:
         """Child entrypoint: create a process-local listener, serve, then drain."""
         self._stopping.clear()
-        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        listener.bind((host, port))
-        listener.listen(SOCKET_BACKLOG)
+        listener = getattr(self, "_shared_listener", None)
+        if listener is None:
+            listener = self._make_listener(host, reuseport=False)
+            listener.bind((host, port))
+            listener.listen(SOCKET_BACKLOG)
         listener.settimeout(0.5)
 
         def stop(*_args: object) -> None:
@@ -810,7 +883,17 @@ class Dex:
         signal.signal(signal.SIGINT, stop)
 
         self._start_gil_workers(listener)
+
         try:
+            if ready is not None:
+                ready.set()
+            gate = getattr(self, "_worker_accept_gate", None)
+            gate_deadline = time.monotonic() + 5
+            while gate is not None and not gate.wait(timeout=0.1):
+                if self._stopping.is_set():
+                    return
+                if time.monotonic() >= gate_deadline:
+                    raise RuntimeError("worker accept gate failed to open")
             while not self._stopping.is_set():
                 try:
                     conn, _addr = listener.accept()

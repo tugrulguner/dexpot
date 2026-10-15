@@ -49,7 +49,9 @@ Use `make format` before committing.
 
 - Plain synchronous handlers; no coroutine bridge in the request path.
 - Route and argument errors fail during registration when they can be known then.
-- A worker owns a keep-alive connection until close.
+- A connection has one owner at a time: the experimental GIL readiness owner parks idle
+  sockets and bounded pool workers handle readable work; FT owners retain their connection.
+  Preserve absolute deadlines across every ownership handoff.
 - GIL queues and free-threaded active connections remain bounded and return 503 instead of
   accumulating unlimited work or creating unlimited threads.
 - Free-threaded and GIL behavior are tested deliberately rather than assumed equivalent.

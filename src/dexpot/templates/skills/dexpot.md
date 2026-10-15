@@ -186,10 +186,11 @@ The scheduler is selected when dexpot imports:
 - **Free-threaded build:** one process, one owning thread per admitted connection. Threads
   can execute Python in parallel. `DEXPOT_MAX_CONNECTIONS` defaults to 1,024; excess
   connections receive 503 before a thread is created.
-- **GIL build:** a bounded pool owns connections. The queue is bounded; saturated admission
+- **GIL build (experimental branch):** a bounded readiness owner parks idle sockets. A bounded pool
+  handles readable work. Both pending work and total connections are bounded; overload
   returns 503 rather than accumulating unlimited work.
-- **GIL + `DEXPOT_WORKERS>1`:** POSIX-only `SO_REUSEPORT` processes, each with a local pool
-  and listener. Unsupported platforms raise instead of silently changing behavior.
+- **GIL + `DEXPOT_WORKERS>1`:** POSIX fork processes share a supervisor-owned listener, with
+  process-local pools/readiness state. Unsupported platforms raise.
 
 Tune before importing the application:
 
@@ -199,8 +200,10 @@ DEXPOT_POOL=16 DEXPOT_MAX_QUEUE=32 dexpot serve main:app
 DEXPOT_WORKERS=4 dexpot serve main:app
 ```
 
-A worker owns a keep-alive connection until close. Never requeue an idle live connection:
-it consumes admission capacity and can block a worker waiting for the next request.
+A keep-alive connection has exactly one owner at a time. GIL workers may retain hot connections
+for a bounded wait, yield to queued peers, and park idle connections in the readiness owner.
+Preserve the same absolute idle/head expiry across handoff. FT owners retain connections
+until close. The experimental scheduling/scalar changes are not fully latency-qualified.
 
 SIGINT/SIGTERM stop new admission and allow active connections up to five seconds to drain.
 Multiprocess workers restart after crashes.

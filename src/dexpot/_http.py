@@ -19,6 +19,8 @@ _HEX = frozenset(b"0123456789abcdefABCDEF")
 _UNRESERVED = frozenset(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
 _SUB_DELIMS = frozenset(b"!$&'()*+,;=")
 _PCHAR = _UNRESERVED | _SUB_DELIMS | frozenset(b":@")
+_PLAIN_PATH_BYTES = bytes(sorted(_PCHAR | frozenset(b"/")))
+_INVALID_HEADER_VALUE = re.compile(rb"[\x00-\x08\x0a-\x1f\x7f]")
 _QUERY_CHAR = _PCHAR | frozenset(b"/?")
 _REG_NAME = re.compile(rb"^(?:[A-Za-z0-9._~-]|[!$&'()*+,;=]|%[0-9A-Fa-f]{2})+$")
 _IPV_FUTURE = re.compile(rb"^[vV][0-9A-Fa-f]+\.[A-Za-z0-9._~!$&'()*+,;=:-]+$")
@@ -147,6 +149,10 @@ def _validate_target_component(raw: bytes, allowed: frozenset[int]) -> None:
 
 
 def _decode_path(target: bytes) -> tuple[str, str]:
+    # Deletion uses the exact existing allowed-byte set. Percent escapes,
+    # queries, fragments, controls and high bytes retain the complete oracle.
+    if target.startswith(b"/") and not target.translate(None, _PLAIN_PATH_BYTES):
+        return target.decode("ascii"), ""
     if b"#" in target:
         raise HTTPParseError(400, "invalid request target")
     raw_path, separator, raw_query = target.partition(b"?")
@@ -174,7 +180,7 @@ def _validate_port(raw: bytes) -> None:
 
 
 def _validate_host(raw: bytes) -> None:
-    if not raw or b"," in raw or b"@" in raw or any(byte > 0x7F for byte in raw):
+    if not raw or b"," in raw or b"@" in raw or not raw.isascii():
         raise HTTPParseError(400, "invalid host header")
     if raw.startswith(b"["):
         close = raw.find(b"]")
@@ -228,7 +234,7 @@ def _parse_headers(lines: list[bytes], limit: int, body_limit: int) -> tuple[dic
             raise HTTPParseError(400, "malformed header name")
         name = raw_name.decode("ascii").lower()
         value_bytes = raw_value.strip(b" \t")
-        if any((byte < 0x20 and byte != 0x09) or byte == 0x7F for byte in value_bytes):
+        if _INVALID_HEADER_VALUE.search(value_bytes):
             raise HTTPParseError(400, "malformed header value")
         value = value_bytes.decode("latin-1")
         if name == "host" and name in headers:
