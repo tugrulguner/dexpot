@@ -495,6 +495,25 @@ class Dex:
                     self._active_connections.discard(conn)
                     cond.notify_all()
 
+    def _start_gil_workers(self, listener: socket.socket) -> None:
+        """Roll back a partially started pool before propagating startup failure."""
+        workers: list[threading.Thread] = []
+        try:
+            for _ in range(POOL_SIZE):
+                worker = threading.Thread(target=self._worker_gil, daemon=True)
+                worker.start()
+                workers.append(worker)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                listener.close()
+            try:
+                self._begin_drain(timeout=0)
+            finally:
+                deadline = time.monotonic() + 1.0
+                for worker in workers:
+                    worker.join(timeout=max(0.0, deadline - time.monotonic()))
+            raise
+
     def _own_connection(self, conn: socket.socket, buf: bytes, *, registered: bool = False) -> None:
         if not registered:
             with self._cond:
@@ -618,8 +637,7 @@ class Dex:
         mode = f"bounded-ft({MAX_CONNECTIONS})" if _gil_free else f"pooled-gil({POOL_SIZE})"
         print(f"dexpot serving on http://{host}:{port} pid={os.getpid()} mode={mode}", flush=True)
         if not _gil_free:
-            for _ in range(POOL_SIZE):
-                threading.Thread(target=self._worker_gil, daemon=True).start()
+            self._start_gil_workers(srv)
         # clean exit on SIGTERM/SIGINT (main thread only); otherwise default behavior
         stopping = threading.Event()
 
@@ -791,9 +809,7 @@ class Dex:
         signal.signal(signal.SIGTERM, stop)
         signal.signal(signal.SIGINT, stop)
 
-        for _ in range(POOL_SIZE):
-            threading.Thread(target=self._worker_gil, daemon=True).start()
-
+        self._start_gil_workers(listener)
         try:
             while not self._stopping.is_set():
                 try:
