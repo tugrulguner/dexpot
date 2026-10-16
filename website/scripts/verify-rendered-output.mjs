@@ -110,8 +110,8 @@ for await (const path of htmlFiles(distRoot)) {
   if (html.includes('modepot.com')) failures.push(`${relative(distRoot, path)}: stale ModePot domain`);
   for (const token of [
     'rel="alternate" type="text/plain" href="/llms.txt"',
-    'property="og:image" content="https://dexpot.modepot.io/social-card-v2.png"',
-    'name="twitter:image" content="https://dexpot.modepot.io/social-card-v2.png"',
+    'property="og:image" content="https://dexpot.modepot.io/social-card-v2.png?wordmark-accent-1"',
+    'name="twitter:image" content="https://dexpot.modepot.io/social-card-v2.png?wordmark-accent-1"',
   ]) {
     if (!html.includes(token)) failures.push(`${outputPath}: missing discovery metadata ${token}`);
   }
