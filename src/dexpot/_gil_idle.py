@@ -21,11 +21,11 @@ class GILIdleHub:
         self.connection_limit = connection_limit
         self.lock = threading.Lock()
         self.states: dict[socket.socket, str] = {}
-        self.commands: dict[socket.socket, tuple[str, bytes, float | None]] = {}
-        self.idle: dict[socket.socket, tuple[bytes, float]] = {}
+        self.commands: dict[socket.socket, tuple[str, bytes, float | None, float | None]] = {}
+        self.idle: dict[socket.socket, tuple[bytes, float, float]] = {}
         self.deadlines: list[tuple[float, int, socket.socket]] = []
         self.serial = itertools.count()
-        self.ready: deque[tuple[socket.socket, bytes]] = deque()
+        self.ready: deque[tuple[socket.socket, bytes, float | None]] = deque()
         self.stopping = threading.Event()
         self.closed = False
         self.outstanding = 0
@@ -61,7 +61,14 @@ class GILIdleHub:
             if self.closed or self.stopping.is_set() or len(self.states) >= self.connection_limit:
                 return False
             self.states[conn] = "parking"
-            self.commands[conn] = ("park", buf, None)
+            now = time.monotonic()
+            head_deadline = now + self.owner.limits.head_read_seconds if not buf else None
+            deadline = (
+                min(now + self.owner.limits.idle_read_seconds, head_deadline)
+                if head_deadline is not None
+                else None
+            )
+            self.commands[conn] = ("park", buf, deadline, head_deadline)
         self.wake()
         return True
 
@@ -74,7 +81,14 @@ class GILIdleHub:
         if needs_wake:
             self.wake()
 
-    def park(self, conn: socket.socket, buf: bytes, *, deadline: float | None = None) -> None:
+    def park(
+        self,
+        conn: socket.socket,
+        buf: bytes,
+        *,
+        deadline: float | None = None,
+        head_deadline: float | None = None,
+    ) -> None:
         with self.lock:
             if self.states.get(conn) in ("ready", "queued", "active"):
                 self.outstanding -= 1
@@ -84,7 +98,7 @@ class GILIdleHub:
                     conn.close()
                 return
             self.states[conn] = "parking"
-            self.commands[conn] = ("park", buf, deadline)
+            self.commands[conn] = ("park", buf, deadline, head_deadline)
         self.wake()
 
     def release(self, conn: socket.socket) -> None:
@@ -97,7 +111,7 @@ class GILIdleHub:
                     conn.close()
                 return
             self.states[conn] = "closing"
-            self.commands[conn] = ("close", b"", None)
+            self.commands[conn] = ("close", b"", None, None)
         self.wake()
 
     def unregister(self, conn: socket.socket) -> None:
@@ -113,7 +127,7 @@ class GILIdleHub:
         with contextlib.suppress(OSError):
             conn.close()
 
-    def make_ready(self, conn: socket.socket, buf: bytes) -> None:
+    def make_ready(self, conn: socket.socket, buf: bytes, head_deadline: float | None) -> None:
         # Reserve execution capacity plus the bounded wait queue, even before
         # newly notified workers have had a scheduling turn.
         if self.outstanding >= self.pool + self.queue_limit:
@@ -125,16 +139,16 @@ class GILIdleHub:
             return
         self.states[conn] = "ready"
         self.outstanding += 1
-        self.ready.append((conn, buf))
+        self.ready.append((conn, buf, head_deadline))
 
     def flush_ready(self) -> None:
         with self.owner._cond:
             while self.ready and len(self.owner._work) < self.queue_limit:
-                conn, buf = self.ready.popleft()
+                conn, buf, head_deadline = self.ready.popleft()
                 if self.states.get(conn) != "ready":
                     continue
                 self.states[conn] = "queued"
-                self.owner._work.append((conn, buf))
+                self.owner._work.append((conn, buf, head_deadline))
                 self.owner._cond.notify()
 
     def run(self) -> None:
@@ -143,7 +157,7 @@ class GILIdleHub:
                 with self.lock:
                     commands = list(self.commands.items())
                     self.commands.clear()
-                    for conn, (action, buf, deadline) in commands:
+                    for conn, (action, buf, deadline, head_deadline) in commands:
                         if action == "close":
                             self.close(conn)
                             continue
@@ -151,7 +165,7 @@ class GILIdleHub:
                             continue
                         self.unregister(conn)
                         if buf:
-                            self.make_ready(conn, buf)
+                            self.make_ready(conn, buf, head_deadline)
                         else:
                             try:
                                 self.selector.register(conn, selectors.EVENT_READ)
@@ -159,18 +173,20 @@ class GILIdleHub:
                                 self.close(conn)
                                 continue
                             self.states[conn] = "idle"
+                            now = time.monotonic()
+                            if head_deadline is None:
+                                head_deadline = now + self.owner.limits.head_read_seconds
                             if deadline is None:
-                                deadline = time.monotonic() + min(
-                                    self.owner.limits.idle_read_seconds,
-                                    self.owner.limits.head_read_seconds,
+                                deadline = min(
+                                    now + self.owner.limits.idle_read_seconds, head_deadline
                                 )
-                            self.idle[conn] = (buf, deadline)
+                            self.idle[conn] = (buf, deadline, head_deadline)
                             heapq.heappush(self.deadlines, (deadline, next(self.serial), conn))
                     # Compact stale entries at a hard connection-derived bound.
                     if len(self.deadlines) > 2 * self.connection_limit:
                         self.deadlines = [
                             (deadline, next(self.serial), conn)
-                            for conn, (_, deadline) in self.idle.items()
+                            for conn, (_, deadline, _) in self.idle.items()
                         ]
                         heapq.heapify(self.deadlines)
                     now = time.monotonic()
@@ -213,9 +229,17 @@ class GILIdleHub:
                             continue
                         if self.states.get(conn) != "idle":
                             continue
-                        buf = self.idle[conn][0]
+                        buf, deadline, head_deadline = self.idle[conn]
+                        if time.monotonic() >= deadline:
+                            with contextlib.suppress(OSError):
+                                conn.settimeout(0.001)
+                                self.owner._send(
+                                    conn, 408, b'{"detail":"request timeout"}', keep_alive=False
+                                )
+                            self.close(conn)
+                            continue
                         self.unregister(conn)
-                        self.make_ready(conn, buf)
+                        self.make_ready(conn, buf, head_deadline)
                     self.flush_ready()
         finally:
             with self.lock:

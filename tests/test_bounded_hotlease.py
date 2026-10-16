@@ -16,7 +16,7 @@ def test_hot_connection_retains_short_gap_when_no_peer_waits(monkeypatch):
     server, client = socket.socketpair()
     calls = []
 
-    def process(conn, buf):
+    def process(conn, buf, *, head_deadline=None):
         calls.append("process")
         if len(calls) == 2:
             app._stopping.set()
@@ -27,7 +27,7 @@ def test_hot_connection_retains_short_gap_when_no_peer_waits(monkeypatch):
         # Deterministic peer arrival 2ms after the response, not a host timer test.
         return (read, [], []) if timeout >= 0.002 else ([], [], [])
 
-    def park(conn, buf, *, deadline=None):
+    def park(conn, buf, *, deadline=None, head_deadline=None):
         calls.append("park")
         app._stopping.set()
         hub.release(conn)
@@ -36,7 +36,7 @@ def test_hot_connection_retains_short_gap_when_no_peer_waits(monkeypatch):
     monkeypatch.setattr(select, "select", ready)
     monkeypatch.setattr(hub, "park", park)
     with app._cond:
-        app._work.append((server, b""))
+        app._work.append((server, b"", None))
     worker = threading.Thread(target=app._worker_gil)
     worker.start()
     worker.join(2)
@@ -59,7 +59,7 @@ def test_queued_peer_preempts_hot_connection_wait(monkeypatch):
     second, other = socket.socketpair()
     calls = []
 
-    def process(conn, buf):
+    def process(conn, buf, *, head_deadline=None):
         if conn is first:
             calls.append("first")
             return True, b""
@@ -74,7 +74,7 @@ def test_queued_peer_preempts_hot_connection_wait(monkeypatch):
     monkeypatch.setattr(app, "_process", process)
     monkeypatch.setattr(select, "select", ready)
     with app._cond:
-        app._work.extend([(first, b""), (second, b"")])
+        app._work.extend([(first, b"", None), (second, b"", None)])
     worker = threading.Thread(target=app._worker_gil)
     worker.start()
     worker.join(2)

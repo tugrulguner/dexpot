@@ -69,3 +69,44 @@ def test_idle_keepalive_does_not_occupy_workers_and_pipeline_is_served(
         for worker in workers:
             worker.join(timeout=2)
     assert all(not worker.is_alive() for worker in workers)
+
+
+@pytest.mark.skipif(app_module._gil_free, reason="GIL readiness queue")
+@pytest.mark.parametrize("expired", [False, True])
+def test_ready_queue_preserves_head_budget(expired: bool) -> None:
+    app = Dex(limits=HttpLimits(idle_read_seconds=1.0, head_read_seconds=0.2))
+    invoked = []
+
+    @app.get("/ok")
+    def ok() -> dict[str, bool]:
+        invoked.append(True)
+        return {"ok": True}
+
+    app._compile()
+    hub = app._ensure_gil_hub()
+    server, client = socket.socketpair()
+    worker = threading.Thread(target=app._worker_gil)
+    started = False
+    try:
+        assert hub.admit(server, b"")
+        client.sendall(b"GET /ok HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")
+        deadline = time.monotonic() + 2
+        while True:
+            with hub.lock:
+                if hub.states.get(server) == "queued":
+                    break
+            assert time.monotonic() < deadline, "request did not enter the worker queue"
+            time.sleep(0.001)
+        if expired:
+            time.sleep(0.25)
+        worker.start()
+        started = True
+        response = _read_response(client)
+        assert response.startswith(b"HTTP/1.1 408" if expired else b"HTTP/1.1 200")
+        assert invoked == ([] if expired else [True])
+    finally:
+        client.close()
+        app._begin_drain(timeout=0)
+        if started:
+            worker.join(timeout=2)
+            assert not worker.is_alive()

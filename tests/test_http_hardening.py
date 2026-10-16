@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import math
 import os
@@ -753,14 +754,14 @@ def test_free_threaded_connection_setting_does_not_reduce_gil_queue_capacity(
     rejected_client.settimeout(2)
     try:
         app._handle_admission(queued_server, b"")
-        assert list(app._work) == [(queued_server, b"")]
+        assert list(app._work) == [(queued_server, b"", None)]
 
         app._handle_admission(rejected_server, b"")
         status, headers, body, _rest = _read_response(rejected_client)
         assert status == 503
         assert headers["connection"] == "close"
         assert _json(body) == {"detail": "overloaded"}
-        assert list(app._work) == [(queued_server, b"")]
+        assert list(app._work) == [(queued_server, b"", None)]
     finally:
         app._begin_drain(timeout=0)
         queued_client.close()
@@ -1121,3 +1122,40 @@ def test_sigterm_interrupts_slow_client_and_respects_drain_deadline() -> None:
         if process.poll() is None:
             process.kill()
             process.wait(timeout=2)
+
+
+@pytest.mark.parametrize("keepalive", [False, True])
+@pytest.mark.parametrize(
+    ("idle_seconds", "head_seconds", "gap", "expected"),
+    [(1.0, 0.4, 0.24, 408), (1.0, 0.4, 0.08, 200), (0.3, 1.0, 0.18, 200)],
+    ids=["expired-head", "within-head", "idle-renews"],
+)
+def test_fragmented_head_keeps_deadline_across_readiness_handoff(
+    keepalive: bool, idle_seconds: float, head_seconds: float, gap: float, expected: int
+) -> None:
+    port = _free_port()
+    process = _start_server(port, idle_read_seconds=idle_seconds, head_read_seconds=head_seconds)
+    try:
+        with _connect(port) as sock:
+            if keepalive:
+                sock.sendall(b"GET /health HTTP/1.1\r\nHost: test\r\n\r\n")
+                assert _read_response(sock)[0] == 200
+            time.sleep(gap)
+            sock.sendall(b"G")
+            time.sleep(gap)
+            with contextlib.suppress(OSError):
+                sock.sendall(b"ET /health HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n")
+            status, headers, body, _rest = _read_response(sock)
+            assert status == expected
+            assert headers["connection"] == "close"
+            assert json.loads(body) == (
+                {"detail": "request timeout"} if expected == 408 else {"ok": True}
+            )
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=8)
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=2)

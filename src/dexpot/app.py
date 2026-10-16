@@ -101,7 +101,7 @@ class Dex:
         self._plan: ApplicationPlan | None = None
         self._declaration_lock = threading.RLock()
         self._registration_depth = 0
-        self._work: deque[tuple[socket.socket, bytes]] = deque()
+        self._work: deque[tuple[socket.socket, bytes, float | None]] = deque()
         self._cond = threading.Condition()
         self._stopping = threading.Event()
         self._active_connections: set[socket.socket] = set()
@@ -325,9 +325,11 @@ class Dex:
 
     # ---- request processing ----
 
-    def _process(self, conn: socket.socket, buf: bytes) -> tuple[bool, bytes]:
+    def _process(
+        self, conn: socket.socket, buf: bytes, *, head_deadline: float | None = None
+    ) -> tuple[bool, bytes]:
         try:
-            request, buf = read_request(conn, buf, self.limits)
+            request, buf = read_request(conn, buf, self.limits, head_deadline=head_deadline)
         except ClientDisconnected:
             return False, b""
         except HTTPParseError as exc:
@@ -525,7 +527,7 @@ class Dex:
                     cond.wait(timeout=0.5)
                 if self._stopping.is_set() and not self._work:
                     return
-                conn, buf = self._work.popleft()
+                conn, buf, head_deadline = self._work.popleft()
                 self._active_connections.add(conn)
             hub.started(conn)
             park = False
@@ -535,15 +537,18 @@ class Dex:
                 for _ in range(8):
                     if self._stopping.is_set():
                         break
-                    keep_alive, buf = self._process(conn, buf)
+                    keep_alive, buf = self._process(conn, buf, head_deadline=head_deadline)
                     if not keep_alive:
                         park = False
                         break
                     park = True
+                    # A new request gets a new head budget, not a new budget at
+                    # every readiness/queue/grace ownership transition.
+                    now = time.monotonic()
+                    head_deadline = now + self.limits.head_read_seconds if not buf else None
                     idle_deadline = (
-                        time.monotonic()
-                        + min(self.limits.idle_read_seconds, self.limits.head_read_seconds)
-                        if not buf
+                        min(now + self.limits.idle_read_seconds, head_deadline)
+                        if head_deadline is not None
                         else None
                     )
                     # Do not retain a hot connection ahead of queued peers.
@@ -572,7 +577,7 @@ class Dex:
                     self._active_connections.discard(conn)
                     cond.notify_all()
                 if park and not self._stopping.is_set():
-                    hub.park(conn, buf, deadline=idle_deadline)
+                    hub.park(conn, buf, deadline=idle_deadline, head_deadline=head_deadline)
                 else:
                     hub.release(conn)
 
@@ -673,7 +678,7 @@ class Dex:
         with self._cond:
             saturated = len(self._work) >= MAX_QUEUE
             if not saturated:
-                self._work.append((conn, buf))
+                self._work.append((conn, buf, None))
                 self._cond.notify()
         if saturated:
             self._reject_overload(conn)
@@ -737,7 +742,7 @@ class Dex:
         deadline = time.monotonic() + timeout
         with self._cond:
             while self._work:
-                conn, _buf = self._work.popleft()
+                conn, _buf, _head_deadline = self._work.popleft()
                 with contextlib.suppress(OSError):
                     conn.close()
             self._cond.notify_all()

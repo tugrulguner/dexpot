@@ -8,6 +8,7 @@ This branch is a **draft**, not a release or a claim of performance qualificatio
 - Per-serving-thread scalar function/global bindings derived from canonical registration code. This does not re-inspect application annotations per request or promise an atomic snapshot during concurrent class mutation.
 - A bounded GIL idle-readiness owner. Active workers handle parsing, handlers and output; idle sockets do not permanently occupy handler workers. Pending work, connection count and stale deadline metadata remain bounded.
 - A bounded hot-connection grace wait of at most 5 ms, immediate yielding to already queued peers, and an eight-request maximum turn. One absolute idle/head expiry survives worker-to-reactor handoff; grace does not restart the configured timeout.
+- The absolute head deadline also survives reactor-to-ready-to-worker handoff and hot-grace reuse. Idle-read expiry remains separate, so receiving a fragment renews the idle-read wait without renewing the absolute head budget. New requests, including buffered pipeline requests, receive their own head budget.
 - A parent-created listening socket shared by POSIX fork workers, child pool-readiness events, an accept gate, and explicit startup/drain resource ownership. FT remains single-process. This is not Windows multiprocessing support.
 - Narrow Python parser byte fast paths retaining the reference error and framing behavior.
 
@@ -31,6 +32,8 @@ The control is the reviewed experimental predecessor, **not released Dexpot**. C
 Sampled macOS process-tree lifetime CPU was 112.19/128.41 s for the predecessor and 37.57/37.88 s for the candidate. This includes startup/teardown, not an isolated per-request CPU measurement. Peak sampled tree RSS was approximately 100–103 MiB. These are short paired results on one host, not sustained production SLO/resource qualification.
 
 The exact measured Python-source hashes and compact trial metrics are in `benchmarks/checked_execution/evidence.json`. The source wheel used for these trials had SHA-256 `63762ee3f25dbc001bb0335e6e8085922a0078ab95c6648254dd5d7615d32d59`; PR documentation/test-compatibility additions can change the rebuilt archive hash. Verify source fingerprints instead of assuming archive identity.
+
+The later review repair for reactor-to-worker head-deadline propagation changes runtime source beyond those recorded fingerprints. The historical trials remain evidence for their measured source only; they do not qualify this repaired artifact. Fresh performance qualification remains required.
 
 ### Earlier source generations are separate evidence
 
