@@ -11,7 +11,7 @@ This branch is a **draft**, not a release or a claim of performance qualificatio
 - A parent-created listening socket shared by POSIX fork workers, child pool-readiness events, an accept gate, and explicit startup/drain resource ownership. FT remains single-process. This is not Windows multiprocessing support.
 - Narrow Python parser byte fast paths retaining the reference error and framing behavior.
 
-The small startup rollback fix is separately proposed in [#115](https://github.com/tugrulguner/dexpot/pull/115). This draft currently includes that commit and targets main so its own CI runs. After #115 is merged by the maintainer, rebase this branch; do not merge both copies blindly.
+The small startup rollback fix was merged separately in [#115](https://github.com/tugrulguner/dexpot/pull/115). This draft is rebased onto that merged main commit; its remaining diff contains only the experimental execution work and supporting documentation/tests.
 
 ## Evidence and limits
 
