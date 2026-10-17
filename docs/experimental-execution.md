@@ -9,12 +9,70 @@ This branch is a **draft**, not a release or a claim of performance qualificatio
 - A bounded GIL idle-readiness owner. Active workers handle parsing, handlers and output; idle sockets do not permanently occupy handler workers. Pending work, connection count and stale deadline metadata remain bounded.
 - A bounded hot-connection grace wait of at most 5 ms, immediate yielding to already queued peers, and an eight-request maximum turn. One absolute idle/head expiry survives worker-to-reactor handoff; grace does not restart the configured timeout.
 - The absolute head deadline also survives reactor-to-ready-to-worker handoff and hot-grace reuse. Idle-read expiry remains separate, so receiving a fragment renews the idle-read wait without renewing the absolute head budget. New requests, including buffered pipeline requests, receive their own head budget.
-- A parent-created listening socket shared by POSIX fork workers, child pool-readiness events, an accept gate, and explicit startup/drain resource ownership. FT remains single-process. This is not Windows multiprocessing support.
+- A parent-created listening socket shared by POSIX fork workers, child pool-readiness events, an accept gate, and explicit startup/drain resource ownership. GIL-disabled execution remains single-process. This is not Windows multiprocessing support.
 - Narrow Python parser byte fast paths retaining the reference error and framing behavior.
 
 The small startup rollback fix was merged separately in [#115](https://github.com/tugrulguner/dexpot/pull/115). This draft is rebased onto that merged main commit; its remaining diff contains only the experimental execution work and supporting documentation/tests.
 
-## Latest installed-artifact qualification: failed
+## Runtime-identity hardening and targeted rechecks
+
+The verification gap is addressed on this draft; performance promotion is **not** cleared.
+A free-threaded build and a running GIL-disabled process are recorded separately.
+
+- `scripts/verify_runtime_mode.py` checks the actual serving process after application
+  imports, startup, representative valid/invalid typed HTTP routes, raw output and a lazy
+  import. It rejects GIL launch overrides; ordinary native-wheel integration no longer
+  forces `-X gil=0`. On POSIX FT CI, a compiled extension with no free-threading support
+  declaration must enable the GIL and be detected at both startup and lazy import.
+  A separate unforced case verifies the legitimate free-threaded-build/GIL-enabled mode.
+- Scheduling is bound at `serve()` after application loading. Startup labels distinguish
+  standard Python/GIL enabled, free-threaded Python/GIL disabled and free-threaded
+  Python/GIL enabled. A later change is warned about at connection admission or accept
+  timeouts; the running scheduler is not silently migrated. There is no added GIL query
+  during request dispatch and no new production configuration surface.
+- The benchmark fixture emits startup and post-drain identities from every serving PID,
+  including dependency versions and launch overrides. Its validator rejects missing,
+  duplicate, mismatched or forced-mode evidence. A fixture-only shared lock serializes
+  records across workers without assuming Linux's pipe atomic-write limit on macOS.
+  These records prove worker presence/state, not balanced request participation.
+- These checks qualify Dexpot's tested dependencies and integrations. Neither retained
+  disabled-GIL state nor a compatibility tracker proves arbitrary application code is
+  safe under concurrent requests.
+
+Four prior losing workloads were rechecked with the exact installed runtime wheel
+`c6dbfe14d0ab10856acfc33dcbb43666c0fb5a0d25ce72cbdc451f99b88ec2d2`,
+frozen runtime/fixture commit `505bcb0bf48dd664d903dd667873e8963093e715`.
+The later guard-only Windows PID correction does not change runtime or fixture bytes.
+Every Python runtime member was checked against the wheel, frozen source and delivered
+checkout. Full definitions, fingerprints and observed identities are in
+[`runtime-identity-rechecks.json`](../benchmarks/checked_execution/runtime-identity-rechecks.json).
+
+| Rechecked workload | Correct replies/s | p99 | Observed mode |
+| --- | --- | --- | --- |
+| Ubuntu GIL, mixed fixed load | 9,998.37 | 7.507 ms scheduled | GIL enabled, all four worker PIDs |
+| Ubuntu FT, mixed fixed load | 9,998.47 | 5.027 ms scheduled | GIL disabled |
+| Ubuntu FT, mixed capacity | 16,496.08 | 9.642 ms closed-loop | GIL disabled |
+| macOS GIL, mixed fixed load | 9,982.53 | **48.351 ms scheduled** | GIL enabled, all four worker PIDs |
+
+All four records passed runtime-identity validation: 20 startup/post-workload snapshots
+from 10 distinct serving PIDs, 2,788,935 correct replies, zero body mismatches and zero
+reported transport errors. No automatic GIL fallback was observed in the new FT rechecks.
+This does **not** retrospectively establish lifetime GIL state in the older campaign,
+which had startup-only checks. Candidate-only rechecks establish no capacity ratio or
+full qualification. The macOS GIL scheduled-tail failure remains; original gates and
+all adverse records are retained.
+
+Local `make check build` passed (557 tests, 21 skips); the full FT source suite passed
+(553 tests, 25 skips). Clean installed-wheel suites at the initial hardening snapshot
+passed on macOS FT and Ubuntu GIL. Ubuntu FT first failed the previously observed
+4-versus-3 process-thread-count assertion, then passed one unchanged full rerun; both
+logs remain and no cause or fix is claimed. Windows native CI exposed a separate guard
+assumption: a venv redirector's launcher PID can differ from the Python server PID.
+The guard now anchors HTTP snapshots to the actual process's private per-launch import
+record and retains both PIDs; regressions cover legitimate redirection and a genuinely
+mismatched server. This does not relax the GIL-state or same-server requirements.
+
+## Latest complete performance qualification: failed
 
 The completed 32-trial campaign measured runtime commit
 `4225a3babd8536c0ffc9faee371f10628d9e9853` against the prior draft head
