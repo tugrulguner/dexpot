@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -13,6 +14,57 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "verify_runtime_mode.py"
+
+
+@pytest.mark.parametrize("misdirected", [False, True])
+def test_guard_anchors_identity_to_server_not_windows_venv_redirector(
+    monkeypatch, tmp_path, misdirected
+):
+    spec = importlib.util.spec_from_file_location("runtime_guard", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    guard = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(guard)
+    info = {
+        "pid": 4002,
+        "free_threaded_build": False,
+        "gil_enabled": True,
+        "selected_gil_enabled": True,
+        "execution_mode": "pooled-gil",
+        "launch_overrides": {"PYTHON_GIL": None, "gil": None},
+    }
+
+    class Redirector:
+        pid = 4001
+        returncode = 0
+
+        def __init__(self, command, **kwargs):
+            record = Path(command[command.index("--import-record") + 1])
+            record.write_text(
+                json.dumps({**info, "selected_gil_enabled": None, "execution_mode": "unbound"})
+            )
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            pass
+
+        def communicate(self, **kwargs):
+            return "", ""
+
+    def http(base, path, data=None):
+        if path == "/runtime":
+            return 200, json.dumps({**info, "pid": 4003 if misdirected else 4002}).encode()
+        if path == "/typed":
+            return (422, b"") if data == b'{"value":"bad"}' else (200, b'{"value":8}')
+        return {"/invalid": (500, b""), "/raw": (200, b"ready"), "/lazy": (200, b'{"lazy":true}')}[
+            path
+        ]
+
+    monkeypatch.setattr(guard.subprocess, "Popen", Redirector)
+    monkeypatch.setattr(guard, "http", http)
+    result = guard.run_case("gil", tmp_path)
+    assert result["valid"] is (not misdirected), result
 
 
 def test_guard_requires_explicit_expected_mode() -> None:

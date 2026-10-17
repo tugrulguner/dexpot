@@ -173,7 +173,11 @@ def run_case(
         lazy["phase"] = "after_lazy_import"
         report["snapshots"].append(lazy)
         check_snapshot(lazy, expected, bound=True)
-        if {row["pid"] for row in report["snapshots"]} != {process.pid}:
+        # Windows venv redirectors may launch the actual Python server as a
+        # child with a different PID. Anchor all HTTP evidence to that server's
+        # private per-launch application-import record, not the launcher PID.
+        report.update(launcher_pid=process.pid, server_pid=imported["pid"])
+        if {row["pid"] for row in report["snapshots"]} != {imported["pid"]}:
             raise ModeMismatch("runtime evidence did not come from the actual serving process")
         report["valid"] = True
     except ModeMismatch as exc:
