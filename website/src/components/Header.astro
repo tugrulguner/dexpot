@@ -1,12 +1,11 @@
 ---
 import LanguageSelect from '@astrojs/starlight/components/LanguageSelect.astro';
 import Search from '@astrojs/starlight/components/Search.astro';
-import SiteTitle from '@astrojs/starlight/components/SiteTitle.astro';
 import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
 ---
 
 <div class="header">
-  <div class="title-wrapper sl-flex"><SiteTitle /></div>
+  <div class="title-wrapper sl-flex"><a class="site-title" href="/" aria-label="Dexpot home"><img src="/favicon.svg" alt="" width="32" height="32" /><span>dex</span><span class="wordmark-suffix">pot</span></a></div>
   <div class="sl-flex print:hidden header-tools">
     <Search />
   </div>

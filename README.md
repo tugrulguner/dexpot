@@ -1,7 +1,7 @@
 # dexpot
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/assets/dexpot.png" alt="dexpot synchronous Python API framework" width="600">
+  <img src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/assets/dexpot.png?wordmark-accent-1" alt="dexpot synchronous Python API framework" width="600">
 </p>
 
 <p align="center">Part of <a href="https://modepot.io/">ModePot</a>. &nbsp; <a href="https://dexpot.modepot.io/">Project website</a> &nbsp; <a href="https://tugrul.modepot.io/">Created by Tugrul Guner</a></p>

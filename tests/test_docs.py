@@ -59,7 +59,8 @@ def test_readme_hero_is_an_optimized_png() -> None:
     assert (width, height) == (1200, 900)
     assert len(data) < 700_000
     assert (
-        'src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/assets/dexpot.png"' in text
+        'src="https://raw.githubusercontent.com/tugrulguner/dexpot/main/assets/dexpot.png?wordmark-accent-1"'
+        in text
     )
     assert 'alt="dexpot synchronous Python API framework"' in text
     assert 'width="600"' in text
