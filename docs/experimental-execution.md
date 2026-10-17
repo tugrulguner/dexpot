@@ -14,6 +14,23 @@ This branch is a **draft**, not a release or a claim of performance qualificatio
 
 The small startup rollback fix was merged separately in [#115](https://github.com/tugrulguner/dexpot/pull/115). This draft is rebased onto that merged main commit; its remaining diff contains only the experimental execution work and supporting documentation/tests.
 
+## Owner-thread lifetime follow-up
+
+FT admission capacity now remains reserved until the admitting/draining thread has joined
+an exited owner. Releasing the permit inside the owner target allowed a replacement to
+start while the prior OS thread was still exiting. A deterministic real-thread regression
+holds that exact boundary and verifies rejection without overlap, then capacity recovery
+only after exit. Reaping occurs on admission/drain, with no background manager or added
+request-path bookkeeping, and remains process-wide across applications.
+
+The hardening test startup helper now observes listener announcement instead of creating
+an unaccounted HTTP probe owner, and the two-slow-client resource test establishes that
+its baseline owner has exited. Its original three-thread bound and rejection assertions
+are retained. The shutdown-before-start regression uses a real Thread subclass so both
+registration visibility and complete owner cleanup are exercised. Local gates passed:
+558 tests/21 skips on GIL; 554/25 on FT. Performance requalification is still pending;
+this correctness repair does not clear the scheduled-tail or capacity gates.
+
 ## Runtime-identity hardening and targeted rechecks
 
 The verification gap is addressed on this draft; performance promotion is **not** cleared.

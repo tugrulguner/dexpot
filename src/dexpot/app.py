@@ -65,6 +65,18 @@ if MAX_QUEUE <= 0:
 if MAX_CONNECTIONS <= 0:
     raise ValueError("DEXPOT_MAX_CONNECTIONS must be positive")
 _FT_CONNECTION_SLOTS = threading.BoundedSemaphore(MAX_CONNECTIONS) if _gil_free else None
+_FT_OWNERS_LOCK = threading.RLock()
+_FT_OWNERS: dict[threading.Thread, tuple[Dex, threading.BoundedSemaphore]] = {}
+
+
+def _reap_ft_owners() -> None:
+    """Caller holds the registry lock; return permits only after native join."""
+    for owner, (_app, slots) in tuple(_FT_OWNERS.items()):
+        if owner.ident is not None and not owner.is_alive():
+            owner.join()
+            del _FT_OWNERS[owner]
+            slots.release()
+
 
 _json_encode = msgspec.json.encode
 _logger = logging.getLogger("dexpot.error")
@@ -673,12 +685,9 @@ class Dex:
                 self._cond.notify_all()
 
     def _own_connection_ft(self, conn: socket.socket, buf: bytes) -> None:
-        slots = _FT_CONNECTION_SLOTS
-        assert slots is not None
-        try:
-            self._own_connection(conn, buf, registered=True)
-        finally:
-            slots.release()
+        # The admitting thread reaps/join()s this owner before returning its
+        # permit. Releasing here would allow a replacement before thread exit.
+        self._own_connection(conn, buf, registered=True)
 
     @staticmethod
     def _reject_overload(conn: socket.socket) -> None:
@@ -703,29 +712,41 @@ class Dex:
         if self._serving_gil_free:
             slots = _FT_CONNECTION_SLOTS
             assert slots is not None
-            if not slots.acquire(blocking=False):
-                self._reject_overload(conn)
-                return
+            acquired = False
             registered = False
             owner_started = False
             start_failed = False
             try:
-                with self._cond:
-                    if not self._stopping.is_set():
-                        self._active_connections.add(conn)
-                        registered = True
-                if registered:
-                    owner = threading.Thread(
-                        target=self._own_connection_ft,
-                        args=(conn, buf),
-                        daemon=True,
-                    )
-                    try:
-                        owner.start()
-                    except RuntimeError:
+                with _FT_OWNERS_LOCK:
+                    _reap_ft_owners()
+                    acquired = slots.acquire(blocking=False)
+                    if not acquired:
                         start_failed = True
                     else:
-                        owner_started = True
+                        with self._cond:
+                            if not self._stopping.is_set():
+                                self._active_connections.add(conn)
+                                registered = True
+                        if registered:
+                            owner = threading.Thread(
+                                target=self._own_connection_ft,
+                                args=(conn, buf),
+                                daemon=True,
+                            )
+                            # Publish before start while holding the registry
+                            # lock: neither a fast exit nor a concurrent app can
+                            # race an unregistered/unstarted owner.
+                            _FT_OWNERS[owner] = (self, slots)
+                            try:
+                                owner.start()
+                            except BaseException as exc:
+                                del _FT_OWNERS[owner]
+                                if not isinstance(exc, RuntimeError):
+                                    raise
+                                start_failed = True
+                            else:
+                                owner_started = True
+                                _reap_ft_owners()
             finally:
                 if not owner_started:
                     try:
@@ -740,7 +761,8 @@ class Dex:
                                 self._active_connections.discard(conn)
                                 self._cond.notify_all()
                         finally:
-                            slots.release()
+                            if acquired:
+                                slots.release()
             return
         # GIL build: park idle sockets without occupying an application worker.
         if self._gil_hub is not None:
@@ -837,6 +859,13 @@ class Dex:
             with contextlib.suppress(OSError):
                 conn.shutdown(socket.SHUT_RDWR)
                 conn.close()
+        with _FT_OWNERS_LOCK:
+            owners = [owner for owner, (app, _slots) in _FT_OWNERS.items() if app is self]
+        for owner in owners:
+            if owner.ident is not None:
+                owner.join(timeout=max(0.0, deadline - time.monotonic()))
+        with _FT_OWNERS_LOCK:
+            _reap_ft_owners()
 
     def _accept_loop(self, srv: socket.socket) -> None:
         while True:

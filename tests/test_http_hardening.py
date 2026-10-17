@@ -55,6 +55,13 @@ def _start_server(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
+    assert process.stdout is not None
+    # An HTTP readiness probe consumes an FT permit and can still be exiting
+    # when a cap-one test begins. Observe listener startup without creating an
+    # unaccounted owner; each test exercises its own real HTTP request.
+    os.set_blocking(process.stdout.fileno(), False)
+    announced = b""
+    marker = f"dexpot serving on http://127.0.0.1:{port} ".encode()
     deadline = time.monotonic() + 8
     while time.monotonic() < deadline:
         if process.poll() is not None:
@@ -63,13 +70,12 @@ def _start_server(
                 f"hardened test server exited early\nstdout={stdout!r}\nstderr={stderr!r}"
             )
         try:
-            with socket.create_connection(("127.0.0.1", port), timeout=0.1) as sock:
-                sock.sendall(b"GET /health HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n")
-                status, _headers, _body, _rest = _read_response(sock)
-                if status == 200:
-                    return process
-        except OSError:
-            time.sleep(0.05)
+            announced += os.read(process.stdout.fileno(), 4096)
+            if marker in announced:
+                return process
+        except BlockingIOError:
+            pass
+        time.sleep(0.01)
     process.kill()
     stdout, stderr = process.communicate()
     raise TimeoutError(f"hardened test server not ready\nstdout={stdout!r}\nstderr={stderr!r}")
@@ -910,6 +916,13 @@ def test_free_threaded_connection_cap_bounds_threads_and_file_descriptors() -> N
         )
         assert status == 200
         baseline_fds = _json_int(body, "file_descriptors")
+        # A response body can arrive before its Connection: close owner has
+        # exited. Establish the intended empty baseline, not an extra hidden
+        # owner, before occupying both permits with the two slow connections.
+        deadline = time.monotonic() + 3
+        while (count := _process_thread_count(process.pid)) is not None and count != 1:
+            assert time.monotonic() < deadline, "baseline owner did not exit"
+            time.sleep(0.01)
 
         slow = [_connect(port) for _ in range(2)]
         for sock in slow:
@@ -1076,17 +1089,13 @@ def test_free_threaded_shutdown_sees_admission_before_thread_start(
     server, client = socket.socketpair()
     observed_registered = False
 
-    class DrainBeforeStart:
-        def __init__(self, **kwargs: object) -> None:
-            self.kwargs = kwargs
-
+    class DrainBeforeStart(original_thread):
         def start(self) -> None:
             nonlocal observed_registered
             observed_registered = server in app._active_connections
             app._begin_drain(timeout=0)
-            owner = original_thread(**self.kwargs)  # type: ignore[arg-type]
-            owner.start()
-            owner.join(timeout=1)
+            super().start()
+            self.join(timeout=1)
 
     monkeypatch.setattr(threading, "Thread", DrainBeforeStart)
     try:
