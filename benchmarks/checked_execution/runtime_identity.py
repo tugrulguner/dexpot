@@ -27,12 +27,12 @@ def runtime_snapshot(app: Any, phase: str) -> dict[str, Any]:
 
 
 def emit_runtime_event(app: Any, phase: str) -> None:
-    # One write keeps fork-worker records intact in a shared stdout pipe.
+    # macOS PIPE_BUF may be only 512 bytes. Serialize fixture-owned records
+    # across fork workers rather than assuming Linux's 4096-byte atomic bound.
     payload = (PREFIX + json.dumps(runtime_snapshot(app, phase)) + "\n").encode()
-    if len(payload) > 4096:
-        raise RuntimeError("runtime identity record exceeds atomic pipe-write bound")
-    if os.write(1, payload) != len(payload):
-        raise RuntimeError("incomplete runtime identity record")
+    with app._identity_write_lock:
+        if os.write(1, payload) != len(payload):
+            raise RuntimeError("incomplete runtime identity record")
 
 
 def validate_runtime_events(

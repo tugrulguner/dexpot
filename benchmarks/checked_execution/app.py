@@ -244,8 +244,18 @@ elif FLAVOR == "dexpot":
     from dexpot import Dex
     from runtime_identity import emit_runtime_event
 
+    import multiprocessing
+    import threading
+
     class AuditedDex(Dex):
         """Fixture-only lifecycle records, never a per-request GIL query."""
+
+        def __init__(self):
+            super().__init__()
+            self._identity_write_lock = (
+                multiprocessing.get_context("fork").Lock()
+                if os.name == "posix" else threading.Lock()
+            )
 
         def _report_startup(self) -> None:
             if getattr(self, "_identity_startup_pid", None) != os.getpid():

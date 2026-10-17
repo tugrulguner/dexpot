@@ -9,6 +9,7 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -42,6 +43,34 @@ def log(events):
     return "unrelated startup log\n" + "\n".join(
         "RUNTIME_IDENTITY " + json.dumps(row) for row in events
     )
+
+
+def test_identity_writes_are_serialized_without_assuming_platform_pipe_buf(monkeypatch):
+    module = helper()
+    held = []
+    writes = []
+
+    class Lock:
+        def __enter__(self):
+            held.append(True)
+
+        def __exit__(self, *args):
+            held.pop()
+
+    def write(fd, payload):
+        assert held == [True]
+        writes.append(payload)
+        return len(payload)
+
+    app = SimpleNamespace(
+        _runtime_info=lambda: {"python": "long version " * 500},
+        _active_connections=set(),
+        _identity_write_lock=Lock(),
+    )
+    monkeypatch.setattr(module.os, "write", write)
+    module.emit_runtime_event(app, "startup")
+    assert len(writes) == 1
+    assert writes[0].startswith(b"RUNTIME_IDENTITY ")
 
 
 def test_accepts_complete_matching_worker_lifecycles():
