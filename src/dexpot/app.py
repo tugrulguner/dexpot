@@ -575,7 +575,10 @@ class Dex:
             finally:
                 with cond:
                     self._active_connections.discard(conn)
-                    cond.notify_all()
+                    # Only drain waiters need a completion broadcast. Work
+                    # admission wakes its own workers in GILIdleHub.flush_ready.
+                    if self._stopping.is_set():
+                        cond.notify_all()
                 if park and not self._stopping.is_set():
                     hub.park(conn, buf, deadline=idle_deadline, head_deadline=head_deadline)
                 else:

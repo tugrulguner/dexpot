@@ -110,7 +110,9 @@ def _recv(
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise HTTPParseError(408, "request timeout", version)
-    conn.settimeout(min(idle_seconds, remaining))
+    timeout = min(idle_seconds, remaining)
+    if type(conn) is not socket.socket or conn.gettimeout() != timeout:
+        conn.settimeout(timeout)
     try:
         return conn.recv(65536)
     except TimeoutError as exc:
@@ -423,7 +425,8 @@ def read_request(
 
         # `_recv` tightens the socket timeout to the remaining absolute deadline.
         # Restore the normal idle timeout before response writes or the next request.
-        conn.settimeout(limits.idle_read_seconds)
+        if type(conn) is not socket.socket or conn.gettimeout() != limits.idle_read_seconds:
+            conn.settimeout(limits.idle_read_seconds)
         return (
             ParsedRequest(
                 method=method,
