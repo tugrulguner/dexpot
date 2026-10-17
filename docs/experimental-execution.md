@@ -14,7 +14,78 @@ This branch is a **draft**, not a release or a claim of performance qualificatio
 
 The small startup rollback fix was merged separately in [#115](https://github.com/tugrulguner/dexpot/pull/115). This draft is rebased onto that merged main commit; its remaining diff contains only the experimental execution work and supporting documentation/tests.
 
-## Evidence and limits
+## Latest installed-artifact qualification: failed
+
+The completed 32-trial campaign measured runtime commit
+`4225a3babd8536c0ffc9faee371f10628d9e9853` against the prior draft head
+`4b97265832c8df72ef5fec017904765f09c82203`, not against released Dexpot.
+The runtime change removes redundant exact-socket timeout updates and unnecessary
+GIL completion broadcasts. It does **not** include the ctypes/libc socket experiment;
+Python still owns socket I/O and the native boundary remains parser-only.
+
+The frozen installed wheel has SHA-256
+`67641d759d2ba7cab816970509331296fcfb3cd582ecb542d233989d76c59e65`.
+Every Python runtime member was checked against the wheel, sdist, frozen source and
+published runtime checkout. Documentation-only follow-ups do not change those runtime
+bytes. Full cell definitions, source/client/harness fingerprints, interpreter/import
+identity, metrics, sampled resources and failure details are retained in
+[`qualification.json`](../benchmarks/checked_execution/qualification.json).
+
+The declared gates were unchanged: 10,000 offered requests/s within ±5%, scheduled
+p99 at most 20 ms, exact responses and zero reported errors, candidate/control capacity
+goodput ratio at least 0.95, and the recorded CPU/RSS/thread/fd budgets. Each cell was
+configured for 60 seconds; fixed-load comparisons used ABBA order. No failed timed cell was
+replaced or selectively retried.
+
+| Failed candidate cell | Recorded outcome | Acceptance |
+| --- | --- | --- |
+| Ubuntu GIL, second fixed-load trial | 9,270.27 correct replies/s; scheduled p99 8,683.519 ms | Rate and scheduled-tail failure |
+| macOS GIL, first fixed-load trial | 9,996.25 correct replies/s; scheduled p99 33.471 ms | Scheduled-tail failure |
+| Ubuntu FT, first fixed-load trial | Client exited -6 in HDR `counts_index`; no final metrics | Invalid trial, not a latency pass |
+| Ubuntu FT, mixed capacity | 23,251.04/s versus control 80,241.17/s; ratio 0.2898 | Capacity failure |
+
+All 32 trial records were collected; 31 have complete, exact-response/zero-reported-error
+results. Those 31 reported 32,439,698 correct replies and zero body mismatches. The
+crashed client's reply count and error totals are unknown, not zero. Seven of eight
+capacity pairs passed their frozen gate. Candidate sampled resource checks passed,
+but neither the fixed-load nor overall capacity gate passed. One Ubuntu GIL control
+also missed offered rate, so do not infer matched-load relative latency from that pair.
+
+Evidence is macOS and Ubuntu ARM64 Docker loopback on a shared host, not bare-metal
+Linux, separate-host load generation, a soak or framework leadership. The observed
+failure is sufficient to withhold promotion; the measurements do not establish every
+underlying cause.
+
+### Follow-up diagnostics, not replacement qualification
+
+- Request-count instrumentation reproduced nonuniform GIL process distribution. One
+  candidate trial had per-worker connection counts 5/0/6/5 and scheduled p99 303.871 ms;
+  another had 5/1/5/5 and 4.915 ms. An idle process and concentrated work are observed,
+  not proof that distribution alone explains every failure.
+- Removing periodic idle-worker waits did not clear the tail screen and was not promoted.
+- Four FT source-only capacity ablations showed substantial run-to-run variation; they
+  do not establish a causal explanation for the installed campaign's capacity loss.
+- The original fixed-rate client crash was reproduced with line-buffered stdout. A
+  separately rebuilt, stack-instrumented diagnostic client completed two trials without
+  that crash. This is not a fix for the original client or a replacement for its failed
+  qualification record; its underlying cause remains unresolved.
+- Earlier ctypes and other adverse campaigns remain retained outside this campaign.
+  Neither a favorable diagnostic nor green CI clears the failed performance gates.
+
+### Correctness and review of the runtime repair
+
+Three new regression cases failed before the repair and passed afterward; the shutdown
+broadcast control also passes. `make check build` passed: GIL 526 passed/19 skipped,
+lint/format/Pyright, wheel and sdist. Clean installed-wheel suites passed: macOS FT
+521/24, Ubuntu GIL 525/20 and Ubuntu FT 517/28. The first macOS FT invocation omitted
+the environment's bin directory from PATH and failed console-script discovery; the
+unchanged artifact passed after correcting PATH, and the failed invocation is retained.
+
+Exact-runtime-head CI passed. Independent static review found no new correctness
+blockers in the narrow repair, while explicitly retaining the overall changes-required
+verdict for performance promotion. This is not whole-draft merge approval.
+
+## Historical evidence and limits
 
 The recorded workload is in `benchmarks/checked_execution/`. All measurements below use checked native response paths and exact response-body validation. The older competitor comparison has different invalid-output guarantees: native FastAPI does not reject a protected Request hidden in discarded private fields. It is not an equal-contract universal ranking.
 
