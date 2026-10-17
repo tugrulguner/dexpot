@@ -19,6 +19,8 @@ _HEX = frozenset(b"0123456789abcdefABCDEF")
 _UNRESERVED = frozenset(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
 _SUB_DELIMS = frozenset(b"!$&'()*+,;=")
 _PCHAR = _UNRESERVED | _SUB_DELIMS | frozenset(b":@")
+_PLAIN_PATH_BYTES = bytes(sorted(_PCHAR | frozenset(b"/")))
+_INVALID_HEADER_VALUE = re.compile(rb"[\x00-\x08\x0a-\x1f\x7f]")
 _QUERY_CHAR = _PCHAR | frozenset(b"/?")
 _REG_NAME = re.compile(rb"^(?:[A-Za-z0-9._~-]|[!$&'()*+,;=]|%[0-9A-Fa-f]{2})+$")
 _IPV_FUTURE = re.compile(rb"^[vV][0-9A-Fa-f]+\.[A-Za-z0-9._~!$&'()*+,;=:-]+$")
@@ -108,7 +110,9 @@ def _recv(
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise HTTPParseError(408, "request timeout", version)
-    conn.settimeout(min(idle_seconds, remaining))
+    timeout = min(idle_seconds, remaining)
+    if type(conn) is not socket.socket or conn.gettimeout() != timeout:
+        conn.settimeout(timeout)
     try:
         return conn.recv(65536)
     except TimeoutError as exc:
@@ -147,6 +151,10 @@ def _validate_target_component(raw: bytes, allowed: frozenset[int]) -> None:
 
 
 def _decode_path(target: bytes) -> tuple[str, str]:
+    # Deletion uses the exact existing allowed-byte set. Percent escapes,
+    # queries, fragments, controls and high bytes retain the complete oracle.
+    if target.startswith(b"/") and not target.translate(None, _PLAIN_PATH_BYTES):
+        return target.decode("ascii"), ""
     if b"#" in target:
         raise HTTPParseError(400, "invalid request target")
     raw_path, separator, raw_query = target.partition(b"?")
@@ -174,7 +182,7 @@ def _validate_port(raw: bytes) -> None:
 
 
 def _validate_host(raw: bytes) -> None:
-    if not raw or b"," in raw or b"@" in raw or any(byte > 0x7F for byte in raw):
+    if not raw or b"," in raw or b"@" in raw or not raw.isascii():
         raise HTTPParseError(400, "invalid host header")
     if raw.startswith(b"["):
         close = raw.find(b"]")
@@ -228,7 +236,7 @@ def _parse_headers(lines: list[bytes], limit: int, body_limit: int) -> tuple[dic
             raise HTTPParseError(400, "malformed header name")
         name = raw_name.decode("ascii").lower()
         value_bytes = raw_value.strip(b" \t")
-        if any((byte < 0x20 and byte != 0x09) or byte == 0x7F for byte in value_bytes):
+        if _INVALID_HEADER_VALUE.search(value_bytes):
             raise HTTPParseError(400, "malformed header value")
         value = value_bytes.decode("latin-1")
         if name == "host" and name in headers:
@@ -338,14 +346,19 @@ def read_request(
     conn: socket.socket,
     buf: bytes,
     limits: HttpLimits,
+    *,
+    head_deadline: float | None = None,
 ) -> tuple[ParsedRequest, bytes]:
     """Read and parse one bounded request, preserving pipelined bytes."""
 
     delimiter = b"\r\n\r\n"
-    head_deadline = time.monotonic() + limits.head_read_seconds
+    if head_deadline is None:
+        head_deadline = time.monotonic() + limits.head_read_seconds
     head_buffer = bytearray(buf)
     try:
         while True:
+            if time.monotonic() >= head_deadline:
+                raise HTTPParseError(408, "request timeout")
             delimiter_index = head_buffer.find(delimiter)
             if delimiter_index >= 0:
                 break
@@ -412,7 +425,8 @@ def read_request(
 
         # `_recv` tightens the socket timeout to the remaining absolute deadline.
         # Restore the normal idle timeout before response writes or the next request.
-        conn.settimeout(limits.idle_read_seconds)
+        if type(conn) is not socket.socket or conn.gettimeout() != limits.idle_read_seconds:
+            conn.settimeout(limits.idle_read_seconds)
         return (
             ParsedRequest(
                 method=method,

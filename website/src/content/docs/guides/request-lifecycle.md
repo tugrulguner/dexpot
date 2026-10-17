@@ -3,6 +3,9 @@ title: Trace a request through Dexpot
 description: Follow the actual ownership path from decorators and immutable plans through parsing, scheduling, binding, and response writing.
 ---
 
+> This page describes the released v0.7.0 execution model. The current draft branch
+> contains unpromoted execution experiments; see the [draft qualification status](https://github.com/tugrulguner/dexpot/blob/perf/checked-execution-draft/docs/experimental-execution.md).
+
 This is an internals guide for maintainers and agents investigating the boundary between an endpoint declaration and an HTTP response. Public contract details remain in [routes and handlers](/route-contract/), the [execution model](/execution-model/), and the [HTTP boundary](/http-boundary/).
 
 ## Declaration and compilation

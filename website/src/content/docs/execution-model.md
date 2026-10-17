@@ -3,6 +3,9 @@ title: Execution model
 description: How Dexpot schedules synchronous handlers on free-threaded and standard GIL CPython, including admission limits and process fan-out.
 ---
 
+> This page describes the released v0.7.0 execution model. The current draft branch
+> contains unpromoted execution experiments; see the [draft qualification status](https://github.com/tugrulguner/dexpot/blob/perf/checked-execution-draft/docs/experimental-execution.md).
+
 Dexpot chooses its scheduler once when the module imports. The request ownership and compilation path is traced in [Trace a request through Dexpot](/guides/request-lifecycle/). The application keeps the same synchronous handlers in every mode.
 
 | Runtime | Default serving model | Overload behavior |

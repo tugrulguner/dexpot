@@ -3,6 +3,9 @@ title: Deploy within current boundaries
 description: Select Dexpot's interpreter-specific scheduler, size bounded admission, operate shutdown, and keep unsupported edge responsibilities outside the alpha framework.
 ---
 
+> This page describes the released v0.7.0 execution model. The current draft branch
+> contains unpromoted execution experiments; see the [draft qualification status](https://github.com/tugrulguner/dexpot/blob/perf/checked-execution-draft/docs/experimental-execution.md).
+
 **Status:** Dexpot is alpha and is not yet recommended for untrusted production traffic. Read [current boundaries](/current-boundaries/) before adoption. This guide explains shipped process behavior; it does not add TLS, middleware, authentication, proxy-header trust, or a hardened deployment mode.
 
 ## Select the serving model

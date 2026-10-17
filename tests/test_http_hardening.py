@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import math
 import os
@@ -753,14 +754,14 @@ def test_free_threaded_connection_setting_does_not_reduce_gil_queue_capacity(
     rejected_client.settimeout(2)
     try:
         app._handle_admission(queued_server, b"")
-        assert list(app._work) == [(queued_server, b"")]
+        assert list(app._work) == [(queued_server, b"", None)]
 
         app._handle_admission(rejected_server, b"")
         status, headers, body, _rest = _read_response(rejected_client)
         assert status == 503
         assert headers["connection"] == "close"
         assert _json(body) == {"detail": "overloaded"}
-        assert list(app._work) == [(queued_server, b"")]
+        assert list(app._work) == [(queued_server, b"", None)]
     finally:
         app._begin_drain(timeout=0)
         queued_client.close()
@@ -1121,3 +1122,68 @@ def test_sigterm_interrupts_slow_client_and_respects_drain_deadline() -> None:
         if process.poll() is None:
             process.kill()
             process.wait(timeout=2)
+
+
+@pytest.mark.parametrize("keepalive", [False, True])
+def test_fragmented_head_keeps_deadline_across_readiness_handoff(keepalive: bool) -> None:
+    port = _free_port()
+    process = _start_server(port, idle_read_seconds=1.0, head_read_seconds=0.4)
+    try:
+        with _connect(port) as sock:
+            if keepalive:
+                sock.sendall(b"GET /health HTTP/1.1\r\nHost: test\r\n\r\n")
+                assert _read_response(sock)[0] == 200
+            time.sleep(0.24)
+            sock.sendall(b"G")
+            time.sleep(0.24)
+            with contextlib.suppress(OSError):
+                sock.sendall(b"ET /health HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n")
+            status, headers, body, _rest = _read_response(sock)
+            assert status == 408
+            assert headers["connection"] == "close"
+            assert json.loads(body) == {"detail": "request timeout"}
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=8)
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=2)
+
+
+@pytest.mark.parametrize("inherited", [False, True])
+@pytest.mark.parametrize("idle_seconds", [0.3, 1.0])
+def test_fragment_progress_renews_idle_not_head_budget(
+    monkeypatch: pytest.MonkeyPatch, inherited: bool, idle_seconds: float
+) -> None:
+    # Model arrival times, not host sleep precision: a busy runner must not turn
+    # a valid-request control into a genuinely expired request.
+    now = 100.0
+    monkeypatch.setattr("dexpot._http.time.monotonic", lambda: now)
+
+    class FragmentedSocket:
+        def __init__(self) -> None:
+            self.parts = iter([b"G", b"ET /health HTTP/1.1\r\nHost: test\r\n\r\n"])
+            self.timeouts: list[float] = []
+
+        def settimeout(self, value: float) -> None:
+            self.timeouts.append(value)
+
+        def recv(self, _size: int) -> bytes:
+            nonlocal now
+            now += 0.18
+            return next(self.parts)
+
+    sock = FragmentedSocket()
+    request, rest = read_request(
+        sock,  # type: ignore[arg-type]
+        b"",
+        HttpLimits(idle_read_seconds=idle_seconds, head_read_seconds=1.0),
+        head_deadline=100.4 if inherited else None,
+    )
+    assert request.path == "/health"
+    assert rest == b""
+    budget = 0.4 if inherited else 1.0
+    expected = [min(idle_seconds, budget), min(idle_seconds, budget - 0.18), idle_seconds]
+    assert sock.timeouts == pytest.approx(expected)

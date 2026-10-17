@@ -1,0 +1,132 @@
+{
+  "comparisons": {
+    "deadline-comparison": {
+      "control": "reviewed predecessor cc580b, not released Dexpot",
+      "trials": 4,
+      "valid": 4,
+      "exact_replies": 999667,
+      "per_side": {
+        "baseline": {
+          "goodput_rps": [
+            9996.631149062974,
+            9996.852358325224
+          ],
+          "scheduled_p99_ms": [
+            6.331,
+            4.363
+          ],
+          "process_lifetime_sampled_cpu_s": [
+            112.19,
+            128.41
+          ],
+          "sampled_tree_peak_rss_mib": [
+            99.59375,
+            103.4375
+          ]
+        },
+        "candidate": {
+          "goodput_rps": [
+            9996.716427450667,
+            9996.712389348142
+          ],
+          "scheduled_p99_ms": [
+            3.197,
+            3.407
+          ],
+          "process_lifetime_sampled_cpu_s": [
+            37.57,
+            37.88
+          ],
+          "sampled_tree_peak_rss_mib": [
+            101.5625,
+            102.84375
+          ]
+        }
+      },
+      "candidate_gate_pass": true,
+      "paired_p99_ratios": [
+        0.5049755172958459,
+        0.7808847123538849
+      ],
+      "paired_cpu_ratios": [
+        0.3348783314020858,
+        0.29499260182228804
+      ]
+    },
+    "deadline-linux-comparison": {
+      "control": "reviewed predecessor cc580b, not released Dexpot",
+      "trials": 4,
+      "valid": 1,
+      "exact_replies": 896638,
+      "per_side": {
+        "baseline": {
+          "goodput_rps": [
+            9900.503753349663,
+            8290.793723634502
+          ],
+          "scheduled_p99_ms": [
+            649.727,
+            9674.751
+          ],
+          "process_lifetime_sampled_cpu_s": [
+            125.0,
+            108.0
+          ],
+          "sampled_tree_peak_rss_mib": [
+            117.44921875,
+            117.08203125
+          ]
+        },
+        "candidate": {
+          "goodput_rps": [
+            8824.123751487767,
+            8850.44566829965
+          ],
+          "scheduled_p99_ms": [
+            7172.095,
+            7282.687
+          ],
+          "process_lifetime_sampled_cpu_s": [
+            101.0,
+            101.0
+          ],
+          "sampled_tree_peak_rss_mib": [
+            117.4140625,
+            116.87890625
+          ]
+        }
+      },
+      "candidate_gate_pass": false,
+      "paired_p99_ratios": [
+        11.038628531675611,
+        0.752751879609098
+      ],
+      "paired_cpu_ratios": [
+        0.808,
+        0.9351851851851852
+      ]
+    }
+  },
+  "wheel_sha256": "63762ee3f25dbc001bb0335e6e8085922a0078ab95c6648254dd5d7615d32d59",
+  "runtime_hashes": {
+    "src/dexpot/typing_ext.py": "d778e83dd9a62138f66b8c42912885ec1f46b679950f738bfae81068056e235f",
+    "src/dexpot/_gil_idle.py": "8cf22ff0dfb117ec38637f28ab34a9990db10f9c93753085f923d1ef597ae670",
+    "src/dexpot/_response_legacy.py": "04d8d8e3d553f0d2a956fcbec282eb555a3d7eb538d46b7101115fd9fcfd2319",
+    "src/dexpot/responses.py": "e4f0af06f0943d741ead294ce3f89d421a489c3471b8d3fcc3054fd71371c67e",
+    "src/dexpot/_preparation_policy.py": "4a6c9bd6aebfffadc25f5a115777a00e1b8d1c7e77afda6417ee9720c9bc6697",
+    "src/dexpot/_scalar_response.py": "46899f7da66bb6f29cc0295b5c3692f3e953d522c9a1f888e7ff39fb666b07f0",
+    "src/dexpot/_http.py": "9b5ac2db2327543757cd6fd6a39006ec09e46b7fbb44b421b5f143a8f3cc2500",
+    "src/dexpot/_response.py": "60067a128c80574f7456a62983092e6c565ce257c4d21792e676edf26e648ee2",
+    "src/dexpot/__init__.py": "9afe9d7faf7ca759fd6188c0ecdaad4dfe6e3ab106790366a13b2902b4fbf035",
+    "src/dexpot/cli.py": "244084ce4994c2bf80ff9240e115e8ee7b6300937c3aa3732b7e34bd5db9e24c",
+    "src/dexpot/app.py": "3bbf7317159f8c3ec94bdba46bc526d00691ac88395bad0e7baa593e2740729a",
+    "src/dexpot/requests.py": "d5a1bf5dedd5582944a90ff105ceb803da4acd6967ab8661106462e8f5b491b4",
+    "src/dexpot/_plans.py": "0300ce723cfb046e200d6ecbddec189626b6144f2dbe88c6c8e2bd76f81b4a2b",
+    "src/dexpot/commands/__init__.py": "19876836ff34292da9edb09386ea116e188b988656e9d74fa8f105131e7aee74",
+    "src/dexpot/commands/add_skills.py": "9dd242fb13039d7800fef85c47c12378ccfeebec2c3dce2288b56345b058082b",
+    "src/dexpot/skills/__init__.py": "2292ebd74226dea33d688c87a17491c2f51ac3c8ee454e63a8cd2186334f8122",
+    "src/dexpot/skills/content.py": "689a339ab9c51671dae0510cf31620d4c468457c3e22843cc21f8529a012c694"
+  },
+  "scope": "GIL bounded hot-lease candidate only; full source GIL/FT correctness, installed GIL wheel; FT latency path unchanged and not fixed; earlier failures retained",
+  "source_generation": "deadline-corrected experimental source; not the earlier combined-wheel campaign"
+}
