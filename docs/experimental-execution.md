@@ -28,8 +28,38 @@ an unaccounted HTTP probe owner, and the two-slow-client resource test establish
 its baseline owner has exited. Its original three-thread bound and rejection assertions
 are retained. The shutdown-before-start regression uses a real Thread subclass so both
 registration visibility and complete owner cleanup are exercised. Local gates passed:
-558 tests/21 skips on GIL; 554/25 on FT. Performance requalification is still pending;
-this correctness repair does not clear the scheduled-tail or capacity gates.
+558 tests/21 skips on GIL; 554/25 on FT. The correctness repair does not clear the
+scheduled-tail or capacity gates; complete qualification results follow.
+
+### Complete owner-lifetime qualification: failed
+
+The exact installed wheel
+`02c61f7f6705851133f2ce840c6d325bba2167adaa76075f25068ef3b694d344`
+from runtime `54bef5ada8d2dc330b4ff1c7e695aa8075b92559` completed all 32 declared
+60-second trials, with the same prior draft control and original performance/resource
+thresholds. [All results are retained](../benchmarks/checked_execution/owner-lifetime-qualification.json).
+All 32 runtime-identity checks passed: 160 startup/post-workload records from 80 serving
+PIDs. This is **not** a performance pass: 29 records have complete exact-response,
+zero-reported-transport-error, source and mode validity; two complete capacity records
+reported timeouts, and a Linux control load client aborted with an HDR-histogram assertion.
+Its reply/error totals remain unknown. The known records report 27,050,980 correct replies;
+that total excludes the aborted client's unknown count and includes the two errored trials.
+
+Candidate fixed-load failures remain on macOS in both interpreter modes (GIL scheduled
+p99 78.015/178.175 ms; FT 43.711/233.087 ms) and on one Ubuntu GIL repeat
+(9,296.76 correct replies/s, scheduled p99 8,347.647 ms). Ubuntu FT candidate fixed runs
+passed at 5.927/6.151 ms, and its mixed-capacity pair returned a 3.3343 candidate/control
+ratio, so the prior severe FT capacity loss was not reproduced in this cohort. It is
+not erased or explained by that favorable pair. All six transport-valid capacity pairs
+passed the ratio gate; the other two pairs remain invalid, so aggregate qualification
+still fails. Controls also had rate/tail failures; no unmatched-rate latency comparison
+or clock/server root cause is inferred from those observations.
+
+No failed record was retried or replaced. The owner-lifetime correctness fix, installed
+correctness suites, stress results and exact-head CI/review remain separate from this
+failed performance qualification. Investigate the invalid load-client measurements and
+remaining runtime tails before promotion; retain the 20 ms scheduled-p99, offered-rate,
+zero-error, capacity-ratio and resource gates.
 
 ## Runtime-identity hardening and targeted rechecks
 
@@ -89,7 +119,7 @@ The guard now anchors HTTP snapshots to the actual process's private per-launch 
 record and retains both PIDs; regressions cover legitimate redirection and a genuinely
 mismatched server. This does not relax the GIL-state or same-server requirements.
 
-## Latest complete performance qualification: failed
+## Earlier complete performance qualification: failed
 
 The completed 32-trial campaign measured runtime commit
 `4225a3babd8536c0ffc9faee371f10628d9e9853` against the prior draft head
