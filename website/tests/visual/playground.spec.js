@@ -348,7 +348,7 @@ test('family foundation maps shared tokens across homepage, docs, and playground
         }, theme);
         expect(actual.canvas).toBe('#f8f7f4');
         expect(actual.darkCanvas).toBe('#16181b');
-        expect(actual.accent).toBe('#14665f');
+        expect(actual.accent).toBe('#006b8f');
         expect(actual.font).toContain('Avenir Next');
         expect(actual.headerHeight).toBe(64);
         expect(actual.headingTransform).toBe('none');
