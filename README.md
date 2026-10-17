@@ -375,13 +375,16 @@ values returned by unchecked requestless handlers are outside the recursive guar
 
 ## Execution model
 
-dexpot chooses its scheduler once when the module is imported.
+On this draft branch, dexpot binds its scheduler when `serve()` starts, after application
+loading, using the actual GIL state—not just whether Python is a free-threaded build.
+Startup diagnostics distinguish standard Python/GIL enabled, free-threaded Python/GIL
+disabled, and free-threaded Python/GIL enabled.
 
 | Runtime | Default serving model | Overload behavior |
 |---|---|---|
 | Free-threaded CPython (`sys._is_gil_enabled() == False`) | One process; each admitted connection owns a thread | Active connections capped at 1,024 by default; excess connections receive 503 before thread creation |
-| Standard GIL CPython | Readiness-owned idle sockets; bounded pool of `CPU * 2 + 2` active workers | Queue capped at `2 * pool`; total connections capped by `DEXPOT_MAX_CONNECTIONS`; excess work receives 503 |
-| Standard GIL CPython with `DEXPOT_WORKERS>1` | POSIX fork workers share one inherited listener; each owns its pool and readiness state | Each worker sheds independently |
+| GIL enabled (standard or free-threaded build) | Readiness-owned idle sockets; bounded pool of `CPU * 2 + 2` active workers | Queue capped at `2 * pool`; total connections capped by `DEXPOT_MAX_CONNECTIONS`; excess work receives 503 |
+| GIL enabled with `DEXPOT_WORKERS>1` | POSIX fork workers share one inherited listener; each owns its pool and readiness state | Each worker sheds independently |
 
 On this experimental branch, a GIL worker handles readable requests and can retain a hot
 connection for up to a bounded 5 ms wait. It yields to queued peers; otherwise idle sockets
@@ -406,9 +409,18 @@ DEXPOT_WORKERS=4 dexpot serve main:app
 ```
 
 `DEXPOT_WORKERS>1` requires POSIX `fork`; dexpot rejects that setting on
-unsupported platforms rather than pretending multiprocess serving is active. Free-threaded
-builds intentionally remain single-process because their threads can execute Python in
-parallel.
+unsupported platforms rather than pretending multiprocess serving is active. GIL-disabled
+processes intentionally remain single-process because their threads can execute Python in
+parallel. An unsupported native extension can enable the GIL even in a free-threaded build.
+
+The serving policy is not silently switched after a lazy import changes GIL state. Dexpot
+checks for a change on connection admission and accept-loop timeouts, outside request
+dispatch, and warns once; restart after loading dependencies to select a new policy.
+Unforced CI exercises application loading, real HTTP validation/serialization and lazy
+imports, including an extension that enables the GIL. Benchmark qualification requires
+matching startup and after-workload evidence from every serving process. These checks
+qualify tested dependencies and integrations only: a disabled GIL does not prove that
+arbitrary application dependencies or handlers are thread-safe.
 
 SIGINT and SIGTERM stop admission and allow active connections up to five seconds to drain.
 The GIL supervisor restarts a worker that exits unexpectedly.

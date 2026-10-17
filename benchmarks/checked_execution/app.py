@@ -79,10 +79,10 @@ def large_nested_data() -> list[Any]:
 def runtime_data() -> dict[str, Any]:
     gil = sys._is_gil_enabled() if hasattr(sys, "_is_gil_enabled") else None
     if FLAVOR == "dexpot":
-        from dexpot.app import MAX_CONNECTIONS, POOL_SIZE
-        handler_thread_model = "dexpot-ft-thread-per-connection" if gil is False else "dexpot-gil-worker-pool"
-        worker_threads = None if gil is False else POOL_SIZE
-        connection_limit = MAX_CONNECTIONS if gil is False else None
+        info = app._runtime_info()
+        worker_threads = None if info["selected_gil_enabled"] is False else info["pool_size"]
+        connection_limit = info["connection_limit"] if info["selected_gil_enabled"] is False else None
+        handler_thread_model = "dexpot-ft-thread-per-connection" if info["selected_gil_enabled"] is False else "dexpot-gil-worker-pool"
     else:
         handler_thread_model = "anyio-sync-worker-pool"
         worker_threads = SYNC_THREADS
@@ -242,8 +242,35 @@ elif FLAVOR == "dexpot":
     os.environ.setdefault("DEXPOT_POOL", str(SYNC_THREADS))
     os.environ.setdefault("DEXPOT_MAX_CONNECTIONS", os.environ.get("COMPARE_MAX_CONNECTIONS", "1024"))
     from dexpot import Dex
+    from runtime_identity import emit_runtime_event
 
-    app = Dex()
+    class AuditedDex(Dex):
+        """Fixture-only lifecycle records, never a per-request GIL query."""
+
+        def _report_startup(self) -> None:
+            if getattr(self, "_identity_startup_pid", None) != os.getpid():
+                self._identity_startup_pid = os.getpid()
+                emit_runtime_event(self, "startup")
+
+        def _start_gil_workers(self, listener):
+            super()._start_gil_workers(listener)
+            self._report_startup()
+
+        def _handle_admission(self, conn, buf):
+            # FT has no GIL worker-pool startup hook. This flag is checked once
+            # per connection admission, not during request dispatch.
+            self._report_startup()
+            return super()._handle_admission(conn, buf)
+
+        def _begin_drain(self, timeout):
+            try:
+                return super()._begin_drain(timeout)
+            finally:
+                if getattr(self, "_identity_final_pid", None) != os.getpid():
+                    self._identity_final_pid = os.getpid()
+                    emit_runtime_event(self, "after_workload")
+
+    app = AuditedDex()
 
     @app.get("/items/{item_id}", response=Item if CONTRACT_MODE == "native" else None)
     def get_item(item_id: int) -> Item:

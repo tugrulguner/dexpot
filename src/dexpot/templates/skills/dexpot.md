@@ -181,16 +181,23 @@ rules apply in both interpreter modes.
 
 ## Execution model
 
-The scheduler is selected when dexpot imports:
+On this draft branch, the scheduler is bound at `serve()` after application loading, using
+the actual GIL state. Free-threaded Python can still run with the GIL enabled:
 
-- **Free-threaded build:** one process, one owning thread per admitted connection. Threads
+- **GIL disabled:** one process, one owning thread per admitted connection. Threads
   can execute Python in parallel. `DEXPOT_MAX_CONNECTIONS` defaults to 1,024; excess
   connections receive 503 before a thread is created.
-- **GIL build (experimental branch):** a bounded readiness owner parks idle sockets. A bounded pool
+- **GIL enabled (standard or free-threaded build, experimental branch):** a bounded readiness owner parks idle sockets. A bounded pool
   handles readable work. Both pending work and total connections are bounded; overload
   returns 503 rather than accumulating unlimited work.
 - **GIL + `DEXPOT_WORKERS>1`:** POSIX fork processes share a supervisor-owned listener, with
   process-local pools/readiness state. Unsupported platforms raise.
+
+A native extension may enable the GIL during application loading or a lazy import. Startup
+labels distinguish build capability from actual mode. A later change is warned about outside
+request dispatch; do not silently migrate a running scheduler. Qualify ordinary imports
+without `PYTHON_GIL` or `-X gil` overrides and capture actual server state before and after
+workloads. Disabled-GIL execution does not establish application dependency thread safety.
 
 Tune before importing the application:
 
