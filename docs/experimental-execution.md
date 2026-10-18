@@ -31,9 +31,25 @@ that turn. Further regressions cover a nonresponsive live worker and supervisor 
 if post-start channel cleanup fails. Existing worker-restart and drain tests pass.
 Local verification: 13 focused multiprocess/lifecycle tests; `make check build` with
 561 passed/21 skipped; FT-focused Python suites with 103 passed/5 skipped.
-Performance requalification is pending, and the earlier failed records below are retained.
+Targeted installed-wheel results are in
+[`fair-accept-rechecks.json`](../benchmarks/checked_execution/fair-accept-rechecks.json).
+With unchanged load clients, validator and gates, Ubuntu GIL fixed load passed at
+9,998.20 correct replies/s and 5.551 ms scheduled p99. macOS GIL did not pass:
+9,490.95 replies/s and 3,516.415 ms scheduled p99. Both records retained exact bodies,
+zero reported errors, source parity and complete worker-mode evidence. This does not
+clear broader qualification; no failed result was replaced.
+
+Python-only diagnostics found roughly balanced per-connection I/O shares, not a single
+connection receiving all slow routes. Requested 1 ms waits outside Dexpot took roughly
+6.5 ms on average with roughly 9 ms p99 across sleep, event and select waits. Low Power
+Mode was observed enabled on AC after the trials; it was not independently recorded at
+their start. This suggests a runner timing constraint, not proof that power mode caused
+every earlier failure. No system power setting was changed. A controlled comparison under
+normal power settings is pending before attributing the remaining macOS tail.
+
 Load-client crash/source experiments were paused and preserved outside test collection;
-benchmark clients and acceptance thresholds remain unchanged.
+benchmark clients and acceptance thresholds remain unchanged. All earlier failed records
+below are retained.
 
 ## Owner-thread lifetime follow-up
 
