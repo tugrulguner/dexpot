@@ -51,6 +51,25 @@ Load-client crash/source experiments were paused and preserved outside test coll
 benchmark clients and acceptance thresholds remain unchanged. All earlier failed records
 below are retained.
 
+### Linux GIL capacity pairs with unchanged clients
+
+Four additional 60-second capacity trials compared runtime `87d10b5` with the same
+prior-draft control, using the original mixed/large-nested profiles and budgets.
+[All four records are retained](../benchmarks/checked_execution/fair-accept-linux-capacity.json).
+
+| Profile | Control correct replies/s | Candidate correct replies/s | Candidate/control |
+| --- | ---: | ---: | ---: |
+| Mixed | 14,008.03 | 17,878.49 | 1.2763 |
+| Large nested | 5,688.86 | 9,316.05 | 1.6376 |
+
+All four records had exact bodies, zero reported errors and matching source/mode evidence
+(32 lifecycle snapshots, 16 serving PIDs, 2,815,545 reported correct replies). Both
+candidates passed their resource and original capacity-ratio gates. **The mixed control
+failed its resource gate**, so that pair is not a clean resource-qualified comparison;
+the large-nested pair passed resources on both sides. Capacity latency is closed-loop,
+not a replacement for the scheduled fixed-load SLO. These results do not clear macOS or
+complete cross-platform qualification, and no adverse result was retried or discarded.
+
 ## Owner-thread lifetime follow-up
 
 FT admission capacity now remains reserved until the admitting/draining thread has joined

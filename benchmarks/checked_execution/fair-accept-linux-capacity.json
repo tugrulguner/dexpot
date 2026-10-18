@@ -1,0 +1,1307 @@
+{
+  "format": 1,
+  "scope": "Linux GIL capacity pairs on both original profiles; unchanged clients/validator/gates; macOS comparison deferred pending environment decision",
+  "candidate_commit": "87d10b5963cbe263c83cb3e35a702c0583a307d0",
+  "control_commit": "4b97265832c8df72ef5fec017904765f09c82203",
+  "plan": {
+    "format": 1,
+    "candidate_commit": "87d10b5963cbe263c83cb3e35a702c0583a307d0",
+    "candidate_wheel_sha256": "6743f696fc6bca82ef9b1d862931c0718411cc467d34cc9469086233898b224d",
+    "control_commit": "4b97265832c8df72ef5fec017904765f09c82203",
+    "control_wheel_sha256": "f72fbd6143e73deded83a3193ff5f9f65f99172f168f7d055d36f370951367a3",
+    "client_threads": 4,
+    "gil_workers": 4,
+    "gil_pool": 22,
+    "ft_workers": 1,
+    "parser": "python reference, explicit on both sides",
+    "fixed_gates": {
+      "offered_rps": 10000,
+      "achieved_fraction": [
+        0.95,
+        1.05
+      ],
+      "scheduled_p99_max_us": 20000,
+      "zero_errors": true,
+      "exact_validation": true,
+      "all_client_threads_calibrated": true
+    },
+    "capacity_gate": {
+      "minimum_candidate_control_goodput_ratio": 0.95,
+      "latency": "closed-loop adjusted histogram reported, never substituted for fixed scheduled latency",
+      "repeats": "one 60-second pair per platform/runtime/profile; fixed-load cohort uses ABBA repeats"
+    },
+    "resource_budgets": {
+      "gil": {
+        "rss_bytes": 536870912,
+        "threads": 128,
+        "fds": 512,
+        "cpu_cores": 6
+      },
+      "ft": {
+        "rss_bytes": 536870912,
+        "threads": 80,
+        "fds": 512,
+        "cpu_cores": 10.5
+      }
+    },
+    "resource_sampling": "psutil 7.2.2 descendant snapshots every0.2s in timed client window; changed harness generation, no retroactive qualification of earlier results",
+    "timed_trials": 4,
+    "timed_seconds": 240,
+    "cells": [
+      {
+        "id": "fair-ubuntu-gil-capacity-mixed-control",
+        "platform": "ubuntu",
+        "runtime": "gil",
+        "side": "control",
+        "kind": "capacity",
+        "connections": 64,
+        "duration_s": 60,
+        "profile": "mixed"
+      },
+      {
+        "id": "fair-ubuntu-gil-capacity-mixed-candidate",
+        "platform": "ubuntu",
+        "runtime": "gil",
+        "side": "candidate",
+        "kind": "capacity",
+        "connections": 64,
+        "duration_s": 60,
+        "profile": "mixed"
+      },
+      {
+        "id": "fair-ubuntu-gil-capacity-large_nested-control",
+        "platform": "ubuntu",
+        "runtime": "gil",
+        "side": "control",
+        "kind": "capacity",
+        "connections": 16,
+        "duration_s": 60,
+        "profile": "large_nested"
+      },
+      {
+        "id": "fair-ubuntu-gil-capacity-large_nested-candidate",
+        "platform": "ubuntu",
+        "runtime": "gil",
+        "side": "candidate",
+        "kind": "capacity",
+        "connections": 16,
+        "duration_s": 60,
+        "profile": "large_nested"
+      }
+    ],
+    "qualification_cell_ids": [
+      "fair-ubuntu-gil-capacity-mixed-control",
+      "fair-ubuntu-gil-capacity-mixed-candidate",
+      "fair-ubuntu-gil-capacity-large_nested-control",
+      "fair-ubuntu-gil-capacity-large_nested-candidate"
+    ],
+    "scope": "Linux GIL capacity pairs on both original profiles; unchanged clients/validator/gates; macOS comparison deferred pending environment decision",
+    "no_selective_retries": true,
+    "prior_evidence": "All prior failed full campaigns and diagnostic cohorts retained without replacement",
+    "legacy_control_identity_adapter": "legacy_probe.py adds metadata only to control4b; no request-path instrumentation on either side"
+  },
+  "summary": {
+    "expected_trials": 4,
+    "collected_trials": 4,
+    "all_comparison_valid": true,
+    "all_runtime_valid": true,
+    "identity_records": 32,
+    "serving_pids": 16,
+    "reported_good_replies": 2815545,
+    "all_candidate_resource_capacity_gates_pass": true,
+    "all_pairs_resource_qualified": false,
+    "full_qualification_pass": false
+  },
+  "pairs": [
+    {
+      "profile": "mixed",
+      "valid_exact_zero_reported_errors_source_mode": true,
+      "candidate_control_goodput_ratio": 1.2763032686559694,
+      "original_candidate_resource_capacity_gate_pass": true,
+      "control_resource_gate_pass": false,
+      "candidate_resource_gate_pass": true,
+      "both_sides_resource_qualified": false,
+      "clean_pair_pass": false
+    },
+    {
+      "profile": "large_nested",
+      "valid_exact_zero_reported_errors_source_mode": true,
+      "candidate_control_goodput_ratio": 1.6375951911487359,
+      "original_candidate_resource_capacity_gate_pass": true,
+      "control_resource_gate_pass": true,
+      "candidate_resource_gate_pass": true,
+      "both_sides_resource_qualified": true,
+      "clean_pair_pass": true
+    }
+  ],
+  "trials": [
+    {
+      "cell": {
+        "id": "fair-ubuntu-gil-capacity-mixed-control",
+        "platform": "ubuntu",
+        "runtime": "gil",
+        "side": "control",
+        "kind": "capacity",
+        "connections": 64,
+        "duration_s": 60,
+        "profile": "mixed"
+      },
+      "frozen": {
+        "wheel": "f72fbd6143e73deded83a3193ff5f9f65f99172f168f7d055d36f370951367a3",
+        "source": "a20a9b2f3550e02ce63239c4b755e5bea709c1835ee80cfd682be5702c496e9d",
+        "application": "5c9257c695c65c2a173461116b7807aca71d380eb6bef33d582838711bffa5ad",
+        "lua": "1002d07f9058b98abe0aad98dc7c7731379fd91fd8ab5ae723e1d26a618f8562",
+        "wrk": "55157ab26d15f39e68d80ed3e16240dcdcb1722abf0fa7d74bfd3e20dd50254c",
+        "wrk2": "dcfd4f5cabd3fe9afb436d7fdb11b741546361da5b1c01b6211dc9960f9d1b7c",
+        "runner": "72432fe8798e37ee15363c9fd656b49bdc43d92a2680221381d51abbaa05d57d",
+        "plan": "6892efa5bb7de022d08222f80f88672955f549b200642a3dc021ddfc4215c55a",
+        "identity_helper": "81d9332e2be8457c838d01234470900e22bd958adbf001c3507a6a317c134e53",
+        "legacy_control_adapter": "50518f0a4a1ebbc13a50120efc47fa58cc2f31ad7c6f4e46405687268e96cc34"
+      },
+      "interpreter": {
+        "module": "/performance-remediation-v1/gil/lib/python3.14/site-packages/dexpot/__init__.py",
+        "gil": true,
+        "ft_build": 0,
+        "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+        "parser": "python"
+      },
+      "runtime": {
+        "compiled_scalar": false,
+        "framework": "dexpot",
+        "contract": "native",
+        "python": "3.14.7",
+        "gil_enabled": true,
+        "handler_thread_model": "dexpot-gil-worker-pool",
+        "configured_worker_threads": 22,
+        "connection_limit": null,
+        "module": "/fair-accept-linux-capacity-v1/source/benchmarks/checked_execution/app.py",
+        "dexpot_module": "/performance-remediation-v1/gil/lib/python3.14/site-packages/dexpot/__init__.py",
+        "large_nested_rows": 64
+      },
+      "command": [
+        "/usr/bin/wrk",
+        "-t",
+        "4",
+        "-c",
+        "64",
+        "-d",
+        "60s",
+        "--latency",
+        "-s",
+        "/fair-accept-linux-capacity-v1/source/benchmarks/checked_execution/check.lua",
+        "http://127.0.0.1:42887/",
+        "--",
+        "mixed"
+      ],
+      "client_sha256": "55157ab26d15f39e68d80ed3e16240dcdcb1722abf0fa7d74bfd3e20dd50254c",
+      "client_returncode": 0,
+      "client_stderr": "",
+      "metrics": {
+        "good": 840935,
+        "bad": 0,
+        "requests": 840935,
+        "duration_us": 60032360,
+        "p50_us": 3703.0,
+        "p95_us": 21012.0,
+        "p99_us": 29962.0,
+        "connect_errors": 0,
+        "read_errors": 0,
+        "write_errors": 0,
+        "timeout_errors": 0
+      },
+      "histogram": null,
+      "server_resources": {
+        "complete": true,
+        "samples": 298,
+        "interval_s": 0.2,
+        "cpu_s": 378.7,
+        "cpu_scope": "sampled stable descendant tree within timed client window, excludes startup/drain",
+        "sampled_rss_peak_bytes": 123703296,
+        "sampled_threads_peak": 97,
+        "sampled_fds_peak": 128,
+        "pass": false
+      },
+      "client_resources": {
+        "complete": true,
+        "samples": 299,
+        "interval_s": 0.2,
+        "cpu_s": 24.3,
+        "cpu_scope": "sampled stable descendant tree within timed client window, excludes startup/drain",
+        "sampled_rss_peak_bytes": 9056256,
+        "sampled_threads_peak": 5,
+        "sampled_fds_peak": 71,
+        "pass": true
+      },
+      "source_unchanged": true,
+      "executed": true,
+      "error": null,
+      "started_epoch": 1792288495.9527543,
+      "finished_epoch": 1792288556.6963203,
+      "accuracy_pass": true,
+      "transport_pass": true,
+      "latency_scope": "wrk-adjusted closed-loop histogram; not fixed-load SLO",
+      "server_exit": 0,
+      "runtime_evidence": {
+        "valid": true,
+        "errors": [],
+        "pids": [
+          53187,
+          53188,
+          53189,
+          53190
+        ],
+        "events": [
+          {
+            "pid": 53187,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53189,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53188,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53190,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53187,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53188,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53189,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53190,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          }
+        ]
+      },
+      "runtime_pass": true,
+      "comparison_valid": true,
+      "goodput_rps": 14008.028336717065
+    },
+    {
+      "cell": {
+        "id": "fair-ubuntu-gil-capacity-mixed-candidate",
+        "platform": "ubuntu",
+        "runtime": "gil",
+        "side": "candidate",
+        "kind": "capacity",
+        "connections": 64,
+        "duration_s": 60,
+        "profile": "mixed"
+      },
+      "frozen": {
+        "wheel": "6743f696fc6bca82ef9b1d862931c0718411cc467d34cc9469086233898b224d",
+        "source": "c45cabe06e2e96322e5c8f66c14e065e88f68fa5d4d85e1e61978bc0282de8cb",
+        "application": "5c9257c695c65c2a173461116b7807aca71d380eb6bef33d582838711bffa5ad",
+        "lua": "1002d07f9058b98abe0aad98dc7c7731379fd91fd8ab5ae723e1d26a618f8562",
+        "wrk": "55157ab26d15f39e68d80ed3e16240dcdcb1722abf0fa7d74bfd3e20dd50254c",
+        "wrk2": "dcfd4f5cabd3fe9afb436d7fdb11b741546361da5b1c01b6211dc9960f9d1b7c",
+        "runner": "72432fe8798e37ee15363c9fd656b49bdc43d92a2680221381d51abbaa05d57d",
+        "plan": "6892efa5bb7de022d08222f80f88672955f549b200642a3dc021ddfc4215c55a",
+        "identity_helper": "81d9332e2be8457c838d01234470900e22bd958adbf001c3507a6a317c134e53",
+        "legacy_control_adapter": "50518f0a4a1ebbc13a50120efc47fa58cc2f31ad7c6f4e46405687268e96cc34"
+      },
+      "interpreter": {
+        "module": "/fair-accept-linux-capacity-v1/gil/lib/python3.14/site-packages/dexpot/__init__.py",
+        "gil": true,
+        "ft_build": 0,
+        "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+        "parser": "python"
+      },
+      "runtime": {
+        "compiled_scalar": false,
+        "framework": "dexpot",
+        "contract": "native",
+        "python": "3.14.7",
+        "gil_enabled": true,
+        "handler_thread_model": "dexpot-gil-worker-pool",
+        "configured_worker_threads": 22,
+        "connection_limit": null,
+        "module": "/fair-accept-linux-capacity-v1/source/benchmarks/checked_execution/app.py",
+        "dexpot_module": "/fair-accept-linux-capacity-v1/gil/lib/python3.14/site-packages/dexpot/__init__.py",
+        "large_nested_rows": 64
+      },
+      "command": [
+        "/usr/bin/wrk",
+        "-t",
+        "4",
+        "-c",
+        "64",
+        "-d",
+        "60s",
+        "--latency",
+        "-s",
+        "/fair-accept-linux-capacity-v1/source/benchmarks/checked_execution/check.lua",
+        "http://127.0.0.1:41419/",
+        "--",
+        "mixed"
+      ],
+      "client_sha256": "55157ab26d15f39e68d80ed3e16240dcdcb1722abf0fa7d74bfd3e20dd50254c",
+      "client_returncode": 0,
+      "client_stderr": "",
+      "metrics": {
+        "good": 1073333,
+        "bad": 0,
+        "requests": 1073333,
+        "duration_us": 60034872,
+        "p50_us": 2997.0,
+        "p95_us": 15451.0,
+        "p99_us": 20779.0,
+        "connect_errors": 0,
+        "read_errors": 0,
+        "write_errors": 0,
+        "timeout_errors": 0
+      },
+      "histogram": null,
+      "server_resources": {
+        "complete": true,
+        "samples": 298,
+        "interval_s": 0.2,
+        "cpu_s": 342.6,
+        "cpu_scope": "sampled stable descendant tree within timed client window, excludes startup/drain",
+        "sampled_rss_peak_bytes": 125501440,
+        "sampled_threads_peak": 97,
+        "sampled_fds_peak": 136,
+        "pass": true
+      },
+      "client_resources": {
+        "complete": true,
+        "samples": 299,
+        "interval_s": 0.2,
+        "cpu_s": 30.66,
+        "cpu_scope": "sampled stable descendant tree within timed client window, excludes startup/drain",
+        "sampled_rss_peak_bytes": 8794112,
+        "sampled_threads_peak": 5,
+        "sampled_fds_peak": 71,
+        "pass": true
+      },
+      "source_unchanged": true,
+      "executed": true,
+      "error": null,
+      "started_epoch": 1792288556.70038,
+      "finished_epoch": 1792288617.6265755,
+      "accuracy_pass": true,
+      "transport_pass": true,
+      "latency_scope": "wrk-adjusted closed-loop histogram; not fixed-load SLO",
+      "server_exit": 0,
+      "runtime_evidence": {
+        "valid": true,
+        "errors": [],
+        "pids": [
+          53292,
+          53293,
+          53294,
+          53296
+        ],
+        "events": [
+          {
+            "pid": 53293,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53292,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53294,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53296,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53293,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53292,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53296,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53294,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          }
+        ]
+      },
+      "runtime_pass": true,
+      "comparison_valid": true,
+      "goodput_rps": 17878.492353577432
+    },
+    {
+      "cell": {
+        "id": "fair-ubuntu-gil-capacity-large_nested-control",
+        "platform": "ubuntu",
+        "runtime": "gil",
+        "side": "control",
+        "kind": "capacity",
+        "connections": 16,
+        "duration_s": 60,
+        "profile": "large_nested"
+      },
+      "frozen": {
+        "wheel": "f72fbd6143e73deded83a3193ff5f9f65f99172f168f7d055d36f370951367a3",
+        "source": "a20a9b2f3550e02ce63239c4b755e5bea709c1835ee80cfd682be5702c496e9d",
+        "application": "5c9257c695c65c2a173461116b7807aca71d380eb6bef33d582838711bffa5ad",
+        "lua": "1002d07f9058b98abe0aad98dc7c7731379fd91fd8ab5ae723e1d26a618f8562",
+        "wrk": "55157ab26d15f39e68d80ed3e16240dcdcb1722abf0fa7d74bfd3e20dd50254c",
+        "wrk2": "dcfd4f5cabd3fe9afb436d7fdb11b741546361da5b1c01b6211dc9960f9d1b7c",
+        "runner": "72432fe8798e37ee15363c9fd656b49bdc43d92a2680221381d51abbaa05d57d",
+        "plan": "6892efa5bb7de022d08222f80f88672955f549b200642a3dc021ddfc4215c55a",
+        "identity_helper": "81d9332e2be8457c838d01234470900e22bd958adbf001c3507a6a317c134e53",
+        "legacy_control_adapter": "50518f0a4a1ebbc13a50120efc47fa58cc2f31ad7c6f4e46405687268e96cc34"
+      },
+      "interpreter": {
+        "module": "/performance-remediation-v1/gil/lib/python3.14/site-packages/dexpot/__init__.py",
+        "gil": true,
+        "ft_build": 0,
+        "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+        "parser": "python"
+      },
+      "runtime": {
+        "compiled_scalar": false,
+        "framework": "dexpot",
+        "contract": "native",
+        "python": "3.14.7",
+        "gil_enabled": true,
+        "handler_thread_model": "dexpot-gil-worker-pool",
+        "configured_worker_threads": 22,
+        "connection_limit": null,
+        "module": "/fair-accept-linux-capacity-v1/source/benchmarks/checked_execution/app.py",
+        "dexpot_module": "/performance-remediation-v1/gil/lib/python3.14/site-packages/dexpot/__init__.py",
+        "large_nested_rows": 64
+      },
+      "command": [
+        "/usr/bin/wrk",
+        "-t",
+        "4",
+        "-c",
+        "16",
+        "-d",
+        "60s",
+        "--latency",
+        "-s",
+        "/fair-accept-linux-capacity-v1/source/benchmarks/checked_execution/check.lua",
+        "http://127.0.0.1:43929/",
+        "--",
+        "large_nested"
+      ],
+      "client_sha256": "55157ab26d15f39e68d80ed3e16240dcdcb1722abf0fa7d74bfd3e20dd50254c",
+      "client_returncode": 0,
+      "client_stderr": "",
+      "metrics": {
+        "good": 341854,
+        "bad": 0,
+        "requests": 341854,
+        "duration_us": 60091804,
+        "p50_us": 2185.0,
+        "p95_us": 19371.0,
+        "p99_us": 27369.0,
+        "connect_errors": 0,
+        "read_errors": 0,
+        "write_errors": 0,
+        "timeout_errors": 0
+      },
+      "histogram": null,
+      "server_resources": {
+        "complete": true,
+        "samples": 298,
+        "interval_s": 0.2,
+        "cpu_s": 243.27,
+        "cpu_scope": "sampled stable descendant tree within timed client window, excludes startup/drain",
+        "sampled_rss_peak_bytes": 123351040,
+        "sampled_threads_peak": 97,
+        "sampled_fds_peak": 80,
+        "pass": true
+      },
+      "client_resources": {
+        "complete": true,
+        "samples": 299,
+        "interval_s": 0.2,
+        "cpu_s": 14.28,
+        "cpu_scope": "sampled stable descendant tree within timed client window, excludes startup/drain",
+        "sampled_rss_peak_bytes": 8798208,
+        "sampled_threads_peak": 5,
+        "sampled_fds_peak": 23,
+        "pass": true
+      },
+      "source_unchanged": true,
+      "executed": true,
+      "error": null,
+      "started_epoch": 1792288617.6332645,
+      "finished_epoch": 1792288678.3930464,
+      "accuracy_pass": true,
+      "transport_pass": true,
+      "latency_scope": "wrk-adjusted closed-loop histogram; not fixed-load SLO",
+      "server_exit": 0,
+      "runtime_evidence": {
+        "valid": true,
+        "errors": [],
+        "pids": [
+          53397,
+          53398,
+          53399,
+          53400
+        ],
+        "events": [
+          {
+            "pid": 53397,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53399,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53398,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53400,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53400,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53398,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53397,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53399,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          }
+        ]
+      },
+      "runtime_pass": true,
+      "comparison_valid": true,
+      "goodput_rps": 5688.862328047266
+    },
+    {
+      "cell": {
+        "id": "fair-ubuntu-gil-capacity-large_nested-candidate",
+        "platform": "ubuntu",
+        "runtime": "gil",
+        "side": "candidate",
+        "kind": "capacity",
+        "connections": 16,
+        "duration_s": 60,
+        "profile": "large_nested"
+      },
+      "frozen": {
+        "wheel": "6743f696fc6bca82ef9b1d862931c0718411cc467d34cc9469086233898b224d",
+        "source": "c45cabe06e2e96322e5c8f66c14e065e88f68fa5d4d85e1e61978bc0282de8cb",
+        "application": "5c9257c695c65c2a173461116b7807aca71d380eb6bef33d582838711bffa5ad",
+        "lua": "1002d07f9058b98abe0aad98dc7c7731379fd91fd8ab5ae723e1d26a618f8562",
+        "wrk": "55157ab26d15f39e68d80ed3e16240dcdcb1722abf0fa7d74bfd3e20dd50254c",
+        "wrk2": "dcfd4f5cabd3fe9afb436d7fdb11b741546361da5b1c01b6211dc9960f9d1b7c",
+        "runner": "72432fe8798e37ee15363c9fd656b49bdc43d92a2680221381d51abbaa05d57d",
+        "plan": "6892efa5bb7de022d08222f80f88672955f549b200642a3dc021ddfc4215c55a",
+        "identity_helper": "81d9332e2be8457c838d01234470900e22bd958adbf001c3507a6a317c134e53",
+        "legacy_control_adapter": "50518f0a4a1ebbc13a50120efc47fa58cc2f31ad7c6f4e46405687268e96cc34"
+      },
+      "interpreter": {
+        "module": "/fair-accept-linux-capacity-v1/gil/lib/python3.14/site-packages/dexpot/__init__.py",
+        "gil": true,
+        "ft_build": 0,
+        "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+        "parser": "python"
+      },
+      "runtime": {
+        "compiled_scalar": false,
+        "framework": "dexpot",
+        "contract": "native",
+        "python": "3.14.7",
+        "gil_enabled": true,
+        "handler_thread_model": "dexpot-gil-worker-pool",
+        "configured_worker_threads": 22,
+        "connection_limit": null,
+        "module": "/fair-accept-linux-capacity-v1/source/benchmarks/checked_execution/app.py",
+        "dexpot_module": "/fair-accept-linux-capacity-v1/gil/lib/python3.14/site-packages/dexpot/__init__.py",
+        "large_nested_rows": 64
+      },
+      "command": [
+        "/usr/bin/wrk",
+        "-t",
+        "4",
+        "-c",
+        "16",
+        "-d",
+        "60s",
+        "--latency",
+        "-s",
+        "/fair-accept-linux-capacity-v1/source/benchmarks/checked_execution/check.lua",
+        "http://127.0.0.1:35007/",
+        "--",
+        "large_nested"
+      ],
+      "client_sha256": "55157ab26d15f39e68d80ed3e16240dcdcb1722abf0fa7d74bfd3e20dd50254c",
+      "client_returncode": 0,
+      "client_stderr": "",
+      "metrics": {
+        "good": 559423,
+        "bad": 0,
+        "requests": 559423,
+        "duration_us": 60049354,
+        "p50_us": 1506.0,
+        "p95_us": 4709.0,
+        "p99_us": 6825.0,
+        "connect_errors": 0,
+        "read_errors": 0,
+        "write_errors": 0,
+        "timeout_errors": 0
+      },
+      "histogram": null,
+      "server_resources": {
+        "complete": true,
+        "samples": 298,
+        "interval_s": 0.2,
+        "cpu_s": 289.34999999999997,
+        "cpu_scope": "sampled stable descendant tree within timed client window, excludes startup/drain",
+        "sampled_rss_peak_bytes": 126631936,
+        "sampled_threads_peak": 97,
+        "sampled_fds_peak": 88,
+        "pass": true
+      },
+      "client_resources": {
+        "complete": true,
+        "samples": 299,
+        "interval_s": 0.2,
+        "cpu_s": 20.82,
+        "cpu_scope": "sampled stable descendant tree within timed client window, excludes startup/drain",
+        "sampled_rss_peak_bytes": 8794112,
+        "sampled_threads_peak": 5,
+        "sampled_fds_peak": 23,
+        "pass": true
+      },
+      "source_unchanged": true,
+      "executed": true,
+      "error": null,
+      "started_epoch": 1792288678.3965473,
+      "finished_epoch": 1792288739.3908043,
+      "accuracy_pass": true,
+      "transport_pass": true,
+      "latency_scope": "wrk-adjusted closed-loop histogram; not fixed-load SLO",
+      "server_exit": 0,
+      "runtime_evidence": {
+        "valid": true,
+        "errors": [],
+        "pids": [
+          53502,
+          53503,
+          53504,
+          53507
+        ],
+        "events": [
+          {
+            "pid": 53502,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53503,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53507,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53504,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53503,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53502,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53507,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 53504,
+            "python": "3.14.7 (main, Sep 29 2026, 15:00:05) [Clang 22.1.3 ]",
+            "free_threaded_build": false,
+            "gil_enabled": true,
+            "selected_gil_enabled": true,
+            "execution_mode": "pooled-gil",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          }
+        ]
+      },
+      "runtime_pass": true,
+      "comparison_valid": true,
+      "goodput_rps": 9316.053591517404
+    }
+  ],
+  "python_source_wheel_checkout_parity": true,
+  "limits": [
+    "The mixed control failed its declared resource gate. Do not present that pair as a clean resource-qualified comparison even though the original candidate-only resource/capacity gate passes.",
+    "Capacity p99 is closed-loop latency, not the fixed-load scheduled SLO.",
+    "Clients, workload profiles, validators and gates are unchanged. No result was retried or discarded.",
+    "Only Linux GIL capacity pairs are covered; earlier failed macOS/full-cohort records remain retained."
+  ],
+  "raw_evidence_directory": "/Users/tugrulguner/Projects/dexpot-research/winning-execution/fair-accept-linux-capacity-v1"
+}
