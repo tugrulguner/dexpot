@@ -181,9 +181,9 @@ rules apply in both interpreter modes.
 
 ## Execution model
 
-The scheduler is selected when dexpot imports:
+Free-threaded builds use the bounded connection-owner policy only when the GIL is actually disabled; a free-threaded build with the GIL enabled uses the GIL scheduler. The scheduler is bound once when `serve()` starts, after application imports, from the actual GIL state. A free-threaded build can have its GIL enabled by a native extension loaded during application setup:
 
-- **Free-threaded build:** one process, one owning thread per admitted connection. Threads
+- **GIL disabled on free-threaded Python:** one process, one owning thread per admitted connection. Threads
   can execute Python in parallel. `DEXPOT_MAX_CONNECTIONS` defaults to 1,024; excess
   connections receive 503 before a thread is created.
 - **GIL build:** a bounded pool owns connections. The queue is bounded; saturated admission

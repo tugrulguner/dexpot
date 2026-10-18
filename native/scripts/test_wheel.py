@@ -51,8 +51,7 @@ def main() -> None:
             )
             command = [str(python)]
             free_threaded = version.endswith("t") or "+freethreaded" in version
-            if free_threaded:
-                command.extend(["-X", "gil=0"])
+            # Keep the free-threaded interpreter unforced: fallback is part of the contract.
             subprocess.run(
                 [*command, "-m", "pytest", str(ROOT / "native" / "tests"), "-q"],
                 check=True,
@@ -78,6 +77,16 @@ def main() -> None:
                         str(args.project_root / "tests" / "test_parser_backend.py"),
                         str(args.project_root / "tests" / integration_test),
                         "-q",
+                    ],
+                    check=True,
+                    env=env,
+                )
+                subprocess.run(
+                    [
+                        *command,
+                        str(args.project_root / "scripts" / "verify_runtime_mode.py"),
+                        "--expect",
+                        "ft" if free_threaded else "gil",
                     ],
                     check=True,
                     env=env,
