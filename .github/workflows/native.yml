@@ -179,7 +179,7 @@ jobs:
           PYO3_PYTHON="$python" uvx maturin==1.15.0 build \
             --manifest-path native/Cargo.toml \
             --locked --release --interpreter "$python" --out native/dist
-      - name: Install and test with the GIL disabled
+      - name: Install and verify unforced free-threaded execution
         shell: bash
         run: >-
           uv run --no-project --python 3.12 python native/scripts/test_wheel.py
@@ -195,7 +195,9 @@ jobs:
             -e '.[all,dev]' "$wheel"
           PATH="$(pwd)/.native-ft-integration/bin:$PATH" \
           DEXPOT_HTTP_PARSER=native \
-            .native-ft-integration/bin/python -X gil=0 -m pytest tests/ -q
+            .native-ft-integration/bin/python -m pytest tests/ -q
+          DEXPOT_HTTP_PARSER=native \
+            .native-ft-integration/bin/python scripts/verify_runtime_mode.py --expect ft
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dexpot-native-cp314t-${{ matrix.platform }}

@@ -69,7 +69,9 @@ keeps the same plain synchronous handlers in both modes:
   and msgspec codecs are prepared when a handler is registered.
 - **Interpreter-adaptive scheduling.** Free-threaded builds use one process and a real thread
   per connection, capped at 1,024 active connections by default. GIL builds use a bounded
-  thread pool with fast 503 overload shedding and can fan out through `SO_REUSEPORT` workers.
+  thread pool with bounded idle readiness and fast 503 overload shedding; POSIX workers
+  share a supervisor-owned listener. This branch is experimental; see
+  [qualification status](docs/experimental-execution.md).
 - **msgspec request bodies.** JSON decoding and validation happen together in compiled C
   codecs.
 - **Optional Rust/PyO3 request-head parser.** A compatible `dexpot-native` installation
@@ -373,17 +375,22 @@ values returned by unchecked requestless handlers are outside the recursive guar
 
 ## Execution model
 
-dexpot chooses its scheduler once when the module is imported.
+On this draft branch, dexpot binds its scheduler when `serve()` starts, after application
+loading, using the actual GIL state—not just whether Python is a free-threaded build.
+Startup diagnostics distinguish standard Python/GIL enabled, free-threaded Python/GIL
+disabled, and free-threaded Python/GIL enabled.
 
 | Runtime | Default serving model | Overload behavior |
 |---|---|---|
 | Free-threaded CPython (`sys._is_gil_enabled() == False`) | One process; each admitted connection owns a thread | Active connections capped at 1,024 by default; excess connections receive 503 before thread creation |
-| Standard GIL CPython | Bounded pool of `CPU * 2 + 2` connection-owning threads | Queue capped at `2 * pool`; excess connections receive 503 |
-| Standard GIL CPython with `DEXPOT_WORKERS>1` | POSIX `SO_REUSEPORT` processes, each with its own bounded pool | Each worker sheds independently |
+| GIL enabled (standard or free-threaded build) | Readiness-owned idle sockets; bounded pool of `CPU * 2 + 2` active workers | Queue capped at `2 * pool`; total connections capped by `DEXPOT_MAX_CONNECTIONS`; excess work receives 503 |
+| GIL enabled with `DEXPOT_WORKERS>1` | POSIX fork workers share one inherited listener; each owns its pool and readiness state | Each worker sheds independently |
 
-A worker owns a keep-alive connection until it closes. This avoids putting idle keep-alive
-sockets back into a shared queue, where they can consume admission capacity and stall a
-worker waiting for the next request.
+On this experimental branch, a GIL worker handles readable requests and can retain a hot
+connection for up to a bounded 5 ms wait. It yields to queued peers; otherwise idle sockets
+return to a bounded readiness owner, not the application work queue. One absolute idle/head
+expiry survives the handoff. FT connections retain a dedicated bounded owner. These changes
+are not yet production-performance qualified; see [the remaining gates](docs/experimental-execution.md).
 
 Tune admission before the process imports dexpot:
 
@@ -401,10 +408,19 @@ Use process fan-out on supported POSIX systems:
 DEXPOT_WORKERS=4 dexpot serve main:app
 ```
 
-`DEXPOT_WORKERS>1` requires POSIX `fork` and `SO_REUSEPORT`; dexpot rejects that setting on
-unsupported platforms rather than pretending multiprocess serving is active. Free-threaded
-builds intentionally remain single-process because their threads can execute Python in
-parallel.
+`DEXPOT_WORKERS>1` requires POSIX `fork`; dexpot rejects that setting on
+unsupported platforms rather than pretending multiprocess serving is active. GIL-disabled
+processes intentionally remain single-process because their threads can execute Python in
+parallel. An unsupported native extension can enable the GIL even in a free-threaded build.
+
+The serving policy is not silently switched after a lazy import changes GIL state. Dexpot
+checks for a change on connection admission and accept-loop timeouts, outside request
+dispatch, and warns once; restart after loading dependencies to select a new policy.
+Unforced CI exercises application loading, real HTTP validation/serialization and lazy
+imports, including an extension that enables the GIL. Benchmark qualification requires
+matching startup and after-workload evidence from every serving process. These checks
+qualify tested dependencies and integrations only: a disabled GIL does not prove that
+arbitrary application dependencies or handlers are thread-safe.
 
 SIGINT and SIGTERM stop admission and allow active connections up to five seconds to drain.
 The GIL supervisor restarts a worker that exits unexpectedly.

@@ -69,7 +69,7 @@ The application code does not change between interpreters:
 # Tune bounded GIL threads and admission queue.
 DEXPOT_POOL=16 DEXPOT_MAX_QUEUE=32 uv run python examples/typed_crud.py
 
-# Fan out across process-local SO_REUSEPORT listeners on supported POSIX GIL builds.
+# Fan out across POSIX GIL workers sharing one inherited listener (experimental).
 DEXPOT_WORKERS=4 uv run python examples/typed_crud.py
 
 # Tune the free-threaded active-connection cap (default: 1024).

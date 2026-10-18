@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "item": {"path":"/items/7", "status":200, "body":"{\"id\":7,\"name\":\"item-7\",\"price\":9.99}"},
+  "nested": {"path":"/nested/7", "status":200, "body":"{\"id\":7,\"name\":\"item-7\",\"details\":{\"category\":\"demo\",\"dimensions\":{\"width\":2,\"height\":3}}}", "max_depth":4},
+  "mixed": {"sequence":["/io","/items/7","/items/7","/cpu"], "cycle_requests":4},
+  "notes":"The flat payload, /io 1ms sleep, /cpu sum-of-squares over range(500), and 1:2:1 mixed route share are recovered from continuous-baseline-20261012. Exact validators are in check.lua."
+}

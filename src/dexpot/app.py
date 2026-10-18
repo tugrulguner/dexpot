@@ -18,11 +18,12 @@ import os
 import signal
 import socket
 import sys
+import sysconfig
 import threading
 import time
 from collections import deque
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, cast
 
 import msgspec
 
@@ -52,6 +53,9 @@ _cores = os.cpu_count() or 4
 _is_gil_enabled = getattr(sys, "_is_gil_enabled", None)
 _gil_free = not _is_gil_enabled() if _is_gil_enabled is not None else False
 POOL_SIZE = int(os.environ.get("DEXPOT_POOL", "0")) or (_cores if _gil_free else _cores * 2 + 2)
+_POOL_AUTOMATIC = int(os.environ.get("DEXPOT_POOL", "0")) == 0
+_QUEUE_AUTOMATIC = "DEXPOT_MAX_QUEUE" not in os.environ
+_RUNTIME_BINDING_LOCK = threading.Lock()
 MAX_QUEUE = int(os.environ.get("DEXPOT_MAX_QUEUE", str(POOL_SIZE * 2)))
 MAX_CONNECTIONS = int(os.environ.get("DEXPOT_MAX_CONNECTIONS", "1024"))
 if POOL_SIZE <= 0:
@@ -61,6 +65,18 @@ if MAX_QUEUE <= 0:
 if MAX_CONNECTIONS <= 0:
     raise ValueError("DEXPOT_MAX_CONNECTIONS must be positive")
 _FT_CONNECTION_SLOTS = threading.BoundedSemaphore(MAX_CONNECTIONS) if _gil_free else None
+_FT_OWNERS_LOCK = threading.RLock()
+_FT_OWNERS: dict[threading.Thread, tuple[Dex, threading.BoundedSemaphore]] = {}
+
+
+def _reap_ft_owners() -> None:
+    """Caller holds the registry lock; return permits only after native join."""
+    for owner, (_app, slots) in tuple(_FT_OWNERS.items()):
+        if owner.ident is not None and not owner.is_alive():
+            owner.join()
+            del _FT_OWNERS[owner]
+            slots.release()
+
 
 _json_encode = msgspec.json.encode
 _logger = logging.getLogger("dexpot.error")
@@ -101,10 +117,117 @@ class Dex:
         self._plan: ApplicationPlan | None = None
         self._declaration_lock = threading.RLock()
         self._registration_depth = 0
-        self._work: deque[tuple[socket.socket, bytes]] = deque()
+        self._work: deque[tuple[socket.socket, bytes, float | None]] = deque()
         self._cond = threading.Condition()
         self._stopping = threading.Event()
         self._active_connections: set[socket.socket] = set()
+        self._gil_hub: Any = None
+        self._gil_accept: Any = None
+        self._gil_workers_ready = 0
+        self._runtime_bound = False
+        self._serving_gil_free = _gil_free
+        self._pool_size = POOL_SIZE
+        self._max_queue = MAX_QUEUE
+        self._runtime_mode_warning_logged = False
+
+    def _bind_runtime(self) -> None:
+        """Freeze scheduling at startup, after application imports, not per request."""
+        global _FT_CONNECTION_SLOTS
+        if self._runtime_bound:
+            return
+        enabled = getattr(sys, "_is_gil_enabled", lambda: True)()
+        self._serving_gil_free = not enabled
+        self._pool_size = POOL_SIZE
+        self._max_queue = MAX_QUEUE
+        if self._serving_gil_free != _gil_free:
+            if _POOL_AUTOMATIC:
+                self._pool_size = _cores if self._serving_gil_free else _cores * 2 + 2
+            if _QUEUE_AUTOMATIC:
+                self._max_queue = self._pool_size * 2
+        if self._serving_gil_free:
+            # Keep one process-wide budget across applications. Never remove it
+            # when a later application binds after an extension enables the GIL.
+            with _RUNTIME_BINDING_LOCK:
+                if _FT_CONNECTION_SLOTS is None:
+                    _FT_CONNECTION_SLOTS = threading.BoundedSemaphore(MAX_CONNECTIONS)
+        self._runtime_bound = True
+
+    def _runtime_info(self) -> dict[str, Any]:
+        """Explicit diagnostic snapshot; never called by the request hot path."""
+        return {
+            "pid": os.getpid(),
+            "python": sys.version,
+            "free_threaded_build": bool(sysconfig.get_config_var("Py_GIL_DISABLED")),
+            "gil_enabled": getattr(sys, "_is_gil_enabled", lambda: True)(),
+            "selected_gil_enabled": not self._serving_gil_free if self._runtime_bound else None,
+            "execution_mode": ("bounded-ft" if self._serving_gil_free else "pooled-gil")
+            if self._runtime_bound
+            else "unbound",
+            "pool_size": self._pool_size,
+            "max_queue": self._max_queue,
+            "connection_limit": MAX_CONNECTIONS,
+        }
+
+    def _runtime_description(self) -> str:
+        info = self._runtime_info()
+        build = "free-threaded Python" if info["free_threaded_build"] else "standard Python"
+        gil = "disabled" if info["gil_enabled"] is False else "enabled"
+        return f"{build}, GIL {gil}"
+
+    def _check_runtime_mode(self) -> None:
+        # Connection admission and existing accept-loop timeout polling are
+        # outside request execution. A late extension import cannot safely
+        # migrate live scheduler ownership.
+        if self._runtime_bound and not self._runtime_mode_warning_logged:
+            enabled = getattr(sys, "_is_gil_enabled", lambda: True)()
+            if enabled != (not self._serving_gil_free):
+                self._runtime_mode_warning_logged = True
+                _logger.warning(
+                    "GIL state changed after startup; retaining %s execution. "
+                    "Restart after loading application dependencies to reselect the runtime.",
+                    "bounded-ft" if self._serving_gil_free else "pooled-gil",
+                )
+
+    def _ensure_gil_hub(self) -> Any:
+        from ._gil_idle import GILIdleHub
+
+        with self._cond:
+            if self._gil_hub is None:
+                pool = self._pool_size if self._runtime_bound else POOL_SIZE
+                queue = self._max_queue if self._runtime_bound else MAX_QUEUE
+                self._gil_hub = GILIdleHub(self, pool, queue, MAX_CONNECTIONS)
+            return self._gil_hub
+
+    def _start_gil_workers(self, listener: socket.socket) -> None:
+        workers: list[threading.Thread] = []
+        pool_size = self._pool_size if self._runtime_bound else POOL_SIZE
+        try:
+            self._ensure_gil_hub()
+            for index in range(pool_size):
+                worker = threading.Thread(
+                    target=self._worker_gil, name=f"dexpot-gil-worker-{index}", daemon=True
+                )
+                worker.start()
+                workers.append(worker)
+            ready_deadline = time.monotonic() + 3
+            with self._cond:
+                while self._gil_workers_ready < pool_size:
+                    remaining = ready_deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise RuntimeError("GIL worker pool failed to become ready")
+                    self._cond.wait(timeout=min(0.1, remaining))
+            if self._gil_hub.closed or not self._gil_hub.thread.is_alive():
+                raise RuntimeError("GIL readiness owner failed during startup")
+        except BaseException:
+            with contextlib.suppress(OSError):
+                listener.close()
+            try:
+                self._begin_drain(timeout=0)
+            finally:
+                deadline = time.monotonic() + 1
+                for worker in workers:
+                    worker.join(timeout=max(0.0, deadline - time.monotonic()))
+            raise
 
     # ---- route registration ----
 
@@ -285,9 +408,11 @@ class Dex:
 
     # ---- request processing ----
 
-    def _process(self, conn: socket.socket, buf: bytes) -> tuple[bool, bytes]:
+    def _process(
+        self, conn: socket.socket, buf: bytes, *, head_deadline: float | None = None
+    ) -> tuple[bool, bytes]:
         try:
-            request, buf = read_request(conn, buf, self.limits)
+            request, buf = read_request(conn, buf, self.limits, head_deadline=head_deadline)
         except ClientDisconnected:
             return False, b""
         except HTTPParseError as exc:
@@ -472,47 +597,75 @@ class Dex:
     # ---- scheduling ----
 
     def _worker_gil(self) -> None:
+        hub = self._ensure_gil_hub()
+        import select
+
         cond = self._cond
+        with cond:
+            self._gil_workers_ready += 1
+            cond.notify_all()
         while True:
             with cond:
                 while not self._work and not self._stopping.is_set():
                     cond.wait(timeout=0.5)
                 if self._stopping.is_set() and not self._work:
                     return
-                conn, buf = self._work.popleft()
+                conn, buf, head_deadline = self._work.popleft()
                 self._active_connections.add(conn)
+            hub.started(conn)
+            park = False
+            idle_deadline: float | None = None
             try:
-                while not self._stopping.is_set():
-                    keep_alive, buf = self._process(conn, buf)
-                    if not keep_alive:
+                # Bound buffered pipeline work before yielding to queued peers.
+                for _ in range(8):
+                    if self._stopping.is_set():
                         break
-                conn.close()
+                    keep_alive, buf = self._process(conn, buf, head_deadline=head_deadline)
+                    if not keep_alive:
+                        park = False
+                        break
+                    park = True
+                    # A new request gets a new head budget, not a new budget at
+                    # every readiness/queue/grace ownership transition.
+                    now = time.monotonic()
+                    head_deadline = now + self.limits.head_read_seconds if not buf else None
+                    idle_deadline = (
+                        min(now + self.limits.idle_read_seconds, head_deadline)
+                        if head_deadline is not None
+                        else None
+                    )
+                    # Do not retain a hot connection ahead of queued peers.
+                    if self._work:
+                        break
+                    if not buf:
+                        assert idle_deadline is not None
+                        try:
+                            grace = min(
+                                0.005,
+                                max(0.0, idle_deadline - time.monotonic()),
+                            )
+                            readable = bool(select.select([conn], [], [], grace)[0])
+                        except ValueError:
+                            # Some select implementations cannot represent
+                            # high fds; the main selector can still own them.
+                            readable = False
+                        if not readable or time.monotonic() >= idle_deadline:
+                            break
+                else:
+                    park = True
             except (ConnectionError, OSError, ValueError):
-                with contextlib.suppress(OSError):
-                    conn.close()
+                park = False
             finally:
                 with cond:
                     self._active_connections.discard(conn)
-                    cond.notify_all()
-
-    def _start_gil_workers(self, listener: socket.socket) -> None:
-        """Roll back a partially started pool before propagating startup failure."""
-        workers: list[threading.Thread] = []
-        try:
-            for _ in range(POOL_SIZE):
-                worker = threading.Thread(target=self._worker_gil, daemon=True)
-                worker.start()
-                workers.append(worker)
-        except BaseException:
-            with contextlib.suppress(OSError):
-                listener.close()
-            try:
-                self._begin_drain(timeout=0)
-            finally:
-                deadline = time.monotonic() + 1.0
-                for worker in workers:
-                    worker.join(timeout=max(0.0, deadline - time.monotonic()))
-            raise
+                    # Only drain waiters need a completion broadcast. Work
+                    # admission wakes its own workers in GILIdleHub.flush_ready.
+                    if self._stopping.is_set():
+                        cond.notify_all()
+                if park and not self._stopping.is_set():
+                    hub.park(conn, buf, deadline=idle_deadline, head_deadline=head_deadline)
+                else:
+                    hub.release(conn)
 
     def _own_connection(self, conn: socket.socket, buf: bytes, *, registered: bool = False) -> None:
         if not registered:
@@ -533,12 +686,9 @@ class Dex:
                 self._cond.notify_all()
 
     def _own_connection_ft(self, conn: socket.socket, buf: bytes) -> None:
-        slots = _FT_CONNECTION_SLOTS
-        assert slots is not None
-        try:
-            self._own_connection(conn, buf, registered=True)
-        finally:
-            slots.release()
+        # The admitting thread reaps/join()s this owner before returning its
+        # permit. Releasing here would allow a replacement before thread exit.
+        self._own_connection(conn, buf, registered=True)
 
     @staticmethod
     def _reject_overload(conn: socket.socket) -> None:
@@ -560,32 +710,44 @@ class Dex:
             with contextlib.suppress(OSError):
                 conn.close()
             return
-        if _gil_free:
+        if self._serving_gil_free:
             slots = _FT_CONNECTION_SLOTS
             assert slots is not None
-            if not slots.acquire(blocking=False):
-                self._reject_overload(conn)
-                return
+            acquired = False
             registered = False
             owner_started = False
             start_failed = False
             try:
-                with self._cond:
-                    if not self._stopping.is_set():
-                        self._active_connections.add(conn)
-                        registered = True
-                if registered:
-                    owner = threading.Thread(
-                        target=self._own_connection_ft,
-                        args=(conn, buf),
-                        daemon=True,
-                    )
-                    try:
-                        owner.start()
-                    except RuntimeError:
+                with _FT_OWNERS_LOCK:
+                    _reap_ft_owners()
+                    acquired = slots.acquire(blocking=False)
+                    if not acquired:
                         start_failed = True
                     else:
-                        owner_started = True
+                        with self._cond:
+                            if not self._stopping.is_set():
+                                self._active_connections.add(conn)
+                                registered = True
+                        if registered:
+                            owner = threading.Thread(
+                                target=self._own_connection_ft,
+                                args=(conn, buf),
+                                daemon=True,
+                            )
+                            # Publish before start while holding the registry
+                            # lock: neither a fast exit nor a concurrent app can
+                            # race an unregistered/unstarted owner.
+                            _FT_OWNERS[owner] = (self, slots)
+                            try:
+                                owner.start()
+                            except BaseException as exc:
+                                del _FT_OWNERS[owner]
+                                if not isinstance(exc, RuntimeError):
+                                    raise
+                                start_failed = True
+                            else:
+                                owner_started = True
+                                _reap_ft_owners()
             finally:
                 if not owner_started:
                     try:
@@ -600,13 +762,19 @@ class Dex:
                                 self._active_connections.discard(conn)
                                 self._cond.notify_all()
                         finally:
-                            slots.release()
+                            if acquired:
+                                slots.release()
             return
-        # GIL build: bounded pool + fast-shed on saturation.
+        # GIL build: park idle sockets without occupying an application worker.
+        if self._gil_hub is not None:
+            if not self._gil_hub.admit(conn, buf):
+                self._reject_overload(conn)
+            return
+        # Preserve pre-serving admission behavior for direct/internal callers.
         with self._cond:
-            saturated = len(self._work) >= MAX_QUEUE
+            saturated = len(self._work) >= (self._max_queue if self._runtime_bound else MAX_QUEUE)
             if not saturated:
-                self._work.append((conn, buf))
+                self._work.append((conn, buf, None))
                 self._cond.notify()
         if saturated:
             self._reject_overload(conn)
@@ -621,11 +789,12 @@ class Dex:
         return srv
 
     def serve(self, host: str = "127.0.0.1", port: int = 8000) -> None:
+        self._bind_runtime()
         self._compile()
         workers_env = os.environ.get("DEXPOT_WORKERS", "")
         n_workers = max(1, int(workers_env)) if workers_env.isdigit() else 0
 
-        if not _gil_free and n_workers > 1:
+        if not self._serving_gil_free and n_workers > 1:
             self._serve_multiprocess(host, port, n_workers)
             return
 
@@ -634,9 +803,17 @@ class Dex:
         srv.bind((host, port))
         srv.listen(SOCKET_BACKLOG)
         srv.settimeout(0.5)
-        mode = f"bounded-ft({MAX_CONNECTIONS})" if _gil_free else f"pooled-gil({POOL_SIZE})"
-        print(f"dexpot serving on http://{host}:{port} pid={os.getpid()} mode={mode}", flush=True)
-        if not _gil_free:
+        mode = (
+            f"bounded-ft({MAX_CONNECTIONS})"
+            if self._serving_gil_free
+            else f"pooled-gil({self._pool_size})"
+        )
+        print(
+            f"dexpot serving on http://{host}:{port} pid={os.getpid()} "
+            f"mode={mode} runtime={self._runtime_description()}",
+            flush=True,
+        )
+        if not self._serving_gil_free:
             self._start_gil_workers(srv)
         # clean exit on SIGTERM/SIGINT (main thread only); otherwise default behavior
         stopping = threading.Event()
@@ -647,26 +824,32 @@ class Dex:
         if threading.current_thread() is threading.main_thread():
             signal.signal(signal.SIGTERM, stop)
             signal.signal(signal.SIGINT, stop)
-        while not stopping.is_set():
-            try:
-                conn, _addr = srv.accept()
-            except TimeoutError:
-                continue
-            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            conn.settimeout(self.limits.idle_read_seconds)
-            self._handle_admission(conn, b"")
-        with contextlib.suppress(OSError):
-            srv.close()
-        self._begin_drain(timeout=5.0)
+        try:
+            while not stopping.is_set():
+                try:
+                    conn, _addr = srv.accept()
+                except TimeoutError:
+                    self._check_runtime_mode()
+                    continue
+                self._check_runtime_mode()
+                conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                conn.settimeout(self.limits.idle_read_seconds)
+                self._handle_admission(conn, b"")
+        finally:
+            with contextlib.suppress(OSError):
+                srv.close()
+            self._begin_drain(timeout=5.0)
 
     def _begin_drain(self, timeout: float) -> None:
         """Stop new work, discard queued idle connections, and wait for active
         connections up to *timeout*. Close survivors after the deadline."""
         self._stopping.set()
+        if self._gil_hub is not None:
+            self._gil_hub.stop()
         deadline = time.monotonic() + timeout
         with self._cond:
             while self._work:
-                conn, _buf = self._work.popleft()
+                conn, _buf, _head_deadline = self._work.popleft()
                 with contextlib.suppress(OSError):
                     conn.close()
             self._cond.notify_all()
@@ -677,6 +860,13 @@ class Dex:
             with contextlib.suppress(OSError):
                 conn.shutdown(socket.SHUT_RDWR)
                 conn.close()
+        with _FT_OWNERS_LOCK:
+            owners = [owner for owner, (app, _slots) in _FT_OWNERS.items() if app is self]
+        for owner in owners:
+            if owner.ident is not None:
+                owner.join(timeout=max(0.0, deadline - time.monotonic()))
+        with _FT_OWNERS_LOCK:
+            _reap_ft_owners()
 
     def _accept_loop(self, srv: socket.socket) -> None:
         while True:
@@ -689,15 +879,11 @@ class Dex:
             self._handle_admission(conn, b"")
 
     def _serve_multiprocess(self, host: str, port: int, n_workers: int) -> None:
-        """Supervise one process-local SO_REUSEPORT listener per GIL worker."""
+        """Supervise workers sharing one inherited listening socket."""
         if os.name != "posix":
             raise OSError(
-                "DEXPOT_WORKERS > 1 requires POSIX fork + SO_REUSEPORT; "
+                "DEXPOT_WORKERS > 1 requires POSIX fork; "
                 f"found {os.name!r}. Use DEXPOT_WORKERS=1 on this platform."
-            )
-        if not hasattr(socket, "SO_REUSEPORT"):
-            raise OSError(
-                "DEXPOT_WORKERS > 1 requires SO_REUSEPORT; use DEXPOT_WORKERS=1 on this platform."
             )
         if threading.current_thread() is not threading.main_thread():
             raise RuntimeError(
@@ -705,36 +891,32 @@ class Dex:
                 "start dexpot from its CLI or a process, not a background thread"
             )
 
-        # Preflight bind before launching anything. Workers create their own
-        # process-local listeners after fork, so no child inherits unused peers.
-        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-            probe.bind((host, port))
-        finally:
-            probe.close()
-
-        print(
-            f"dexpot serving on http://{host}:{port} pid={os.getpid()} "
-            f"mode=pooled-gil({POOL_SIZE})x{n_workers}",
-            flush=True,
-        )
-
         procs: list[Any] = []
         stopping = threading.Event()
 
         def stop(*_args: object) -> None:
             stopping.set()
 
-        signal.signal(signal.SIGTERM, stop)
-        signal.signal(signal.SIGINT, stop)
-
+        # Keep every allocation after socket creation inside the ownership
+        # boundary, including IPC and signal setup failures before fork.
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            for _ in range(n_workers):
-                proc = self._new_worker(host, port)
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.bind((host, port))
+            listener.listen(SOCKET_BACKLOG)
+            listener.settimeout(0.5)
+            self._shared_listener = listener
+            self._worker_accept_gate = _multiprocessing.Event()
+            from ._gil_accept import GILAcceptTurns
+
+            self._gil_accept = GILAcceptTurns(_multiprocessing, n_workers)
+            signal.signal(signal.SIGTERM, stop)
+            signal.signal(signal.SIGINT, stop)
+            for slot in range(n_workers):
+                proc = self._new_worker(host, port, slot=slot)
                 proc.start()
                 procs.append(proc)
+                self._gil_accept.parent_started(slot)
 
             # Stabilize the full worker set before announcing startup success.
             # On macOS, rapid SO_REUSEPORT restarts can transiently fail one
@@ -743,37 +925,66 @@ class Dex:
             startup_deadline = time.monotonic() + 3.0
             while True:
                 dead = [i for i, p in enumerate(procs) if not p.is_alive()]
-                if not dead:
+                pending = [p for p in procs if not p._dexpot_ready.is_set()]
+                if not dead and not pending:
                     break
                 if time.monotonic() >= startup_deadline:
-                    raise RuntimeError(f"{len(dead)} dexpot worker(s) failed during startup")
+                    raise RuntimeError("Dexpot worker set failed to become ready")
                 for i in dead:
-                    replacement = self._new_worker(host, port)
+                    self._gil_accept.drop(i)
+                    replacement = self._new_worker(host, port, slot=i)
                     replacement.start()
                     procs[i] = replacement
+                    self._gil_accept.parent_started(i)
                 time.sleep(0.2)
 
+            self._worker_accept_gate.set()
+            print(
+                f"dexpot serving on http://{host}:{port} pid={os.getpid()} "
+                f"mode=pooled-gil({self._pool_size})x{n_workers} "
+                f"runtime={self._runtime_description()}",
+                flush=True,
+            )
             while not stopping.is_set():
                 self._restart_dead_workers(self, host, port, procs)
-                stopping.wait(1.0)
+                self._gil_accept.step(procs)
         finally:
             self._teardown(procs)
+            with contextlib.suppress(OSError):
+                listener.close()
+            self._shared_listener = None
+            self._worker_accept_gate = None
+            if self._gil_accept is not None:
+                self._gil_accept.close()
+            self._gil_accept = None
 
-    def _new_worker(self, host: str, port: int) -> Any:
-        return _multiprocessing.Process(
+    def _new_worker(self, host: str, port: int, *, slot: int | None = None) -> Any:
+        ready = _multiprocessing.Event()
+        control = (
+            self._gil_accept.new_channel(slot)
+            if self._gil_accept is not None and slot is not None
+            else None
+        )
+        proc = _multiprocessing.Process(
             target=self._worker_process,
-            args=(host, port),
+            args=(host, port, ready, control),
             daemon=True,
         )
+        cast(Any, proc)._dexpot_ready = ready
+        return proc
 
     @staticmethod
     def _restart_dead_workers(owner: Dex, host: str, port: int, procs: list[Any]) -> None:
         for i, proc in enumerate(procs):
             if not proc.is_alive():
                 print(f"dexpot worker {i} exited; restarting", flush=True)
-                replacement = owner._new_worker(host, port)
+                if owner._gil_accept is not None:
+                    owner._gil_accept.drop(i)
+                replacement = owner._new_worker(host, port, slot=i)
                 replacement.start()
                 procs[i] = replacement
+                if owner._gil_accept is not None:
+                    owner._gil_accept.parent_started(i)
 
     @staticmethod
     def _teardown(procs: list[Any]) -> None:
@@ -793,14 +1004,17 @@ class Dex:
                     proc.kill()
                     proc.join(timeout=1)
 
-    def _worker_process(self, host: str, port: int) -> None:
+    def _worker_process(self, host: str, port: int, ready: Any = None, control: Any = None) -> None:
         """Child entrypoint: create a process-local listener, serve, then drain."""
+        self._bind_runtime()
         self._stopping.clear()
-        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        listener.bind((host, port))
-        listener.listen(SOCKET_BACKLOG)
+        if self._gil_accept is not None and control is not None:
+            self._gil_accept.child_started(control)
+        listener = getattr(self, "_shared_listener", None)
+        if listener is None:
+            listener = self._make_listener(host, reuseport=False)
+            listener.bind((host, port))
+            listener.listen(SOCKET_BACKLOG)
         listener.settimeout(0.5)
 
         def stop(*_args: object) -> None:
@@ -810,16 +1024,34 @@ class Dex:
         signal.signal(signal.SIGINT, stop)
 
         self._start_gil_workers(listener)
+
         try:
+            if ready is not None:
+                ready.set()
+            gate = getattr(self, "_worker_accept_gate", None)
+            gate_deadline = time.monotonic() + 5
+            while gate is not None and not gate.wait(timeout=0.1):
+                if self._stopping.is_set():
+                    return
+                if time.monotonic() >= gate_deadline:
+                    raise RuntimeError("worker accept gate failed to open")
             while not self._stopping.is_set():
                 try:
-                    conn, _addr = listener.accept()
+                    conn, _addr = (
+                        self._gil_accept.accept(listener, control, self._stopping)
+                        if self._gil_accept is not None and control is not None
+                        else listener.accept()
+                    )
                 except TimeoutError:
+                    self._check_runtime_mode()
                     continue
+                self._check_runtime_mode()
                 conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 conn.settimeout(self.limits.idle_read_seconds)
                 self._handle_admission(conn, b"")
         finally:
+            if control is not None:
+                control.close()
             with contextlib.suppress(OSError):
                 listener.close()
             self._begin_drain(timeout=5.0)
