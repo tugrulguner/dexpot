@@ -44,11 +44,25 @@ test('family navigation stays prominent, ordered, and accessible across routes, 
       const height = width === 320 ? 390 : width === 768 ? 768 : 900;
       await page.setViewportSize({ width, height });
       await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
-      await page.goto(route);
+      await page.goto(width < 800 ? `${route}?visitor_secret=must-not-leak#private-fragment` : route);
       await settle(page);
       const header = page.locator('header.header');
-      const familyLink = header.locator(`a[href="${resources[0][1]}"]:visible`).first();
-      await expect(familyLink).toHaveText('ModePot');
+      const feedbackEntry = header.locator('.family-home-mobile');
+      if (width < 800) {
+        await expect(feedbackEntry).toBeVisible();
+        await expect(feedbackEntry).toHaveText('Feedback');
+        await expect(feedbackEntry).toHaveAttribute('href', /github\.com\/tugrulguner\/dexpot\/issues\/new\?/);
+        const feedbackUrl = new URL(await feedbackEntry.getAttribute('href'));
+        expect(feedbackUrl.pathname).toBe('/tugrulguner/dexpot/issues/new');
+        expect(feedbackUrl.searchParams.get('body')).toContain(`Page: https://dexpot.modepot.io${route}`);
+        expect(feedbackUrl.searchParams.get('body')).not.toContain('visitor_secret');
+        expect(feedbackUrl.searchParams.get('body')).not.toContain('must-not-leak');
+        expect(feedbackUrl.searchParams.get('body')).not.toContain('private-fragment');
+        expect(feedbackUrl.hash).toBe('');
+      } else {
+        const familyLink = header.locator(`a[href="${resources[0][1]}"]:visible`).first();
+        await expect(familyLink).toHaveText('ModePot');
+      }
       await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
 
       if (width >= 1280) {
@@ -118,13 +132,20 @@ test('family navigation stays prominent, ordered, and accessible across routes, 
         const menuRegion = page.locator('#family-mobile-menu');
         await expect(menu).toHaveAttribute('aria-expanded', 'true');
         await expect(menuRegion).toBeVisible();
-        const menuLinks = resources.slice(1).map(([name]) => menuRegion.getByRole('link', { name, exact: true }));
+        const visibleFeedback = header.locator('.family-home-mobile');
+        await expect(visibleFeedback).toBeVisible();
+        await expect(visibleFeedback).toHaveText('Feedback');
+        const modepotEntry = menuRegion.getByRole('link', { name: 'ModePot', exact: true });
+        await expect(modepotEntry).toBeVisible();
+        await expect(modepotEntry).toHaveAttribute('href', resources[0][1]);
+        const menuLinks = [modepotEntry, ...resources.slice(1).map(([name]) => menuRegion.getByRole('link', { name, exact: true }))];
         for (let index = 0; index < menuLinks.length; index += 1) {
           await expect(menuLinks[index]).toBeVisible();
-          await expect(menuLinks[index]).toHaveAttribute('href', resources[index + 1][1]);
+          const expectedResource = index === 0 ? resources[0] : resources[index][0] === 'GitHub' ? resources[1] : resources[index][0] === 'Community' ? resources[2] : resources[3];
+          await expect(menuLinks[index]).toHaveAttribute('href', expectedResource[1]);
           const box = await menuLinks[index].boundingBox();
-          expect(box.height, `${resources[index + 1][0]} mobile target`).toBeGreaterThanOrEqual(44);
-          expect(box.y + box.height, `${resources[index + 1][0]} is at the top of the menu`).toBeLessThan(height);
+          expect(box.height, `${expectedResource[0]} mobile target`).toBeGreaterThanOrEqual(44);
+          expect(box.y + box.height, `${expectedResource[0]} is at the top of the menu`).toBeLessThan(height);
         }
         await page.keyboard.press('Escape');
         await expect(menu).toHaveAttribute('aria-expanded', 'false');
