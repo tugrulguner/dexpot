@@ -14,6 +14,27 @@ This branch is a **draft**, not a release or a claim of performance qualificatio
 
 The small startup rollback fix was merged separately in [#115](https://github.com/tugrulguner/dexpot/pull/115). This draft is rebased onto that merged main commit; its remaining diff contains only the experimental execution work and supporting documentation/tests.
 
+## Python-only connection-distribution follow-up
+
+The supervisor now grants bounded connection-accept turns to responsive GIL workers.
+Each worker still accepts from the inherited listener and owns its sockets; only small
+control messages cross processes, never requests or responses. The supervisor owns the
+turn state, so an exited worker cannot leave a shared admission mutex locked. A living
+but unresponsive worker retains at most one outstanding grant while healthy peers may
+continue. Restarts replace control channels, and forked children close sibling endpoints.
+No manager thread, per-request coordination, production option or native-runtime change
+is introduced. Even connection turns do not imply equal handler work on each connection.
+
+The regression uses ordinary keep-alive GETs and deliberately delays peer acceptance:
+the old runtime let one fast worker take the next connection; the new runtime yields
+that turn. Further regressions cover a nonresponsive live worker and supervisor cleanup
+if post-start channel cleanup fails. Existing worker-restart and drain tests pass.
+Local verification: 13 focused multiprocess/lifecycle tests; `make check build` with
+561 passed/21 skipped; FT-focused Python suites with 103 passed/5 skipped.
+Performance requalification is pending, and the earlier failed records below are retained.
+Load-client crash/source experiments were paused and preserved outside test collection;
+benchmark clients and acceptance thresholds remain unchanged.
+
 ## Owner-thread lifetime follow-up
 
 FT admission capacity now remains reserved until the admitting/draining thread has joined

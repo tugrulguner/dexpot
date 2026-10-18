@@ -122,6 +122,7 @@ class Dex:
         self._stopping = threading.Event()
         self._active_connections: set[socket.socket] = set()
         self._gil_hub: Any = None
+        self._gil_accept: Any = None
         self._gil_workers_ready = 0
         self._runtime_bound = False
         self._serving_gil_free = _gil_free
@@ -906,12 +907,16 @@ class Dex:
             listener.settimeout(0.5)
             self._shared_listener = listener
             self._worker_accept_gate = _multiprocessing.Event()
+            from ._gil_accept import GILAcceptTurns
+
+            self._gil_accept = GILAcceptTurns(_multiprocessing, n_workers)
             signal.signal(signal.SIGTERM, stop)
             signal.signal(signal.SIGINT, stop)
-            for _ in range(n_workers):
-                proc = self._new_worker(host, port)
+            for slot in range(n_workers):
+                proc = self._new_worker(host, port, slot=slot)
                 proc.start()
                 procs.append(proc)
+                self._gil_accept.parent_started(slot)
 
             # Stabilize the full worker set before announcing startup success.
             # On macOS, rapid SO_REUSEPORT restarts can transiently fail one
@@ -926,9 +931,11 @@ class Dex:
                 if time.monotonic() >= startup_deadline:
                     raise RuntimeError("Dexpot worker set failed to become ready")
                 for i in dead:
-                    replacement = self._new_worker(host, port)
+                    self._gil_accept.drop(i)
+                    replacement = self._new_worker(host, port, slot=i)
                     replacement.start()
                     procs[i] = replacement
+                    self._gil_accept.parent_started(i)
                 time.sleep(0.2)
 
             self._worker_accept_gate.set()
@@ -940,19 +947,27 @@ class Dex:
             )
             while not stopping.is_set():
                 self._restart_dead_workers(self, host, port, procs)
-                stopping.wait(1.0)
+                self._gil_accept.step(procs)
         finally:
             self._teardown(procs)
             with contextlib.suppress(OSError):
                 listener.close()
             self._shared_listener = None
             self._worker_accept_gate = None
+            if self._gil_accept is not None:
+                self._gil_accept.close()
+            self._gil_accept = None
 
-    def _new_worker(self, host: str, port: int) -> Any:
+    def _new_worker(self, host: str, port: int, *, slot: int | None = None) -> Any:
         ready = _multiprocessing.Event()
+        control = (
+            self._gil_accept.new_channel(slot)
+            if self._gil_accept is not None and slot is not None
+            else None
+        )
         proc = _multiprocessing.Process(
             target=self._worker_process,
-            args=(host, port, ready),
+            args=(host, port, ready, control),
             daemon=True,
         )
         cast(Any, proc)._dexpot_ready = ready
@@ -963,9 +978,13 @@ class Dex:
         for i, proc in enumerate(procs):
             if not proc.is_alive():
                 print(f"dexpot worker {i} exited; restarting", flush=True)
-                replacement = owner._new_worker(host, port)
+                if owner._gil_accept is not None:
+                    owner._gil_accept.drop(i)
+                replacement = owner._new_worker(host, port, slot=i)
                 replacement.start()
                 procs[i] = replacement
+                if owner._gil_accept is not None:
+                    owner._gil_accept.parent_started(i)
 
     @staticmethod
     def _teardown(procs: list[Any]) -> None:
@@ -985,10 +1004,12 @@ class Dex:
                     proc.kill()
                     proc.join(timeout=1)
 
-    def _worker_process(self, host: str, port: int, ready: Any = None) -> None:
+    def _worker_process(self, host: str, port: int, ready: Any = None, control: Any = None) -> None:
         """Child entrypoint: create a process-local listener, serve, then drain."""
         self._bind_runtime()
         self._stopping.clear()
+        if self._gil_accept is not None and control is not None:
+            self._gil_accept.child_started(control)
         listener = getattr(self, "_shared_listener", None)
         if listener is None:
             listener = self._make_listener(host, reuseport=False)
@@ -1016,7 +1037,11 @@ class Dex:
                     raise RuntimeError("worker accept gate failed to open")
             while not self._stopping.is_set():
                 try:
-                    conn, _addr = listener.accept()
+                    conn, _addr = (
+                        self._gil_accept.accept(listener, control, self._stopping)
+                        if self._gil_accept is not None and control is not None
+                        else listener.accept()
+                    )
                 except TimeoutError:
                     self._check_runtime_mode()
                     continue
@@ -1025,6 +1050,8 @@ class Dex:
                 conn.settimeout(self.limits.idle_read_seconds)
                 self._handle_admission(conn, b"")
         finally:
+            if control is not None:
+                control.close()
             with contextlib.suppress(OSError):
                 listener.close()
             self._begin_drain(timeout=5.0)
