@@ -1,1 +1,12 @@
-import {readFile} from 'node:fs/promises'; import assert from 'node:assert/strict'; const h=await readFile(new URL('../src/components/Header.astro',import.meta.url),'utf8'); const f=await readFile(new URL('../src/components/Footer.astro',import.meta.url),'utf8'); for(const x of ['https://www.linkedin.com/in/tugrulguner/','https://x.com/Tugrul_Guner','https://github.com/tugrulguner/dexpot']) assert.ok(h.includes(x)); assert.match(h,/Feedback \/ issue/); assert.match(f,/Feedback \/ issue/); assert.match(h,/target="_blank" rel="noopener noreferrer"/); assert.match(h,/social-link[\s\S]*22px/);
+import {readFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const h=await readFile(new URL('../src/components/Header.astro',import.meta.url),'utf8');
+const f=await readFile(new URL('../src/components/Footer.astro',import.meta.url),'utf8');
+const c=await readFile(new URL('../src/components/CreatorSocials.astro',import.meta.url),'utf8');
+const home=await readFile(new URL('../src/content/docs/index.mdx',import.meta.url),'utf8');
+for(const x of ['https://github.com/tugrulguner','https://www.linkedin.com/in/tugrulguner/','https://x.com/Tugrul_Guner'])assert.ok(c.includes(x));
+assert.ok(h.includes('https://github.com/tugrulguner/dexpot'));
+assert.ok(!h.includes('linkedin.com')&&!h.includes('x.com/Tugrul_Guner'));
+assert.match(h,/Feedback \/ issue/);assert.match(f,/Feedback \/ issue/);
+assert.match(c,/target="_blank"/);assert.match(c,/rel="noopener noreferrer"/);
+assert.ok(c.includes('font-size: 15px'));assert.ok(home.includes('class="creator-row"')&&home.includes('<CreatorSocials'));

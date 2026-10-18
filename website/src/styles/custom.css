@@ -146,3 +146,7 @@ main:has(.framework-hero) > .content-panel:first-child { display:none; }
 @media (max-width:38rem) { .framework-hero { grid-template-columns:minmax(0,1fr); gap:1rem; padding-block:1.5rem 1.25rem; } .framework-hero h1 { max-width:16ch; font-size:clamp(2.1rem,10vw,2.65rem); } .framework-tagline { margin:.8rem 0 1rem; } .framework-actions { gap:.4rem; } .framework-action { padding-inline:.8rem; font-size:.84rem; } .framework-art { justify-self:center; width:min(100%,22rem); } .framework-art img { max-height:14rem; } .installation-strip { grid-template-columns:1fr; gap:.65rem; padding:1rem; } .installation-strip>div { grid-column:auto; } .installation-strip code { width:auto; max-width:100%; font-size:.78rem; } .installation-strip a { justify-self:start; } .project-demo { grid-template-columns:1fr; gap:.45rem; padding:1rem; } .project-demo>a { grid-column:auto; grid-row:auto; justify-self:start; } .demo-boundary { grid-column:auto; } }
 
 .crud-playground .code-pane pre, .crud-playground .contract-grid pre { color: var(--mp-ink-dark); }
+
+/* Personal social links belong beside the existing creator attribution. */
+.framework-copy .creator-row { display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:0;margin-top:12px;font-size:15px;line-height:1.5; }
+.framework-copy .creator-row .creator-attribution { margin:0;padding:0;font:inherit; }
