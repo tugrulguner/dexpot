@@ -56,23 +56,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --all-extras --locked
-      - name: Verify interpreter mode
+      - name: Verify unforced runtime lifecycle
         env:
           EXPECTED_PYTHON: ${{ matrix.python-version }}
         run: |
-          uv run python - <<'PY'
-          import os
-          import sys
-
-          expected = os.environ["EXPECTED_PYTHON"]
-          is_gil_enabled = getattr(sys, "_is_gil_enabled", lambda: True)()
-          print(sys.version)
-          print(f"gil_enabled={is_gil_enabled}")
-          if expected.endswith("t") and is_gil_enabled:
-              raise SystemExit("expected a free-threaded interpreter")
-          if not expected.endswith("t") and not is_gil_enabled:
-              raise SystemExit("expected a GIL-enabled interpreter")
-          PY
+          if [[ "$EXPECTED_PYTHON" == *t ]]; then
+            uv run python scripts/verify_runtime_mode.py --expect ft --negative-extension
+          else
+            uv run python scripts/verify_runtime_mode.py --expect gil
+          fi
       - run: >-
           uv run pytest tests/ -v
           --cov=src/dexpot

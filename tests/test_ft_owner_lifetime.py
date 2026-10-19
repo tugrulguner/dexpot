@@ -12,6 +12,7 @@ module = importlib.import_module("dexpot.app")
 def test_finished_target_cannot_release_capacity_before_owner_thread_exits(monkeypatch):
     app = Dex()
     monkeypatch.setattr(module, "_gil_free", True)
+    app._serving_gil_free = True
     monkeypatch.setattr(module, "_FT_CONNECTION_SLOTS", threading.BoundedSemaphore(1))
     target_finished = threading.Event()
     allow_thread_exit = threading.Event()

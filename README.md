@@ -373,7 +373,7 @@ values returned by unchecked requestless handlers are outside the recursive guar
 
 ## Execution model
 
-dexpot chooses its scheduler once when the module is imported.
+dexpot binds its scheduler when `serve()` starts, after application loading, using the actual GIL state. A free-threaded build may have the GIL enabled (for example, after loading an incompatible native extension); startup diagnostics distinguish the build from the active GIL state. If an import changes GIL state after startup, dexpot keeps the selected scheduler and warns from the accept loop; restart after loading dependencies to select the new mode.
 
 | Runtime | Default serving model | Overload behavior |
 |---|---|---|
