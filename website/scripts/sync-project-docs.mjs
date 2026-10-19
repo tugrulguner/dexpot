@@ -14,10 +14,13 @@ for (const sourceName of ['README.md', 'ROADMAP.md']) {
   const sourcePath = join(repoRoot, sourceName);
   const text = await readFile(sourcePath, 'utf8');
   const base = `${repository}/blob/${revision}/`;
+  const rawBase = `${repository.replace('github.com/', 'raw.githubusercontent.com/')}/${revision}/`;
+  const assetExtensions = /\.(?:png|jpe?g|gif|svg|webp|avif|pdf)(?:[?#]|$)/i;
   const rewritten = text.replace(/(!?)\[([^\]]*)\]\((?!https?:|mailto:|#)([^)]+)\)/g, (_match, image, label, target) => {
-    const destination = image ? `${repository.replace('github.com/', 'raw.githubusercontent.com/')}/${revision}/${target}` : `${base}${target}`;
+    const destination = image || assetExtensions.test(target) ? `${rawBase}${target}` : `${base}${target}`;
     return `${image}[${label}](${destination})`;
-  }).replace(/(<img\b[^>]*?\bsrc=["'])(?!https?:|data:)([^"']+)(["'])/gi, (_match, before, target, after) => `${before}${repository.replace('github.com/', 'raw.githubusercontent.com/')}/${revision}/${target}${after}`);
+  }).replace(/(<img\b[^>]*?\bsrc=["'])(?!https?:|data:)([^"']+)(["'])/gi, (_match, before, target, after) => `${before}${rawBase}${target}${after}`)
+    .replace(/(<a\b[^>]*?\bhref=["'])(?!https?:|mailto:|#|\/)([^"']+)(["'])/gi, (match, before, target, after) => assetExtensions.test(target) ? `${before}${rawBase}${target}${after}` : match);
   const slug = sourceName.toLowerCase().replace('.md', '');
   const title = slug === 'readme' ? 'Project README' : 'Project roadmap';
   const content = `---\ntitle: ${title}\ndescription: "Generated from the repository ${sourceName}; source identity: ${identity}."\n---\n\n> **Source:** [${sourceName}](${base}${sourceName}) at \`${revision}\`. This is a repository snapshot, not a claim about the latest published release.\n\n${rewritten}`;
