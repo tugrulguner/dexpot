@@ -1,9 +1,11 @@
+import { execFileSync } from 'node:child_process';
 import { readdir, readFile } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
 const websiteRoot = fileURLToPath(new URL('..', import.meta.url));
+const repoRoot = join(websiteRoot, '..');
 const distRoot = join(websiteRoot, 'dist');
 const forbidden = [
   {
@@ -194,6 +196,23 @@ for (const [route, sourceName, pageTitle] of projectDocs) {
   if (!source.includes('repository snapshot (not published-release metadata')) failures.push(`${route}: missing explicit snapshot provenance`);
   if (!source.includes(`blob/`) || !source.includes(sourceName)) failures.push(`${route}: missing source revision link`);
   if (!rendered.includes(pageTitle) || !rendered.includes('not published-release metadata')) failures.push(`${route}: generated content/provenance not rendered`);
+  if (route === 'project/readme') {
+    const readme = await readFile(join(repoRoot, 'README.md'), 'utf8');
+    const diagramTargets = [...readme.matchAll(/<a\b[^>]*?\bhref=["']((?!https?:)[^"']+\.(?:png|jpe?g|gif|svg|webp|avif|pdf)(?:\?[^"']*)?)["'][^>]*>\s*<img/gi)].map((match) => match[1]);
+    const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+    for (const target of diagramTargets) {
+      const published = `https://raw.githubusercontent.com/tugrulguner/dexpot/${revision}/${target}`;
+      if (!rendered.includes(`href="${published.replaceAll('&', '&amp;')}"`) && !rendered.includes(`href="${published}"`)) {
+        failures.push(`${route}: linked README diagram does not resolve to its published raw asset: ${target}`);
+      }
+    }
+    if (diagramTargets.length === 0) failures.push(`${route}: expected linked README diagram fixtures`);
+  }
+}
+
+const home = await readFile(join(distRoot, 'index.html'), 'utf8');
+if (!home.includes('class="framework-action tertiary feedback-entry"') || !home.includes('href="https://github.com/tugrulguner/dexpot/issues/new?title=Dexpot%20website%20feedback&amp;body=Page%3A%20https%3A%2F%2Fdexpot.modepot.io%2F"') || !home.includes('>Feedback <span')) {
+  failures.push('index.html: missing visible hero feedback action or destination');
 }
 
 const llms = await readFile(join(distRoot, 'llms.txt'), 'utf8');

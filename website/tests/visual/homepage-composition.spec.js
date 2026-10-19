@@ -106,8 +106,8 @@ for (const colorScheme of ['light', 'dark']) {
       await expect(art).toHaveAttribute('alt', /synchronous Python APIs adapt execution/);
       await expect.poll(() => art.evaluate((image) => ({ complete: image.complete, naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight }))).toEqual({ complete: true, naturalWidth: 1200, naturalHeight: 900 });
       const actions = hero.locator('.framework-actions a');
-      await expect(actions).toHaveText(['Quick start', 'Playground', 'Roadmap', 'GitHub ↗']);
-      expect(await actions.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href')))).toEqual(['/quick-start/', '/playground/', '/project/roadmap/', 'https://github.com/tugrulguner/dexpot']);
+      await expect(actions).toHaveText(['Quick start', 'Playground', 'Roadmap', 'GitHub ↗', 'Feedback ↗']);
+      expect(await actions.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href')))).toEqual(['/quick-start/', '/playground/', '/project/roadmap/', 'https://github.com/tugrulguner/dexpot', 'https://github.com/tugrulguner/dexpot/issues/new?title=Dexpot%20website%20feedback&body=Page%3A%20https%3A%2F%2Fdexpot.modepot.io%2F']);
       const roadmap = hero.getByRole('link', { name: 'Roadmap' });
       await expect(roadmap).toBeVisible();
       await roadmap.click();
