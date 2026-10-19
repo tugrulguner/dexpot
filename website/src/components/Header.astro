@@ -2,6 +2,7 @@
 import LanguageSelect from '@astrojs/starlight/components/LanguageSelect.astro';
 import Search from '@astrojs/starlight/components/Search.astro';
 import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
+const feedbackUrl = "https://github.com/tugrulguner/dexpot/issues/new?" + new URLSearchParams({ title: "Website feedback", body: `Page: https://dexpot.modepot.io${Astro.url.pathname}\n\nPlease describe the issue. Do not include private data.` }).toString();
 ---
 
 <div class="header">
@@ -15,9 +16,9 @@ import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
       <a href="https://github.com/tugrulguner/dexpot">GitHub</a>
       <a href="https://discord.gg/u3AANZr6RG">Community</a>
       <a href="https://tugrul.modepot.io/">About Tugrul</a>
-<a class="feedback-link" href="https://github.com/tugrulguner/dexpot/issues/new?title=Dexpot%20website%20feedback&body=Page%3A%20https%3A%2F%2Fdexpot.modepot.io%2F" target="_blank" rel="noopener noreferrer">Feedback / issue ↗</a>
+<a class="feedback-link feedback-entry ph-no-autocapture" href="https://github.com/tugrulguner/dexpot/issues/new?title=Dexpot%20website%20feedback&body=Page%3A%20https%3A%2F%2Fdexpot.modepot.io%2F" target="_blank" rel="noopener noreferrer">Feedback / issue ↗</a>
     </nav>
-    <a class="family-home-mobile" href="https://modepot.io/">ModePot</a>
+    <a class="family-home-mobile feedback-entry ph-no-autocapture" href={feedbackUrl} target="_blank" rel="noopener noreferrer" aria-label="Feedback / report an issue (opens GitHub in a new tab)">Feedback</a>
     <button class="family-menu-button" type="button" aria-expanded="false" aria-controls="family-mobile-menu">Menu</button>
     <ThemeSelect />
     <LanguageSelect />
@@ -25,6 +26,7 @@ import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
 </div>
 <div id="family-mobile-menu" class="family-mobile-menu" role="region" aria-label="Menu" hidden>
   <nav class="family-mobile-resources" aria-label="ModePot family">
+    <a href="https://modepot.io/">ModePot</a>
     <a href="https://github.com/tugrulguner/dexpot/issues/new?title=Dexpot%20website%20feedback&body=Page%3A%20https%3A%2F%2Fdexpot.modepot.io%2F" target="_blank" rel="noopener noreferrer">Feedback / issue (opens in a new tab)</a>
     <a href="https://github.com/tugrulguner/dexpot">GitHub</a>
     <a href="https://discord.gg/u3AANZr6RG">Community</a>
@@ -73,6 +75,7 @@ import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
 </script>
 
 <style>
+  .feedback-entry { border:1px solid currentColor; border-radius:4px; font-size:14px !important; font-weight:600; text-decoration:none; }
   @layer starlight.core {
     .header { display:flex; gap:var(--sl-nav-gap); justify-content:space-between; align-items:center; height:100%; }
     .title-wrapper { overflow:clip; padding:.25rem; margin:-.25rem; min-width:0; }
