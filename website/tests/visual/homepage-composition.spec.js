@@ -125,6 +125,12 @@ for (const colorScheme of ['light', 'dark']) {
         return { columns: getComputedStyle(document.querySelector('.framework-hero')).gridTemplateColumns, hero: rect('.framework-hero'), copy: rect('.framework-copy'), art: rect('.framework-art'), page: document.documentElement.scrollWidth };
       });
       expect(layout.page).toBeLessThanOrEqual(width);
+      if (width <= 390) {
+        const contentLeft = await page.locator(".sl-markdown-content").first().evaluate((node) => node.getBoundingClientRect().left);
+        expect(Math.abs(layout.hero.x - contentLeft), `${width}px framework hero matches the sibling content gutter without an extra inset`).toBeLessThanOrEqual(0.5);
+        expect(layout.hero.x, `${width}px framework hero retains the 16px page gutter`).toBeGreaterThanOrEqual(15.5);
+        expect(layout.hero.x, `${width}px framework hero retains the 16px page gutter`).toBeLessThanOrEqual(16.5);
+      }
       expect(layout.hero.y, `${width}px framework hero top aligns with Intpot`).toBe(153);
       if (width > 390) {
         expect(layout.art.x).toBeGreaterThanOrEqual(layout.copy.right);

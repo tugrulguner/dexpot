@@ -19,6 +19,7 @@ _HEX = frozenset(b"0123456789abcdefABCDEF")
 _UNRESERVED = frozenset(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
 _SUB_DELIMS = frozenset(b"!$&'()*+,;=")
 _PCHAR = _UNRESERVED | _SUB_DELIMS | frozenset(b":@")
+_PATH_CHAR = _PCHAR | frozenset(b"/")
 _QUERY_CHAR = _PCHAR | frozenset(b"/?")
 _REG_NAME = re.compile(rb"^(?:[A-Za-z0-9._~-]|[!$&'()*+,;=]|%[0-9A-Fa-f]{2})+$")
 _IPV_FUTURE = re.compile(rb"^[vV][0-9A-Fa-f]+\.[A-Za-z0-9._~!$&'()*+,;=:-]+$")
@@ -150,7 +151,7 @@ def _decode_path(target: bytes) -> tuple[str, str]:
     if b"#" in target:
         raise HTTPParseError(400, "invalid request target")
     raw_path, separator, raw_query = target.partition(b"?")
-    _validate_target_component(raw_path, _PCHAR | frozenset(b"/"))
+    _validate_target_component(raw_path, _PATH_CHAR)
     if separator:
         _validate_target_component(raw_query, _QUERY_CHAR)
     try:
