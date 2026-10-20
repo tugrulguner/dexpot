@@ -1,0 +1,1 @@
+Compile narrow required nested Struct/list response preparation at registration on free-threaded Darwin, with worker-owned executable/guard state and captured slot getters. Keep the existing graph for unsupported schemas and values, and retain GIL/Linux selection, native encoding and scheduling restoration.

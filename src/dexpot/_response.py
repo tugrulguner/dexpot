@@ -592,14 +592,20 @@ class PreparationBinding:
         self.canonical = _compile_graph(
             schema, capture, self.infos, self.records, registration=True
         )
+        self.direct_factory = None
+        if sys.platform == "darwin" and not getattr(sys, "_is_gil_enabled", lambda: True)():
+            from ._nested_response import compile_direct
+
+            self.direct_factory, _ = compile_direct(schema, None, infos=self.infos)
 
     def bind(self):
         memo = {}
         infos = {annotation: _metadata_copy(info, memo) for annotation, info in self.infos.items()}
         records = {cls: (dict(fields), omit) for cls, (fields, omit) in self.records.items()}
-        return _compile_graph(
+        fallback = _compile_graph(
             self.schema, self.fallbacks.__getitem__, infos, records, registration=False
         )
+        return self.direct_factory(fallback) if self.direct_factory is not None else fallback
 
 
 def compile_binding(schema, fallback):
