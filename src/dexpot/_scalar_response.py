@@ -13,6 +13,10 @@ def compile_scalar(schema, fallback):
     # Keep the incumbent GIL path: measured benefit is specific to FT.
     if getattr(sys, "_is_gil_enabled", lambda: True)():
         return fallback
+    # Runtime descriptor guards must not introduce metaclass callbacks that
+    # the incumbent encoder does not execute for ordinary stored fields.
+    if type(schema) is not type(msgspec.Struct):
+        return fallback
     info = msgspec.inspect.type_info(schema)
     if not isinstance(info, msgspec.inspect.StructType):
         return fallback

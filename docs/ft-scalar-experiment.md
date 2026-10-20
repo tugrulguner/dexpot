@@ -8,8 +8,8 @@ The earlier combined-runtime measurements do not qualify these isolated bytes.
 ## Mechanism and boundary
 
 Eligible exact Struct instances contain only required unconstrained primitive fields,
-with no defaults/factories, tags, array-like or dict-enabled layout, or custom attribute
-access. Registration captures original slot descriptors and emits direct primitive
+with no defaults/factories, tags, array-like or dict-enabled layout, custom metaclasses,
+or custom instance attribute access. Registration captures original slot descriptors and emits direct primitive
 checks and public-field projection. Each serving thread binds its own function/globals
 from the canonical code. The normal JSON encoder remains in use.
 
