@@ -1,6 +1,6 @@
 # Direct nested preparation on free-threaded Darwin
 
-This candidate changes only schema-validated output preparation on the existing FT Darwin graph path. It does not change HTTP parsing, connection ownership, scheduling policy, native JSON encoding, or the response envelope.
+This candidate changes only schema-validated output preparation on the existing FT Darwin graph path. It does not change HTTP parsing, connection ownership, worker-wide scheduling, native JSON encoding, or the response envelope. Only the private direct capture bypasses the per-preparation policy scope; its incumbent fallback retains that scope.
 
 ## Selection and supported shapes
 
@@ -16,7 +16,7 @@ A worker receives private generated functions and globals, class-guard container
 
 Class guards detect completed access/descriptor changes and fall back before capture. Captured slot getters prevent a descriptor replaced between the guard and read from introducing a callback into the direct path. This is not an atomic transaction over concurrent schema or instance mutations; field values are captured and checked individually into owned public containers.
 
-The existing graph remains worker-owned as the fallback. The existing policy scope still wraps preparation and restores policy on failure. The encoder, checked-response Request protection, framing and status/header handling remain unchanged.
+The existing graph remains worker-owned as the fallback. Direct captures execute without per-request Mach policy RPCs. The incumbent fallback alone retains its previous policy scope and restoration on success or failure, including restoration-failure reporting. Contracts that are not eligible for direct capture retain their original outer scope. No worker-wide policy or system setting changes. The encoder, checked-response Request protection, framing and status/header handling remain unchanged.
 
 ## Qualification boundary
 

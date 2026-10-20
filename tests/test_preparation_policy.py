@@ -93,7 +93,7 @@ def test_native_adapter_changes_only_current_thread():
     assert policy.current() == 1
 
 
-def test_ft_nested_compiler_uses_scoped_guard(monkeypatch):
+def test_ft_nested_compiler_keeps_scope_on_incumbent_fallback(monkeypatch):
     import sys
 
     import msgspec
@@ -116,7 +116,9 @@ def test_ft_nested_compiler_uses_scoped_guard(monkeypatch):
     prepare = compile_preparer(Nested, _checked_fallback)
     assert p.events == []
     assert prepare(Nested([Item(1)])) is not None
-    assert p.events == [0, 1]
+    # The private direct capture no longer needs the graph's scheduler scope.
+    # Non-Darwin FT graphs keep the original scoped integration control.
+    assert p.events == ([] if sys.platform == "darwin" else [0, 1])
     assert p.current() == 1
     p.events.clear()
     with pytest.raises((ValueError, TypeError)):

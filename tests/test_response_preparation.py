@@ -726,4 +726,4 @@ def test_real_endpoint_activates_direct_nested_preparation(monkeypatch):
     plan = EndpointPlan("GET", "/nested", lambda: None, None, list[Leaf], "", [])
     assert plan.encode([Leaf(1)]) == b'[{"value":1}]'
     assert seen == [True]
-    assert "guarded" in plan.resp_prepare.__code__.co_freevars
+    assert "guarded" not in plan.resp_prepare.__code__.co_freevars
