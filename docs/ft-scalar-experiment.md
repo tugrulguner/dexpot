@@ -7,6 +7,11 @@ The earlier combined-runtime measurements do not qualify these isolated bytes.
 
 ## Mechanism and boundary
 
+Only an incumbent native whole-codec preparer is considered for replacement; an
+existing graph preparer is retained by identity, without a scalar wrapper. Under the
+current runtime policy this targets FT Darwin's native compatibility path, not the
+GIL/Linux graph paths. The Linux screen did not earn replacement of that graph.
+
 Eligible exact Struct instances contain only required unconstrained primitive fields,
 with no defaults/factories, tags, array-like or dict-enabled layout, custom metaclasses,
 or custom instance attribute access. Registration captures original slot descriptors and emits direct primitive
@@ -31,3 +36,18 @@ installed baseline/candidate artifacts under unchanged clients, validators, work
 and declared resource limits. Keep all earlier #116 failures and new adverse trials.
 A focused screen is not the complete cross-platform qualification and does not justify
 merging or a speed claim. No client experiments or system-setting changes are included.
+
+## Retained focused screens
+
+The [macOS screen](../benchmarks/scalar_response/isolated-screen.json) and
+[Linux-container screen](../benchmarks/scalar_response/linux-screen.json) both
+measured `92e8561aa96f7e799279b89c9c9453834f9e0cda`, before the native-only
+selection correction. Neither passed. All eight declared records per platform,
+including the two Linux timeout-invalid records, remain represented. Short codec,
+reduced-concurrency and tracing diagnostics do not replace their adverse results.
+
+The correction retains an existing graph by identity and has a red-before/green-after
+registration regression. It does not claim to fix macOS HTTP tails. Earlier figures
+do not qualify the corrected source; final installed-artifact and performance gates
+remain open. The independent source review of `92e8561` found no demonstrated
+contract regression but did not approve performance or the later selection delta.

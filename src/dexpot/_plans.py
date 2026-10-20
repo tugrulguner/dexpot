@@ -300,15 +300,13 @@ class EndpointPlan:
             else None,
         )
 
-        from ._scalar_response import compile_scalar
+        prepare = compile_preparer(resp_type, _checked_fallback) if resp_type is not None else None
+        # Replace only the native whole-codec fallback, not an existing graph.
+        if isinstance(prepare, _NativeCheckedPreparation):
+            from ._scalar_response import compile_scalar
 
-        object.__setattr__(
-            self,
-            "resp_prepare",
-            compile_scalar(resp_type, compile_preparer(resp_type, _checked_fallback))
-            if resp_type is not None
-            else None,
-        )
+            prepare = compile_scalar(resp_type, prepare)
+        object.__setattr__(self, "resp_prepare", prepare)
 
         signature = _handler_signature(handler)
         hints = _type_hints(handler, signature, annotation_locals)

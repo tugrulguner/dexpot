@@ -20,10 +20,12 @@ def test_scalar_strategy_is_active_and_preserves_http_recovery(tmp_path):
     script.write_text(
         """import os, sys, dexpot, msgspec
 from dexpot import Dex
+from dexpot._plans import compile_preparer, _checked_fallback, _NativeCheckedPreparation
 class Item(msgspec.Struct):
     id: int
     name: str
     price: float
+native_incumbent = isinstance(compile_preparer(Item, _checked_fallback), _NativeCheckedPreparation)
 app = Dex()
 @app.post('/typed', body=Item, response=Item)
 def typed(body): return body
@@ -35,6 +37,7 @@ def nonfinite(): return Item(7, 'x', float('inf'))
 def mode():
     return {'compiled': bool(getattr(app._endpoints[0].resp_prepare, '__compiled_scalar__', False)),
             'gil_enabled': getattr(sys, '_is_gil_enabled', lambda: True)(),
+            'native_incumbent': native_incumbent,
             'module': dexpot.__file__, 'pid': os.getpid()}
 app.serve(port=PORT)
 """.replace("PORT", str(port))
@@ -61,7 +64,7 @@ app.serve(port=PORT)
                 assert process.poll() is None and time.monotonic() < deadline
                 time.sleep(0.02)
         assert str(ROOT / "src") in mode["module"]
-        assert mode["compiled"] is (not mode["gil_enabled"])
+        assert mode["compiled"] is (not mode["gil_enabled"] and mode["native_incumbent"])
         expected = {"id": 7, "name": "item-7", "price": 9.99}
         for path, status in (("/typed", 200), ("/bad", 500), ("/nonfinite", 500), ("/typed", 200)):
             conn.request(

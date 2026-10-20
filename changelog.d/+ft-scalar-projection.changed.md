@@ -1,1 +1,1 @@
-Compile eligible flat checked-response projections on free-threaded CPython while retaining the incumbent validation fallback for unsupported schemas and values.
+Compile eligible flat checked-response projections on free-threaded CPython only when replacing the native whole-codec fallback; retain existing graph preparers and unsupported schemas or values unchanged.

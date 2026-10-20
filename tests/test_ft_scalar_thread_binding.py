@@ -5,7 +5,12 @@ from typing import Any, cast
 import msgspec
 import pytest
 
-from dexpot._plans import EndpointPlan
+from dexpot._plans import (
+    EndpointPlan,
+    _checked_fallback,
+    _NativeCheckedPreparation,
+    compile_preparer,
+)
 from dexpot._scalar_response import compile_scalar
 
 
@@ -47,7 +52,8 @@ def test_endpoint_plan_uses_thread_owned_scalar_projection():
     if getattr(__import__("sys"), "_is_gil_enabled", lambda: True)():
         pytest.skip("FT-only strategy")
     plan = EndpointPlan("GET", "/", lambda: None, None, Payload, "", [])
-    assert getattr(plan.resp_prepare, "__compiled_scalar__", False)
+    native = isinstance(compile_preparer(Payload, _checked_fallback), _NativeCheckedPreparation)
+    assert bool(getattr(plan.resp_prepare, "__compiled_scalar__", False)) is native
     assert plan.encode(Payload(11)) == b'{"value":11}'
 
 
