@@ -30,7 +30,7 @@ def test_only_fallback_changes_policy_and_always_restores(monkeypatch, restore_f
             return int(restore_fails and value == 1)
 
     monkeypatch.setattr(sys, "platform", "darwin")
-    monkeypatch.setattr(sys, "_is_gil_enabled", lambda: False)
+    monkeypatch.setattr(sys, "_is_gil_enabled", lambda: False, raising=False)
     monkeypatch.setattr(_plans, "compile_preparer", _response.compile_preparer)
     monkeypatch.setattr(_preparation_policy, "darwin_policy", lambda: Policy())
     endpoint = EndpointPlan("GET", "/value", lambda: None, None, list[Leaf], "", [])
@@ -56,7 +56,7 @@ def test_fallback_preserves_fixed_or_unavailable_policy(monkeypatch, previous, f
             return int(fail_set)
 
     monkeypatch.setattr(sys, "platform", "darwin")
-    monkeypatch.setattr(sys, "_is_gil_enabled", lambda: False)
+    monkeypatch.setattr(sys, "_is_gil_enabled", lambda: False, raising=False)
     monkeypatch.setattr(_plans, "compile_preparer", _response.compile_preparer)
     monkeypatch.setattr(_preparation_policy, "darwin_policy", lambda: Policy())
     endpoint = EndpointPlan("GET", "/value", lambda: None, None, list[Leaf], "", [])
@@ -82,7 +82,7 @@ def test_unsupported_graph_retains_its_original_outer_policy(monkeypatch):
             return 0
 
     monkeypatch.setattr(sys, "platform", "darwin")
-    monkeypatch.setattr(sys, "_is_gil_enabled", lambda: False)
+    monkeypatch.setattr(sys, "_is_gil_enabled", lambda: False, raising=False)
     monkeypatch.setattr(_plans, "compile_preparer", _response.compile_preparer)
     monkeypatch.setattr(_preparation_policy, "darwin_policy", lambda: Policy())
     endpoint = EndpointPlan("GET", "/value", lambda: None, None, Output, "", [])
