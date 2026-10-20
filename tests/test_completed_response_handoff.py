@@ -70,3 +70,39 @@ def test_handoff_selection_is_bound_from_runtime_platform_and_gil(monkeypatch):
     monkeypatch.setattr(app_module.sys, "_is_gil_enabled", lambda: False, raising=False)
     linux_app._bind_runtime()
     assert linux_app._runtime_info()["response_turn_handoff"] is False
+
+
+def test_unselected_owner_preserves_loop_without_yield(monkeypatch):
+    assert _run_owner(monkeypatch, [(True, b"next"), (False, b"")], selected=False) == [
+        ("process", b"original"),
+        ("process", b"next"),
+    ]
+
+
+def test_missing_scheduler_yield_keeps_handoff_disabled(monkeypatch):
+    monkeypatch.setattr(app_module, "_FT_CONNECTION_SLOTS", None)
+    monkeypatch.setattr(app_module.sys, "platform", "darwin")
+    monkeypatch.setattr(app_module.sys, "_is_gil_enabled", lambda: False, raising=False)
+    monkeypatch.delattr(app_module.os, "sched_yield", raising=False)
+    app = app_module.Dex()
+    app._bind_runtime()
+    assert app._runtime_info()["response_turn_handoff"] is False
+
+
+def test_bound_handoff_does_not_repeat_runtime_selection(monkeypatch):
+    monkeypatch.setattr(app_module, "_FT_CONNECTION_SLOTS", None)
+    monkeypatch.setattr(app_module.sys, "platform", "darwin")
+    monkeypatch.setattr(app_module.os, "sched_yield", lambda: None, raising=False)
+    monkeypatch.setattr(app_module.sys, "_is_gil_enabled", lambda: False, raising=False)
+    app = app_module.Dex()
+    app._bind_runtime()
+    selected = app._handoff_yield
+
+    def unexpected_query():
+        raise AssertionError("runtime selection repeated")
+
+    monkeypatch.setattr(app_module.sys, "_is_gil_enabled", unexpected_query)
+    monkeypatch.setattr(app_module.sys, "platform", "linux")
+    app._bind_runtime()
+    assert app._handoff_yield is selected
+    assert app._response_turn_handoff is True
