@@ -176,3 +176,58 @@ for (const colorScheme of ['light', 'dark']) {
     }
   });
 }
+
+test('deep homepage diagrams defer initial loading, reserve exact ratios, and decode after scrolling in cold mobile and desktop contexts', async ({ browser, baseURL }) => {
+  const expected = [
+    { width: '2400', height: '1350', ratio: 16 / 9 },
+    { width: '1200', height: '624', ratio: 25 / 13 },
+  ];
+  for (const width of [320, 1280]) {
+    const context = await browser.newContext({ viewport: { width, height: 850 } });
+    await context.route('**/*', async (route) => {
+      const request = route.request();
+      if (request.method() === 'POST' && /posthog|i\.posthog\.com/i.test(request.url())) return route.fulfill({ status: 204, body: '' });
+      return route.continue();
+    });
+    const page = await context.newPage();
+    try {
+      await page.goto(new URL('/', baseURL).href);
+      const diagrams = page.locator('main .content-panel figure.homepage-diagram img');
+      await expect(diagrams).toHaveCount(expected.length);
+      const initial = await diagrams.evaluateAll((images) => images.map((img) => {
+        const rect = img.getBoundingClientRect();
+        const src = new URL(img.currentSrc || img.src).pathname;
+        return {
+          loading: img.loading,
+          width: img.getAttribute('width'),
+          height: img.getAttribute('height'),
+          top: rect.top,
+          renderedWidth: rect.width,
+          renderedHeight: rect.height,
+          maxHeight: Number.parseFloat(getComputedStyle(img).maxHeight),
+          hasPreload: [...document.querySelectorAll('link[rel="preload"][as="image"]')].some((link) => new URL(link.href).pathname === src),
+        };
+      }));
+      for (let index = 0; index < expected.length; index++) {
+        expect(initial[index].loading, `diagram ${index} uses native lazy loading at ${width}px`).toBe('lazy');
+        expect(initial[index].width).toBe(expected[index].width);
+        expect(initial[index].height).toBe(expected[index].height);
+        expect(initial[index].top, `diagram ${index} remains below the initial viewport at ${width}px`).toBeGreaterThan(850);
+        const expectedRenderedHeight = Math.min(initial[index].renderedWidth / expected[index].ratio, initial[index].maxHeight);
+        expect(Math.abs(initial[index].renderedHeight - expectedRenderedHeight), `diagram ${index} uses its intrinsic ratio within the existing max-height cap`).toBeLessThan(1.5);
+        expect(initial[index].hasPreload, `diagram ${index} is not explicitly preloaded`).toBe(false);
+      }
+      for (let index = 0; index < expected.length; index++) {
+        const image = diagrams.nth(index);
+        await image.scrollIntoViewIfNeeded();
+        await expect.poll(() => image.evaluate(async (img) => {
+          if (!img.complete || img.naturalWidth <= 0 || img.naturalHeight <= 0) return false;
+          await img.decode();
+          return true;
+        })).toBe(true);
+      }
+    } finally {
+      await context.close();
+    }
+  }
+});
