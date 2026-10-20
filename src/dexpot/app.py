@@ -123,6 +123,8 @@ class Dex:
         self._active_connections: set[socket.socket] = set()
         self._runtime_bound = False
         self._serving_gil_free = _gil_free
+        self._response_turn_handoff = False
+        self._handoff_yield = None
         self._pool_size = POOL_SIZE
         self._max_queue = MAX_QUEUE
         self._runtime_mode_warning_logged = False
@@ -134,6 +136,10 @@ class Dex:
             return
         enabled = getattr(sys, "_is_gil_enabled", lambda: True)()
         self._serving_gil_free = not enabled
+        self._handoff_yield = getattr(os, "sched_yield", None)
+        self._response_turn_handoff = (
+            sys.platform == "darwin" and self._serving_gil_free and self._handoff_yield is not None
+        )
         self._pool_size = POOL_SIZE
         self._max_queue = MAX_QUEUE
         if self._serving_gil_free != _gil_free:
@@ -162,6 +168,7 @@ class Dex:
             "pool_size": self._pool_size,
             "max_queue": self._max_queue,
             "connection_limit": MAX_CONNECTIONS,
+            "response_turn_handoff": self._response_turn_handoff,
         }
 
     def _runtime_description(self) -> str:
@@ -597,6 +604,9 @@ class Dex:
                 keep_alive, buf = self._process(conn, buf)
                 if not keep_alive:
                     break
+                yield_turn = self._handoff_yield
+                if self._response_turn_handoff and yield_turn is not None:
+                    yield_turn()
         except (ConnectionError, OSError, ValueError):
             pass
         finally:
