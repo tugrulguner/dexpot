@@ -48,6 +48,12 @@
 
 <p align="center">Conceptual overview of Dexpot's execution architecture; not a literal request sequence.</p>
 
+<p align="center">
+  <a href="docs/assets/dexpot-worker-lifecycle.png?v=071-lifecycle-v1"><img src="docs/assets/dexpot-worker-lifecycle.png?v=071-lifecycle-v1" alt="Dexpot worker lifecycle: select the actual GIL mode at serve startup, scope macOS FT policy to connection owners, and reclaim capacity only after owner exit." width="960"></a>
+</p>
+
+<p align="center">Worker lifecycle in v0.7.1. Application imports precede scheduler selection; completed-response CPU fairness and owner exit preserve bounded capacity. <a href="https://dexpot.modepot.io/execution-model/#worker-lifecycle">Read the lifecycle step by step</a> or open the image at full size.</p>
+
 dexpot is interpreter-adaptive and agent-ready. The same synchronous application adapts to
 standard GIL and free-threaded execution, can use a compatible Rust parser on the request
 hot path, and ships project-local skills so coding agents understand the framework's real

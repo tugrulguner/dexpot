@@ -3,7 +3,7 @@ title: Execution model
 description: How Dexpot schedules synchronous handlers on free-threaded and standard GIL CPython, including admission limits and process fan-out.
 ---
 
-Dexpot chooses its scheduler once when the module imports. The request ownership and compilation path is traced in [Trace a request through Dexpot](/guides/request-lifecycle/). The application keeps the same synchronous handlers in every mode.
+Dexpot chooses its scheduler when `serve()` starts, after application imports, using the actual GIL state. A free-threaded build with the GIL enabled uses the GIL serving model. Later GIL changes are reported without switching the running scheduler; restart after loading dependencies to select the new mode. The request ownership and compilation path is traced in [Trace a request through Dexpot](/guides/request-lifecycle/). The application keeps the same synchronous handlers in every mode.
 
 | Runtime | Default serving model | Overload behavior |
 |---|---|---|
@@ -12,6 +12,25 @@ Dexpot chooses its scheduler once when the module imports. The request ownership
 | Standard GIL CPython with `DEXPOT_WORKERS>1` | POSIX `SO_REUSEPORT` processes, each with its own bounded pool | Each worker sheds independently |
 
 A worker owns a keep-alive connection until it closes. Idle keep-alive sockets are not returned to a shared admission queue.
+
+## Worker lifecycle
+
+This diagram is a lifecycle explanation, not a performance chart. It supplements the existing conceptual execution overview and response-contract illustration.
+
+<figure>
+  <a href="/dexpot-worker-lifecycle.webp?v=071-lifecycle-v1" aria-label="Open the worker-lifecycle diagram at full size">
+    <img loading="lazy" decoding="async" width="2400" height="1800" src="/dexpot-worker-lifecycle.webp?v=071-lifecycle-v1" alt="Dexpot worker lifecycle: actual GIL selection at serve startup, macOS FT worker policy, completed-response CPU fairness and capacity reclaimed after owner exit." />
+  </a>
+  <figcaption><a href="/dexpot-worker-lifecycle.webp?v=071-lifecycle-v1">Open the worker-lifecycle diagram at full size</a>. The same lifecycle is described below.</figcaption>
+</figure>
+
+1. **Bind once at serving startup.** Application imports complete before `serve()` selects the scheduler from the actual GIL state. A free-threaded interpreter whose GIL is enabled uses the GIL path. Admission-limit environment values are still read and validated during import; startup mode selection is a separate decision.
+2. **Admit a bounded FT connection owner.** Reserve capacity before starting its worker. That worker owns the connection through keep-alive and cleanup. Linux also retains this bounded FT ownership model.
+3. **Scope the macOS policy to the owner.** On actual free-threaded macOS, an available scheduling policy may be saved and changed for that owner only. The main/acceptor thread policy is unchanged. Unavailable or unsuccessful setup falls back; exceptions still clean up the registered connection. Successful policy changes are restored before the worker exits, and restoration failures are surfaced.
+4. **Share CPU at completed-response boundaries.** On the selected macOS FT handoff path, accumulate actual thread CPU time. After a successfully completed response that keeps the connection open, offer other workers a turn once at least 1 ms has accumulated. Elapsed waiting does not spend this budget. A handler is never preempted by this mechanism; close/error paths do not yield as though another response were due. Linux and GIL-enabled execution do not enable these Darwin policy/handoff hooks.
+5. **Finish ownership before reclaiming capacity.** Close the connection, restore any successfully changed worker policy, and let the owner thread finish. The reaper joins it and releases its capacity slot only after the thread has exited. Closing a socket alone does not make a still-running worker's slot reusable.
+
+See the [deployment guide](/guides/deployment/) for configuration and the [owner-policy qualification report](https://github.com/tugrulguner/dexpot/blob/main/docs/darwin-ft-owner-policy.md) for experiments and limits. The diagram makes no new latency or cross-platform performance claim.
 
 ## Tune admission
 
