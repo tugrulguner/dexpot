@@ -107,3 +107,29 @@ def test_owner_policy_selection_is_startup_diagnostic_only(monkeypatch):
     app = app_with_policy(monkeypatch, policy)
     assert app._runtime_info()["response_owner_policy_selected"] is True
     assert policy.calls == []
+
+
+@pytest.mark.parametrize("operation", ["current", "set"])
+def test_policy_setup_exception_closes_registered_connection(monkeypatch, operation):
+    class BrokenPolicy(FakePolicy):
+        def current(self):
+            if operation == "current":
+                raise LookupError("policy setup")
+            return super().current()
+
+        def set(self, value):
+            if operation == "set":
+                raise LookupError("policy setup")
+            return super().set(value)
+
+    app = app_with_policy(monkeypatch, BrokenPolicy(1))
+    server, client = socket.socketpair()
+    app._active_connections.add(server)
+    try:
+        with pytest.raises(LookupError, match="policy setup"):
+            app._own_connection_ft(server, b"")
+        assert server.fileno() == -1
+        assert server not in app._active_connections
+    finally:
+        server.close()
+        client.close()

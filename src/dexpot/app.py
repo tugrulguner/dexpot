@@ -638,11 +638,21 @@ class Dex:
         # The admitting thread reaps/join()s this owner before returning its
         # permit. Releasing here would allow a replacement before thread exit.
         policy = self._response_owner_policy
-        previous = policy.current() if policy is not None else -1
-        changed = policy is not None and previous == 1 and policy.set(0) == 0
+        previous = -1
+        changed = False
+        owner_started = False
         try:
+            previous = policy.current() if policy is not None else -1
+            changed = policy is not None and previous == 1 and policy.set(0) == 0
+            owner_started = True
             self._own_connection(conn, buf, registered=True)
         finally:
+            if not owner_started:
+                with contextlib.suppress(OSError):
+                    conn.close()
+                with self._cond:
+                    self._active_connections.discard(conn)
+                    self._cond.notify_all()
             if changed and policy is not None and policy.set(previous) != 0:
                 raise RuntimeError("could not restore owner scheduling policy")
 
