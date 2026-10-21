@@ -700,3 +700,30 @@ def test_request_subclass_schema_cannot_enter_exact_record_preparation():
         app.get("/value", response=Context)(lambda: Context("GET", "/", {}, "", {}))
     assert app._endpoints == []
     assert app._literal == {}
+
+
+def test_real_endpoint_activates_direct_nested_preparation(monkeypatch):
+    import sys
+
+    from dexpot import _response
+    from dexpot._plans import EndpointPlan
+
+    if sys.platform != "darwin" or getattr(sys, "_is_gil_enabled", lambda: True)():
+        pytest.skip("direct nested preparation is selected only on FT Darwin")
+
+    class Leaf(msgspec.Struct, frozen=True):
+        value: int
+
+    seen = []
+    original = _response.PreparationBinding.bind
+
+    def observe(binding):
+        prepared = original(binding)
+        seen.append(getattr(prepared, "__direct_preparation__", False))
+        return prepared
+
+    monkeypatch.setattr(_response.PreparationBinding, "bind", observe)
+    plan = EndpointPlan("GET", "/nested", lambda: None, None, list[Leaf], "", [])
+    assert plan.encode([Leaf(1)]) == b'[{"value":1}]'
+    assert seen == [True]
+    assert "guarded" not in plan.resp_prepare.__code__.co_freevars
