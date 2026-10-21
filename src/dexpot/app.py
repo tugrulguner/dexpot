@@ -35,6 +35,7 @@ from ._plans import (
     _ApplicationCompilationDuringRegistration,
     _handler_signature,
 )
+from ._preparation_policy import darwin_policy
 from .requests import Request
 from .responses import RawResponse, Response
 
@@ -125,6 +126,8 @@ class Dex:
         self._serving_gil_free = _gil_free
         self._response_turn_handoff = False
         self._response_turn_cpu_budget_ns = 0
+        self._response_owner_policy = None
+        self._response_owner_policy_selected = False
         self._handoff_yield = None
         self._pool_size = POOL_SIZE
         self._max_queue = MAX_QUEUE
@@ -142,6 +145,9 @@ class Dex:
             sys.platform == "darwin" and self._serving_gil_free and self._handoff_yield is not None
         )
         self._response_turn_cpu_budget_ns = 1_000_000 if self._response_turn_handoff else 0
+        if sys.platform == "darwin" and self._serving_gil_free:
+            self._response_owner_policy = darwin_policy()
+            self._response_owner_policy_selected = self._response_owner_policy is not None
         self._pool_size = POOL_SIZE
         self._max_queue = MAX_QUEUE
         if self._serving_gil_free != _gil_free:
@@ -172,6 +178,7 @@ class Dex:
             "connection_limit": MAX_CONNECTIONS,
             "response_turn_handoff": self._response_turn_handoff,
             "response_turn_cpu_budget_ns": self._response_turn_cpu_budget_ns,
+            "response_owner_policy_selected": self._response_owner_policy_selected,
         }
 
     def _runtime_description(self) -> str:
@@ -630,7 +637,14 @@ class Dex:
     def _own_connection_ft(self, conn: socket.socket, buf: bytes) -> None:
         # The admitting thread reaps/join()s this owner before returning its
         # permit. Releasing here would allow a replacement before thread exit.
-        self._own_connection(conn, buf, registered=True)
+        policy = self._response_owner_policy
+        previous = policy.current() if policy is not None else -1
+        changed = policy is not None and previous == 1 and policy.set(0) == 0
+        try:
+            self._own_connection(conn, buf, registered=True)
+        finally:
+            if changed and policy is not None and policy.set(previous) != 0:
+                raise RuntimeError("could not restore owner scheduling policy")
 
     @staticmethod
     def _reject_overload(conn: socket.socket) -> None:

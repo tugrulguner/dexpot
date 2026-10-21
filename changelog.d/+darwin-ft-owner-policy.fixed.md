@@ -1,0 +1,1 @@
+On macOS free-threaded serving, dexpot now applies fixed timeshare scheduling only for the lifetime of each connection-owning worker, restoring that worker's prior policy before exit. This is paired with the existing bounded CPU-budget response-turn handoff; it does not alter process power settings or the main/acceptor thread policy.
