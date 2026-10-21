@@ -170,9 +170,11 @@ def server():
             stdout, stderr = process.communicate(timeout=8)
         except subprocess.TimeoutExpired:
             process.kill()
-            process.communicate()
+            process.communicate(timeout=5)
             raise
-        assert process.returncode == 0, (stdout, stderr)
+        # Windows terminate() uses TerminateProcess(..., 1), not SIGTERM.
+        expected_returncode = 1 if sys.platform == "win32" else 0
+        assert process.returncode == expected_returncode, (stdout, stderr)
 
 
 def test_server_fixture_closes_listener_on_teardown():
