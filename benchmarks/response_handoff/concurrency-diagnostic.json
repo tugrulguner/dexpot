@@ -1,0 +1,479 @@
+{
+  "plan": {
+    "scope": "Diagnostic only: mixed fixed 10k/s c32 vs retained failed c16 campaign; no gate replacement or production remedy claim",
+    "control_commit": "e703edf18d1526ebc2a91398f18c9e808e5cf5aa",
+    "candidate_commit": null,
+    "control_wheel_sha256": "8b9ed82c9f70d92594190ccde530fa20f7c1a817feb8e01814af92714f3ad12d",
+    "candidate_wheel_sha256": null,
+    "client_policy": "Existing unmodified wrk binary and exact-body Lua validator; no client-source experiment",
+    "resource_budgets": {
+      "ft": {
+        "rss_bytes": 536870912,
+        "threads": 80,
+        "fds": 512,
+        "cpu_cores": 10.5
+      }
+    },
+    "screen_gate": {
+      "every_record": "Exact bodies, zero reported errors, complete unforced startup/post-drain identity, source parity and actual endpoint activation",
+      "resources": "Both sides must meet the retained FT budgets",
+      "flat_pairs": "Both candidate/control goodput ratios must exceed 1.0 and their median must be at least 1.05",
+      "fallback_pair": "Large-nested candidate/control goodput must be at least 0.95",
+      "tail": "Median flat paired adjusted closed-loop p99 ratio <=1.10; fallback p99 ratio <=1.10",
+      "decision": "A passing screen permits further qualification only, never merge or a broad speed claim"
+    },
+    "original_full_gate_retained": {
+      "offered_rps": 10000,
+      "achieved_rate_fraction": [
+        0.95,
+        1.05
+      ],
+      "scheduled_p99_us": 20000,
+      "minimum_capacity_ratio": 0.95,
+      "errors": 0,
+      "status": "Not evaluated by this closed-loop screen; original #116 failures retained"
+    },
+    "cells": [
+      {
+        "id": "fixed-c32-fast",
+        "pair": 1,
+        "phase": "diagnostic",
+        "platform": "macos",
+        "runtime": "ft",
+        "kind": "fixed",
+        "profile": "mixed",
+        "side": "fast",
+        "duration_s": 30,
+        "connections": 32
+      },
+      {
+        "id": "fixed-c32-candidate",
+        "pair": 1,
+        "phase": "diagnostic",
+        "platform": "macos",
+        "runtime": "ft",
+        "kind": "fixed",
+        "profile": "mixed",
+        "side": "candidate",
+        "duration_s": 30,
+        "connections": 32
+      }
+    ],
+    "fast_commit": "4e0aedc95f9553e2a558ffe263f0cf2ae5e870f8",
+    "fast_wheel_sha256": "6f216f72bf5dac7810659ff535c9c699425088c991cd804e28168ab9c0ef08e0",
+    "mixed_qualification": "Not evaluated by initial screen; still required before promotion"
+  },
+  "evaluation": {
+    "scope": "Diagnostic only: mixed fixed 10k/s c32 vs retained failed c16 campaign; no gate replacement or production remedy claim",
+    "expected": 2,
+    "collected": 2,
+    "trials": [
+      {
+        "id": "fixed-c32-fast",
+        "valid": true,
+        "rate_pass": true,
+        "tail_pass": true,
+        "calibration_pass": true,
+        "resources_pass": true,
+        "rps": 9993.99431671761,
+        "scheduled_p99_us": 10303.0
+      },
+      {
+        "id": "fixed-c32-candidate",
+        "valid": true,
+        "rate_pass": true,
+        "tail_pass": true,
+        "calibration_pass": true,
+        "resources_pass": true,
+        "rps": 9993.761274273396,
+        "scheduled_p99_us": 11223.0
+      }
+    ],
+    "original_c16_gate_cleared": false,
+    "full_qualification_pass": false
+  },
+  "records": [
+    {
+      "cell": {
+        "id": "fixed-c32-fast",
+        "pair": 1,
+        "phase": "diagnostic",
+        "platform": "macos",
+        "runtime": "ft",
+        "kind": "fixed",
+        "profile": "mixed",
+        "side": "fast",
+        "duration_s": 30,
+        "connections": 32
+      },
+      "frozen": {
+        "wheel": "6f216f72bf5dac7810659ff535c9c699425088c991cd804e28168ab9c0ef08e0",
+        "source": "c57fc8012d6b94b1556442671d9cad41142667f73c3bf4722680a6ff241f83e4",
+        "application": "fa440e6f4b1ec76b8586cc2cedae23ca59a4ee72900770502e58f445c66b23fd",
+        "lua": "1002d07f9058b98abe0aad98dc7c7731379fd91fd8ab5ae723e1d26a618f8562",
+        "wrk": "3dde9a2186ec70f63f3ebfafb76d9665aba5db18824e1b40660cad8c1328d29f",
+        "wrk2": "5980f72485b9660fb32b9cf59113a2bef80c7e5476127333a0512c51b7a627fd",
+        "runner": "522bdac3f40741c8e835b8711985008ca3aa14c55d7d0ab790927f4d22e18029",
+        "plan": "b39a35d10d0290cdf2d6eea0dedfc69577f711cecc6b0d465d197ac997bcfcdb",
+        "identity_helper": "81d9332e2be8457c838d01234470900e22bd958adbf001c3507a6a317c134e53",
+        "legacy_control_adapter": "b6ca6cd9dbaeb0caaba7ec5f7bc15b8630fdd9e3e48cfc0dbbe2f8239e7f7bde",
+        "direct_status": "e0b6c6e1e37bdf5b9193635182d49b8e320ea13894a3140e38f3a8dec3dfc76a",
+        "candidate_pin": "b2a416468acbb3ed14b794b31575cf9133dd7e369d8f8c2f893ea869fbe715f5"
+      },
+      "executed": true,
+      "error": null,
+      "started_epoch": 1792537489.95591,
+      "interpreter": {
+        "module": "/Users/tugrulguner/Projects/dexpot-research/winning-execution/response-handoff-mixed-concurrency-v1/fast/ft/lib/python3.14t/site-packages/dexpot/__init__.py",
+        "gil": false,
+        "ft_build": 1,
+        "python": "3.14.7 free-threading build (main, Aug  7 2026, 02:15:12) [Clang 22.1.3 ]",
+        "parser": "python"
+      },
+      "runtime": {
+        "response_turn_handoff": false,
+        "nested_policy_scope": false,
+        "nested_direct_bound": true,
+        "compiled_scalar": true,
+        "framework": "dexpot",
+        "contract": "native",
+        "python": "3.14.7",
+        "gil_enabled": false,
+        "handler_thread_model": "dexpot-ft-thread-per-connection",
+        "configured_worker_threads": null,
+        "connection_limit": 1024,
+        "module": "/Users/tugrulguner/Projects/dexpot-research/winning-execution/response-handoff-production-v1/fixture/app.py",
+        "dexpot_module": "/Users/tugrulguner/Projects/dexpot-research/winning-execution/response-handoff-mixed-concurrency-v1/fast/ft/lib/python3.14t/site-packages/dexpot/__init__.py",
+        "large_nested_rows": 64
+      },
+      "command": [
+        "/Users/tugrulguner/Projects/dexpot-performance/continuous-baseline-20261012/client/wrk-macos-safe",
+        "-t",
+        "4",
+        "-c",
+        "32",
+        "-d",
+        "30s",
+        "-R",
+        "10000",
+        "-L",
+        "-U",
+        "-s",
+        "/Users/tugrulguner/Projects/dexpot-research/winning-execution/response-handoff-mixed-concurrency-v1/fixture/check.lua",
+        "http://127.0.0.1:53290/",
+        "--",
+        "mixed"
+      ],
+      "client_sha256": "5980f72485b9660fb32b9cf59113a2bef80c7e5476127333a0512c51b7a627fd",
+      "client_returncode": 0,
+      "client_stdout": "Running 30s test @ http://127.0.0.1:53290/\n  4 threads and 32 connections\n  Thread calibration: mean lat.: 2.250ms, rate sampling interval: 11ms\n  Thread calibration: mean lat.: 2.267ms, rate sampling interval: 11ms\n  Thread calibration: mean lat.: 2.254ms, rate sampling interval: 11ms\n  Thread calibration: mean lat.: 2.247ms, rate sampling interval: 11ms\n  Thread Stats   Avg      Stdev     Max   +/- Stdev\n    Latency     2.19ms    2.32ms  25.33ms   86.37%\n    Req/Sec     2.63k   268.74     4.36k    67.43%\n  Latency Distribution (HdrHistogram - Recorded Latency)\n 50.000%    1.31ms\n 75.000%    2.63ms\n 90.000%    5.56ms\n 99.000%   10.30ms\n 99.900%   14.78ms\n 99.990%   19.71ms\n 99.999%   23.98ms\n100.000%   25.34ms\n\n  Detailed Percentile spectrum:\n       Value   Percentile   TotalCount 1/(1-Percentile)\n\n       0.068     0.000000            2         1.00\n       0.435     0.100000        20019         1.11\n       0.668     0.200000        39949         1.25\n       0.878     0.300000        59892         1.43\n       1.090     0.400000        79869         1.67\n       1.314     0.500000        99900         2.00\n       1.432     0.550000       109792         2.22\n       1.580     0.600000       119795         2.50\n       1.795     0.650000       129776         2.86\n       2.137     0.700000       139741         3.33\n       2.631     0.750000       149726         4.00\n       2.929     0.775000       154713         4.44\n       3.287     0.800000       159679         5.00\n       3.717     0.825000       164672         5.71\n       4.191     0.850000       169653         6.67\n       4.823     0.875000       174648         8.00\n       5.183     0.887500       177146         8.89\n       5.563     0.900000       179638        10.00\n       5.971     0.912500       182144        11.43\n       6.407     0.925000       184637        13.33\n       6.895     0.937500       187120        16.00\n       7.183     0.943750       188366        17.78\n       7.503     0.950000       189626        20.00\n       7.859     0.956250       190872        22.86\n       8.231     0.962500       192126        26.67\n       8.623     0.968750       193360        32.00\n       8.815     0.971875       193987        35.56\n       9.023     0.975000       194613        40.00\n       9.239     0.978125       195228        45.71\n       9.471     0.981250       195860        53.33\n       9.719     0.984375       196489        64.00\n       9.863     0.985938       196792        71.11\n      10.023     0.987500       197098        80.00\n      10.191     0.989062       197416        91.43\n      10.383     0.990625       197726       106.67\n      10.687     0.992188       198033       128.00\n      10.943     0.992969       198189       142.22\n      11.143     0.993750       198346       160.00\n      11.455     0.994531       198502       182.86\n      11.775     0.995313       198656       213.33\n      12.183     0.996094       198812       256.00\n      12.383     0.996484       198891       284.44\n      12.623     0.996875       198968       320.00\n      12.927     0.997266       199050       365.71\n      13.199     0.997656       199129       426.67\n      13.543     0.998047       199202       512.00\n      13.767     0.998242       199241       568.89\n      13.991     0.998437       199280       640.00\n      14.199     0.998633       199319       731.43\n      14.519     0.998828       199359       853.33\n      14.823     0.999023       199398      1024.00\n      15.007     0.999121       199416      1137.78\n      15.287     0.999219       199436      1280.00\n      15.455     0.999316       199455      1462.86\n      15.863     0.999414       199475      1706.67\n      16.231     0.999512       199494      2048.00\n      16.359     0.999561       199504      2275.56\n      16.687     0.999609       199515      2560.00\n      16.959     0.999658       199523      2925.71\n      17.327     0.999707       199533      3413.33\n      17.695     0.999756       199543      4096.00\n      17.903     0.999780       199548      4551.11\n      18.463     0.999805       199554      5120.00\n      18.591     0.999829       199557      5851.43\n      19.183     0.999854       199562      6826.67\n      19.343     0.999878       199567      8192.00\n      19.503     0.999890       199570      9102.22\n      19.711     0.999902       199573     10240.00\n      19.791     0.999915       199574     11702.86\n      20.191     0.999927       199577     13653.33\n      20.911     0.999939       199579     16384.00\n      21.279     0.999945       199581     18204.44\n      21.679     0.999951       199583     20480.00\n      21.679     0.999957       199583     23405.71\n      21.759     0.999963       199584     27306.67\n      21.791     0.999969       199585     32768.00\n      21.855     0.999973       199586     36408.89\n      22.287     0.999976       199587     40960.00\n      22.287     0.999979       199587     46811.43\n      22.975     0.999982       199588     54613.33\n      22.975     0.999985       199588     65536.00\n      23.983     0.999986       199589     72817.78\n      23.983     0.999988       199589     81920.00\n      23.983     0.999989       199589     93622.86\n      24.735     0.999991       199590    109226.67\n      24.735     0.999992       199590    131072.00\n      24.735     0.999993       199590    145635.56\n      24.735     0.999994       199590    163840.00\n      24.735     0.999995       199590    187245.71\n      25.343     0.999995       199591    218453.33\n      25.343     1.000000       199591          inf\n#[Mean    =        2.194, StdDeviation   =        2.319]\n#[Max     =       25.328, Total count    =       199591]\n#[Buckets =           27, SubBuckets     =         2048]\n----------------------------------------------------------\n\n  Latency Distribution (HdrHistogram - Uncorrected Latency (measured without taking delayed starts into account))\n 50.000%  156.00us\n 75.000%    1.11ms\n 90.000%    3.00ms\n 99.000%    8.49ms\n 99.900%    9.21ms\n 99.990%    9.54ms\n 99.999%   12.03ms\n100.000%   13.54ms\n\n  Detailed Percentile spectrum:\n       Value   Percentile   TotalCount 1/(1-Percentile)\n\n       0.051     0.000000            1         1.00\n       0.090     0.100000        21147         1.11\n       0.105     0.200000        40818         1.25\n       0.120     0.300000        60990         1.43\n       0.135     0.400000        80133         1.67\n       0.156     0.500000       100605         2.00\n       0.169     0.550000       110067         2.22\n       0.187     0.600000       120109         2.50\n       0.213     0.650000       129784         2.86\n       0.262     0.700000       139780         3.33\n       1.115     0.750000       149695         4.00\n       1.322     0.775000       154690         4.44\n       1.421     0.800000       159673         5.00\n       1.557     0.825000       164677         5.71\n       1.947     0.850000       169654         6.67\n       2.653     0.875000       174643         8.00\n       2.801     0.887500       177148         8.89\n       3.005     0.900000       179643        10.00\n       3.511     0.912500       182140        11.43\n       4.099     0.925000       184623        13.33\n       4.599     0.937500       187122        16.00\n       5.043     0.943750       188372        17.78\n       5.475     0.950000       189623        20.00\n       5.819     0.956250       190872        22.86\n       6.251     0.962500       192107        26.67\n       6.767     0.968750       193354        32.00\n       7.007     0.971875       193980        35.56\n       7.239     0.975000       194611        40.00\n       7.451     0.978125       195231        45.71\n       7.695     0.981250       195850        53.33\n       7.983     0.984375       196473        64.00\n       8.119     0.985938       196789        71.11\n       8.263     0.987500       197097        80.00\n       8.407     0.989062       197427        91.43\n       8.535     0.990625       197726       106.67\n       8.663     0.992188       198039       128.00\n       8.719     0.992969       198193       142.22\n       8.783     0.993750       198349       160.00\n       8.847     0.994531       198509       182.86\n       8.911     0.995313       198664       213.33\n       8.991     0.996094       198817       256.00\n       9.031     0.996484       198903       284.44\n       9.063     0.996875       198968       320.00\n       9.095     0.997266       199046       365.71\n       9.127     0.997656       199149       426.67\n       9.143     0.998047       199211       512.00\n       9.159     0.998242       199267       568.89\n       9.167     0.998437       199293       640.00\n       9.183     0.998633       199337       731.43\n       9.199     0.998828       199373       853.33\n       9.215     0.999023       199410      1024.00\n       9.223     0.999121       199425      1137.78\n       9.231     0.999219       199436      1280.00\n       9.247     0.999316       199459      1462.86\n       9.255     0.999414       199475      1706.67\n       9.271     0.999512       199494      2048.00\n       9.287     0.999561       199505      2275.56\n       9.303     0.999609       199516      2560.00\n       9.319     0.999658       199525      2925.71\n       9.343     0.999707       199535      3413.33\n       9.383     0.999756       199544      4096.00\n       9.407     0.999780       199548      4551.11\n       9.423     0.999805       199554      5120.00\n       9.447     0.999829       199557      5851.43\n       9.463     0.999854       199562      6826.67\n       9.495     0.999878       199567      8192.00\n       9.535     0.999890       199570      9102.22\n       9.551     0.999902       199574     10240.00\n       9.551     0.999915       199574     11702.86\n       9.655     0.999927       199577     13653.33\n       9.671     0.999939       199579     16384.00\n       9.711     0.999945       199581     18204.44\n       9.799     0.999951       199582     20480.00\n       9.935     0.999957       199583     23405.71\n      10.071     0.999963       199584     27306.67\n      10.183     0.999969       199585     32768.00\n      10.239     0.999973       199586     36408.89\n      10.255     0.999976       199587     40960.00\n      10.255     0.999979       199587     46811.43\n      10.775     0.999982       199588     54613.33\n      10.775     0.999985       199588     65536.00\n      12.031     0.999986       199589     72817.78\n      12.031     0.999988       199589     81920.00\n      12.031     0.999989       199589     93622.86\n      12.175     0.999991       199590    109226.67\n      12.175     0.999992       199590    131072.00\n      12.175     0.999993       199590    145635.56\n      12.175     0.999994       199590    163840.00\n      12.175     0.999995       199590    187245.71\n      13.535     0.999995       199591    218453.33\n      13.535     1.000000       199591          inf\n#[Mean    =        0.956, StdDeviation   =        1.800]\n#[Max     =       13.528, Total count    =       199591]\n#[Buckets =           27, SubBuckets     =         2048]\n----------------------------------------------------------\n  299819 requests in 30.00s, 42.32MB read\nRequests/sec:   9993.99\nTransfer/sec:      1.41MB\nHISTOGRAM {\"samples\":199591}\nMETRICS {\"good\":299819,\"bad\":0,\"requests\":299819,\"duration_us\":29999917,\"p50_us\":1314.000000,\"p95_us\":7499.000000,\"p99_us\":10303.000000,\"connect_errors\":0,\"read_errors\":0,\"write_errors\":0,\"timeout_errors\":0}\n",
+      "client_stderr": "",
+      "timed_window_s": 30.0191285410001,
+      "server_resources": {
+        "complete": true,
+        "samples": 102,
+        "interval_s": 0.2,
+        "cpu_s": 24.895572387999998,
+        "cpu_scope": "sampled stable descendant tree within timed client window, excludes startup/drain",
+        "sampled_rss_peak_bytes": 69386240,
+        "sampled_threads_peak": 33,
+        "sampled_fds_peak": 37,
+        "pass": true
+      },
+      "client_resources": {
+        "complete": true,
+        "samples": 102,
+        "interval_s": 0.2,
+        "cpu_s": 6.854456386,
+        "cpu_scope": "sampled stable descendant tree within timed client window, excludes startup/drain",
+        "sampled_rss_peak_bytes": 6881280,
+        "sampled_threads_peak": 5,
+        "sampled_fds_peak": 39,
+        "pass": true
+      },
+      "metrics": {
+        "good": 299819,
+        "bad": 0,
+        "requests": 299819,
+        "duration_us": 29999917,
+        "p50_us": 1314.0,
+        "p95_us": 7499.0,
+        "p99_us": 10303.0,
+        "connect_errors": 0,
+        "read_errors": 0,
+        "write_errors": 0,
+        "timeout_errors": 0
+      },
+      "goodput_rps": 9993.99431671761,
+      "accuracy_pass": true,
+      "transport_pass": true,
+      "rate_pass": true,
+      "tail_pass": true,
+      "histogram": {
+        "samples": 199591
+      },
+      "calibration_pass": true,
+      "server_log": "dexpot serving on http://127.0.0.1:53290 pid=12489 mode=bounded-ft(1024) runtime=free-threaded Python, GIL disabled\nRUNTIME_IDENTITY {\"pid\": 12489, \"python\": \"3.14.7 free-threading build (main, Aug  7 2026, 02:15:12) [Clang 22.1.3 ]\", \"free_threaded_build\": true, \"gil_enabled\": false, \"selected_gil_enabled\": false, \"execution_mode\": \"bounded-ft\", \"pool_size\": 22, \"max_queue\": 44, \"connection_limit\": 1024, \"compiled_scalar\": true, \"nested_compiled_scalar\": false, \"large_compiled_scalar\": false, \"nested_direct_registered\": true, \"nested_policy_scope\": false, \"response_turn_handoff\": false, \"phase\": \"startup\", \"active_connections\": 0, \"launch_overrides\": {\"PYTHON_GIL\": null, \"gil\": null}, \"dependencies\": {\"dexpot\": \"0.7.0\", \"msgspec\": \"0.22.0\"}}\nRUNTIME_IDENTITY {\"pid\": 12489, \"python\": \"3.14.7 free-threading build (main, Aug  7 2026, 02:15:12) [Clang 22.1.3 ]\", \"free_threaded_build\": true, \"gil_enabled\": false, \"selected_gil_enabled\": false, \"execution_mode\": \"bounded-ft\", \"pool_size\": 22, \"max_queue\": 44, \"connection_limit\": 1024, \"compiled_scalar\": true, \"nested_compiled_scalar\": false, \"large_compiled_scalar\": false, \"nested_direct_registered\": true, \"nested_policy_scope\": false, \"response_turn_handoff\": false, \"phase\": \"after_workload\", \"active_connections\": 0, \"launch_overrides\": {\"PYTHON_GIL\": null, \"gil\": null}, \"dependencies\": {\"dexpot\": \"0.7.0\", \"msgspec\": \"0.22.0\"}}\n",
+      "server_exit": 0,
+      "runtime_evidence": {
+        "valid": true,
+        "errors": [],
+        "pids": [
+          12489
+        ],
+        "events": [
+          {
+            "pid": 12489,
+            "python": "3.14.7 free-threading build (main, Aug  7 2026, 02:15:12) [Clang 22.1.3 ]",
+            "free_threaded_build": true,
+            "gil_enabled": false,
+            "selected_gil_enabled": false,
+            "execution_mode": "bounded-ft",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "compiled_scalar": true,
+            "nested_compiled_scalar": false,
+            "large_compiled_scalar": false,
+            "nested_direct_registered": true,
+            "nested_policy_scope": false,
+            "response_turn_handoff": false,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 12489,
+            "python": "3.14.7 free-threading build (main, Aug  7 2026, 02:15:12) [Clang 22.1.3 ]",
+            "free_threaded_build": true,
+            "gil_enabled": false,
+            "selected_gil_enabled": false,
+            "execution_mode": "bounded-ft",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "compiled_scalar": true,
+            "nested_compiled_scalar": false,
+            "large_compiled_scalar": false,
+            "nested_direct_registered": true,
+            "nested_policy_scope": false,
+            "response_turn_handoff": false,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          }
+        ]
+      },
+      "runtime_pass": true,
+      "activation_pass": true,
+      "source_unchanged": true,
+      "comparison_valid": true,
+      "finished_epoch": 1792537520.5869849
+    },
+    {
+      "cell": {
+        "id": "fixed-c32-candidate",
+        "pair": 1,
+        "phase": "diagnostic",
+        "platform": "macos",
+        "runtime": "ft",
+        "kind": "fixed",
+        "profile": "mixed",
+        "side": "candidate",
+        "duration_s": 30,
+        "connections": 32
+      },
+      "frozen": {
+        "wheel": "1a8daf4f0e36df14468ff0751f4b22a179b26f86b878c0bfd823e10e1062ce5d",
+        "source": "2000d91f87c074c0bd80d07d9265511570597a6561c5f8abc7c09082e44ad5f2",
+        "application": "fa440e6f4b1ec76b8586cc2cedae23ca59a4ee72900770502e58f445c66b23fd",
+        "lua": "1002d07f9058b98abe0aad98dc7c7731379fd91fd8ab5ae723e1d26a618f8562",
+        "wrk": "3dde9a2186ec70f63f3ebfafb76d9665aba5db18824e1b40660cad8c1328d29f",
+        "wrk2": "5980f72485b9660fb32b9cf59113a2bef80c7e5476127333a0512c51b7a627fd",
+        "runner": "522bdac3f40741c8e835b8711985008ca3aa14c55d7d0ab790927f4d22e18029",
+        "plan": "b39a35d10d0290cdf2d6eea0dedfc69577f711cecc6b0d465d197ac997bcfcdb",
+        "identity_helper": "81d9332e2be8457c838d01234470900e22bd958adbf001c3507a6a317c134e53",
+        "legacy_control_adapter": "b6ca6cd9dbaeb0caaba7ec5f7bc15b8630fdd9e3e48cfc0dbbe2f8239e7f7bde",
+        "direct_status": "e0b6c6e1e37bdf5b9193635182d49b8e320ea13894a3140e38f3a8dec3dfc76a",
+        "candidate_pin": "b2a416468acbb3ed14b794b31575cf9133dd7e369d8f8c2f893ea869fbe715f5"
+      },
+      "executed": true,
+      "error": null,
+      "started_epoch": 1792537520.591394,
+      "interpreter": {
+        "module": "/Users/tugrulguner/Projects/dexpot-research/winning-execution/response-handoff-mixed-concurrency-v1/candidate/ft/lib/python3.14t/site-packages/dexpot/__init__.py",
+        "gil": false,
+        "ft_build": 1,
+        "python": "3.14.7 free-threading build (main, Aug  7 2026, 02:15:12) [Clang 22.1.3 ]",
+        "parser": "python"
+      },
+      "runtime": {
+        "response_turn_handoff": true,
+        "nested_policy_scope": false,
+        "nested_direct_bound": true,
+        "compiled_scalar": true,
+        "framework": "dexpot",
+        "contract": "native",
+        "python": "3.14.7",
+        "gil_enabled": false,
+        "handler_thread_model": "dexpot-ft-thread-per-connection",
+        "configured_worker_threads": null,
+        "connection_limit": 1024,
+        "module": "/Users/tugrulguner/Projects/dexpot-research/winning-execution/response-handoff-production-v1/fixture/app.py",
+        "dexpot_module": "/Users/tugrulguner/Projects/dexpot-research/winning-execution/response-handoff-mixed-concurrency-v1/candidate/ft/lib/python3.14t/site-packages/dexpot/__init__.py",
+        "large_nested_rows": 64
+      },
+      "command": [
+        "/Users/tugrulguner/Projects/dexpot-performance/continuous-baseline-20261012/client/wrk-macos-safe",
+        "-t",
+        "4",
+        "-c",
+        "32",
+        "-d",
+        "30s",
+        "-R",
+        "10000",
+        "-L",
+        "-U",
+        "-s",
+        "/Users/tugrulguner/Projects/dexpot-research/winning-execution/response-handoff-mixed-concurrency-v1/fixture/check.lua",
+        "http://127.0.0.1:53354/",
+        "--",
+        "mixed"
+      ],
+      "client_sha256": "5980f72485b9660fb32b9cf59113a2bef80c7e5476127333a0512c51b7a627fd",
+      "client_returncode": 0,
+      "client_stdout": "Running 30s test @ http://127.0.0.1:53354/\n  4 threads and 32 connections\n  Thread calibration: mean lat.: 2.414ms, rate sampling interval: 12ms\n  Thread calibration: mean lat.: 2.426ms, rate sampling interval: 12ms\n  Thread calibration: mean lat.: 2.500ms, rate sampling interval: 12ms\n  Thread calibration: mean lat.: 2.466ms, rate sampling interval: 12ms\n  Thread Stats   Avg      Stdev     Max   +/- Stdev\n    Latency     2.51ms    2.62ms  23.66ms   84.66%\n    Req/Sec     2.61k   267.38     3.82k    66.66%\n  Latency Distribution (HdrHistogram - Recorded Latency)\n 50.000%    1.42ms\n 75.000%    3.30ms\n 90.000%    6.51ms\n 99.000%   11.22ms\n 99.900%   16.03ms\n 99.990%   19.84ms\n 99.999%   21.60ms\n100.000%   23.68ms\n\n  Detailed Percentile spectrum:\n       Value   Percentile   TotalCount 1/(1-Percentile)\n\n       0.074     0.000000            1         1.00\n       0.464     0.100000        20043         1.11\n       0.711     0.200000        39958         1.25\n       0.940     0.300000        59912         1.43\n       1.170     0.400000        79911         1.67\n       1.415     0.500000        99832         2.00\n       1.552     0.550000       109822         2.22\n       1.754     0.600000       119778         2.50\n       2.095     0.650000       129770         2.86\n       2.645     0.700000       139728         3.33\n       3.299     0.750000       149716         4.00\n       3.691     0.775000       154692         4.44\n       4.139     0.800000       159682         5.00\n       4.639     0.825000       164696         5.71\n       5.207     0.850000       169669         6.67\n       5.827     0.875000       174651         8.00\n       6.163     0.887500       177162         8.89\n       6.515     0.900000       179634        10.00\n       6.907     0.912500       182144        11.43\n       7.339     0.925000       184624        13.33\n       7.823     0.937500       187125        16.00\n       8.091     0.943750       188378        17.78\n       8.367     0.950000       189625        20.00\n       8.663     0.956250       190881        22.86\n       8.959     0.962500       192121        26.67\n       9.271     0.968750       193361        32.00\n       9.431     0.971875       194001        35.56\n       9.607     0.975000       194604        40.00\n       9.799     0.978125       195225        45.71\n      10.023     0.981250       195853        53.33\n      10.311     0.984375       196477        64.00\n      10.495     0.985938       196785        71.11\n      10.719     0.987500       197098        80.00\n      11.023     0.989062       197417        91.43\n      11.375     0.990625       197720       106.67\n      11.831     0.992188       198039       128.00\n      12.087     0.992969       198189       142.22\n      12.383     0.993750       198344       160.00\n      12.687     0.994531       198501       182.86\n      13.015     0.995313       198657       213.33\n      13.391     0.996094       198812       256.00\n      13.591     0.996484       198890       284.44\n      13.839     0.996875       198969       320.00\n      14.087     0.997266       199049       365.71\n      14.367     0.997656       199127       426.67\n      14.703     0.998047       199202       512.00\n      14.935     0.998242       199243       568.89\n      15.183     0.998437       199282       640.00\n      15.447     0.998633       199319       731.43\n      15.687     0.998828       199358       853.33\n      16.119     0.999023       199397      1024.00\n      16.327     0.999121       199416      1137.78\n      16.591     0.999219       199436      1280.00\n      16.863     0.999316       199456      1462.86\n      17.135     0.999414       199477      1706.67\n      17.391     0.999512       199494      2048.00\n      17.679     0.999561       199504      2275.56\n      17.919     0.999609       199514      2560.00\n      18.223     0.999658       199523      2925.71\n      18.495     0.999707       199533      3413.33\n      18.687     0.999756       199543      4096.00\n      18.975     0.999780       199548      4551.11\n      19.247     0.999805       199553      5120.00\n      19.343     0.999829       199557      5851.43\n      19.439     0.999854       199562      6826.67\n      19.599     0.999878       199567      8192.00\n      19.759     0.999890       199570      9102.22\n      19.903     0.999902       199572     10240.00\n      20.015     0.999915       199574     11702.86\n      20.383     0.999927       199577     13653.33\n      20.495     0.999939       199579     16384.00\n      20.639     0.999945       199581     18204.44\n      20.703     0.999951       199582     20480.00\n      20.719     0.999957       199583     23405.71\n      20.895     0.999963       199584     27306.67\n      21.119     0.999969       199585     32768.00\n      21.135     0.999973       199586     36408.89\n      21.231     0.999976       199587     40960.00\n      21.231     0.999979       199587     46811.43\n      21.407     0.999982       199588     54613.33\n      21.407     0.999985       199588     65536.00\n      21.599     0.999986       199589     72817.78\n      21.599     0.999988       199589     81920.00\n      21.599     0.999989       199589     93622.86\n      22.079     0.999991       199590    109226.67\n      22.079     0.999992       199590    131072.00\n      22.079     0.999993       199590    145635.56\n      22.079     0.999994       199590    163840.00\n      22.079     0.999995       199590    187245.71\n      23.679     0.999995       199591    218453.33\n      23.679     1.000000       199591          inf\n#[Mean    =        2.514, StdDeviation   =        2.617]\n#[Max     =       23.664, Total count    =       199591]\n#[Buckets =           27, SubBuckets     =         2048]\n----------------------------------------------------------\n\n  Latency Distribution (HdrHistogram - Uncorrected Latency (measured without taking delayed starts into account))\n 50.000%  167.00us\n 75.000%    1.15ms\n 90.000%    4.17ms\n 99.000%    8.70ms\n 99.900%    9.21ms\n 99.990%    9.65ms\n 99.999%   10.56ms\n100.000%   11.06ms\n\n  Detailed Percentile spectrum:\n       Value   Percentile   TotalCount 1/(1-Percentile)\n\n       0.060     0.000000            1         1.00\n       0.103     0.100000        20217         1.11\n       0.118     0.200000        40458         1.25\n       0.131     0.300000        59917         1.43\n       0.147     0.400000        81025         1.67\n       0.167     0.500000        99936         2.00\n       0.182     0.550000       110287         2.22\n       0.202     0.600000       120122         2.50\n       0.232     0.650000       129906         2.86\n       0.292     0.700000       139803         3.33\n       1.147     0.750000       149697         4.00\n       1.408     0.775000       154696         4.44\n       1.600     0.800000       159680         5.00\n       2.029     0.825000       164666         5.71\n       2.717     0.850000       169669         6.67\n       3.147     0.875000       174657         8.00\n       3.577     0.887500       177140         8.89\n       4.167     0.900000       179653        10.00\n       4.519     0.912500       182135        11.43\n       5.163     0.925000       184634        13.33\n       5.791     0.937500       187125        16.00\n       6.059     0.943750       188378        17.78\n       6.419     0.950000       189628        20.00\n       6.847     0.956250       190868        22.86\n       7.151     0.962500       192113        26.67\n       7.407     0.968750       193376        32.00\n       7.559     0.971875       193986        35.56\n       7.735     0.975000       194604        40.00\n       7.951     0.978125       195228        45.71\n       8.191     0.981250       195860        53.33\n       8.407     0.984375       196486        64.00\n       8.495     0.985938       196785        71.11\n       8.575     0.987500       197107        80.00\n       8.655     0.989062       197421        91.43\n       8.735     0.990625       197739       106.67\n       8.807     0.992188       198033       128.00\n       8.855     0.992969       198213       142.22\n       8.903     0.993750       198360       160.00\n       8.943     0.994531       198511       182.86\n       8.991     0.995313       198672       213.33\n       9.031     0.996094       198812       256.00\n       9.055     0.996484       198896       284.44\n       9.079     0.996875       198986       320.00\n       9.103     0.997266       199062       365.71\n       9.127     0.997656       199139       426.67\n       9.151     0.998047       199227       512.00\n       9.159     0.998242       199247       568.89\n       9.175     0.998437       199289       640.00\n       9.191     0.998633       199335       731.43\n       9.199     0.998828       199366       853.33\n       9.215     0.999023       199397      1024.00\n       9.231     0.999121       199425      1137.78\n       9.255     0.999219       199443      1280.00\n       9.271     0.999316       199458      1462.86\n       9.303     0.999414       199482      1706.67\n       9.335     0.999512       199495      2048.00\n       9.359     0.999561       199504      2275.56\n       9.391     0.999609       199514      2560.00\n       9.415     0.999658       199523      2925.71\n       9.431     0.999707       199534      3413.33\n       9.455     0.999756       199544      4096.00\n       9.471     0.999780       199548      4551.11\n       9.495     0.999805       199553      5120.00\n       9.527     0.999829       199558      5851.43\n       9.575     0.999854       199562      6826.67\n       9.615     0.999878       199568      8192.00\n       9.647     0.999890       199570      9102.22\n       9.719     0.999902       199572     10240.00\n       9.751     0.999915       199574     11702.86\n       9.791     0.999927       199578     13653.33\n       9.879     0.999939       199579     16384.00\n       9.903     0.999945       199581     18204.44\n       9.911     0.999951       199583     20480.00\n       9.911     0.999957       199583     23405.71\n       9.927     0.999963       199584     27306.67\n       9.943     0.999969       199585     32768.00\n      10.015     0.999973       199586     36408.89\n      10.159     0.999976       199587     40960.00\n      10.159     0.999979       199587     46811.43\n      10.199     0.999982       199588     54613.33\n      10.199     0.999985       199588     65536.00\n      10.559     0.999986       199589     72817.78\n      10.559     0.999988       199589     81920.00\n      10.559     0.999989       199589     93622.86\n      10.751     0.999991       199590    109226.67\n      10.751     0.999992       199590    131072.00\n      10.751     0.999993       199590    145635.56\n      10.751     0.999994       199590    163840.00\n      10.751     0.999995       199590    187245.71\n      11.063     0.999995       199591    218453.33\n      11.063     1.000000       199591          inf\n#[Mean    =        1.114, StdDeviation   =        2.030]\n#[Max     =       11.056, Total count    =       199591]\n#[Buckets =           27, SubBuckets     =         2048]\n----------------------------------------------------------\n  299810 requests in 30.00s, 42.32MB read\nRequests/sec:   9993.76\nTransfer/sec:      1.41MB\nHISTOGRAM {\"samples\":199591}\nMETRICS {\"good\":299810,\"bad\":0,\"requests\":299810,\"duration_us\":29999716,\"p50_us\":1415.000000,\"p95_us\":8367.000000,\"p99_us\":11223.000000,\"connect_errors\":0,\"read_errors\":0,\"write_errors\":0,\"timeout_errors\":0}\n",
+      "client_stderr": "",
+      "timed_window_s": 30.01275329200007,
+      "server_resources": {
+        "complete": true,
+        "samples": 92,
+        "interval_s": 0.2,
+        "cpu_s": 29.089760103999996,
+        "cpu_scope": "sampled stable descendant tree within timed client window, excludes startup/drain",
+        "sampled_rss_peak_bytes": 69451776,
+        "sampled_threads_peak": 33,
+        "sampled_fds_peak": 37,
+        "pass": true
+      },
+      "client_resources": {
+        "complete": true,
+        "samples": 94,
+        "interval_s": 0.2,
+        "cpu_s": 6.977343791000001,
+        "cpu_scope": "sampled stable descendant tree within timed client window, excludes startup/drain",
+        "sampled_rss_peak_bytes": 6832128,
+        "sampled_threads_peak": 5,
+        "sampled_fds_peak": 39,
+        "pass": true
+      },
+      "metrics": {
+        "good": 299810,
+        "bad": 0,
+        "requests": 299810,
+        "duration_us": 29999716,
+        "p50_us": 1415.0,
+        "p95_us": 8367.0,
+        "p99_us": 11223.0,
+        "connect_errors": 0,
+        "read_errors": 0,
+        "write_errors": 0,
+        "timeout_errors": 0
+      },
+      "goodput_rps": 9993.761274273396,
+      "accuracy_pass": true,
+      "transport_pass": true,
+      "rate_pass": true,
+      "tail_pass": true,
+      "histogram": {
+        "samples": 199591
+      },
+      "calibration_pass": true,
+      "server_log": "dexpot serving on http://127.0.0.1:53354 pid=12573 mode=bounded-ft(1024) runtime=free-threaded Python, GIL disabled\nRUNTIME_IDENTITY {\"pid\": 12573, \"python\": \"3.14.7 free-threading build (main, Aug  7 2026, 02:15:12) [Clang 22.1.3 ]\", \"free_threaded_build\": true, \"gil_enabled\": false, \"selected_gil_enabled\": false, \"execution_mode\": \"bounded-ft\", \"pool_size\": 22, \"max_queue\": 44, \"connection_limit\": 1024, \"response_turn_handoff\": true, \"compiled_scalar\": true, \"nested_compiled_scalar\": false, \"large_compiled_scalar\": false, \"nested_direct_registered\": true, \"nested_policy_scope\": false, \"phase\": \"startup\", \"active_connections\": 0, \"launch_overrides\": {\"PYTHON_GIL\": null, \"gil\": null}, \"dependencies\": {\"dexpot\": \"0.7.0\", \"msgspec\": \"0.22.0\"}}\nRUNTIME_IDENTITY {\"pid\": 12573, \"python\": \"3.14.7 free-threading build (main, Aug  7 2026, 02:15:12) [Clang 22.1.3 ]\", \"free_threaded_build\": true, \"gil_enabled\": false, \"selected_gil_enabled\": false, \"execution_mode\": \"bounded-ft\", \"pool_size\": 22, \"max_queue\": 44, \"connection_limit\": 1024, \"response_turn_handoff\": true, \"compiled_scalar\": true, \"nested_compiled_scalar\": false, \"large_compiled_scalar\": false, \"nested_direct_registered\": true, \"nested_policy_scope\": false, \"phase\": \"after_workload\", \"active_connections\": 0, \"launch_overrides\": {\"PYTHON_GIL\": null, \"gil\": null}, \"dependencies\": {\"dexpot\": \"0.7.0\", \"msgspec\": \"0.22.0\"}}\n",
+      "server_exit": 0,
+      "runtime_evidence": {
+        "valid": true,
+        "errors": [],
+        "pids": [
+          12573
+        ],
+        "events": [
+          {
+            "pid": 12573,
+            "python": "3.14.7 free-threading build (main, Aug  7 2026, 02:15:12) [Clang 22.1.3 ]",
+            "free_threaded_build": true,
+            "gil_enabled": false,
+            "selected_gil_enabled": false,
+            "execution_mode": "bounded-ft",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "response_turn_handoff": true,
+            "compiled_scalar": true,
+            "nested_compiled_scalar": false,
+            "large_compiled_scalar": false,
+            "nested_direct_registered": true,
+            "nested_policy_scope": false,
+            "phase": "startup",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          },
+          {
+            "pid": 12573,
+            "python": "3.14.7 free-threading build (main, Aug  7 2026, 02:15:12) [Clang 22.1.3 ]",
+            "free_threaded_build": true,
+            "gil_enabled": false,
+            "selected_gil_enabled": false,
+            "execution_mode": "bounded-ft",
+            "pool_size": 22,
+            "max_queue": 44,
+            "connection_limit": 1024,
+            "response_turn_handoff": true,
+            "compiled_scalar": true,
+            "nested_compiled_scalar": false,
+            "large_compiled_scalar": false,
+            "nested_direct_registered": true,
+            "nested_policy_scope": false,
+            "phase": "after_workload",
+            "active_connections": 0,
+            "launch_overrides": {
+              "PYTHON_GIL": null,
+              "gil": null
+            },
+            "dependencies": {
+              "dexpot": "0.7.0",
+              "msgspec": "0.22.0"
+            }
+          }
+        ]
+      },
+      "runtime_pass": true,
+      "activation_pass": true,
+      "source_unchanged": true,
+      "comparison_valid": true,
+      "finished_epoch": 1792537551.199661
+    }
+  ]
+}

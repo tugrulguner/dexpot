@@ -592,14 +592,27 @@ class PreparationBinding:
         self.canonical = _compile_graph(
             schema, capture, self.infos, self.records, registration=True
         )
+        self.direct_factory = None
+        self.fallback_policy: Any = None
+        if sys.platform == "darwin" and not getattr(sys, "_is_gil_enabled", lambda: True)():
+            from ._nested_response import compile_direct
+
+            self.direct_factory, _ = compile_direct(schema, None, infos=self.infos)
 
     def bind(self):
         memo = {}
         infos = {annotation: _metadata_copy(info, memo) for annotation, info in self.infos.items()}
         records = {cls: (dict(fields), omit) for cls, (fields, omit) in self.records.items()}
-        return _compile_graph(
+        fallback = _compile_graph(
             self.schema, self.fallbacks.__getitem__, infos, records, registration=False
         )
+        if self.direct_factory is not None:
+            if self.fallback_policy is not None:
+                from ._preparation_policy import scoped_preparer
+
+                fallback = scoped_preparer(fallback, self.fallback_policy)
+            return self.direct_factory(fallback)
+        return fallback
 
 
 def compile_binding(schema, fallback):
@@ -649,6 +662,11 @@ def compile_preparer(schema: Any, fallback: Callable[[Any], Prepare]) -> Prepare
     policy = None if flat else darwin_policy()
     bound_prepare = prepare
     if policy is not None:
+        if factory.direct_factory is not None:
+            # Direct captures have private executable state and no callbacks.
+            # Preserve the existing policy only for the incumbent fallback.
+            factory.fallback_policy = policy
+            return bound_prepare
         guarded = scoped_preparer(bound_prepare, policy)
 
         def prepare(value):

@@ -1,0 +1,1 @@
+Reuse the immutable HTTP path-validation character table across requests instead of rebuilding it, avoiding repeated set allocation and shared-set copying on free-threaded Python without changing URI validation.
