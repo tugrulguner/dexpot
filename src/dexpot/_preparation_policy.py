@@ -12,47 +12,59 @@ class _DarwinPolicy:
         self.lib.pthread_self.restype = ctypes.c_void_p
         self.lib.pthread_mach_thread_np.argtypes = [ctypes.c_void_p]
         self.lib.pthread_mach_thread_np.restype = ctypes.c_uint
-        self.lib.thread_policy_get.argtypes = [
+        # Preserve registration-time symbol/prototype validation and fallback.
+        self._functions()
+        self.local = threading.local()
+
+    def _functions(self):
+        # Index lookup returns fresh ctypes wrappers; attribute lookup caches
+        # one mutable wrapper on the CDLL and shares its call metadata.
+        get_policy = self.lib["thread_policy_get"]
+        get_policy.argtypes = [
             ctypes.c_uint,
             ctypes.c_int,
             ctypes.POINTER(ctypes.c_int),
             ctypes.POINTER(ctypes.c_uint),
             ctypes.POINTER(ctypes.c_int),
         ]
-        self.lib.thread_policy_get.restype = ctypes.c_int
-        self.lib.thread_policy_set.argtypes = [
+        get_policy.restype = ctypes.c_int
+        set_policy = self.lib["thread_policy_set"]
+        set_policy.argtypes = [
             ctypes.c_uint,
             ctypes.c_int,
             ctypes.POINTER(ctypes.c_int),
             ctypes.c_uint,
         ]
-        self.lib.thread_policy_set.restype = ctypes.c_int
-        self.local = threading.local()
+        set_policy.restype = ctypes.c_int
+        return get_policy, set_policy
 
     def _state(self):
         if not hasattr(self.local, "state"):
+            get_policy, set_policy = self._functions()
             # Borrow the current pthread's port; do not create/leak a Mach right.
             self.local.state = (
                 self.lib.pthread_mach_thread_np(self.lib.pthread_self()),
                 ctypes.c_int(),
                 ctypes.c_uint(1),
                 ctypes.c_int(),
+                get_policy,
+                set_policy,
             )
         return self.local.state
 
     def current(self):
-        port, value, count, default = self._state()
+        port, value, count, default, get_policy, _ = self._state()
         count.value = 1
         default.value = 0
-        result = self.lib.thread_policy_get(
+        result = get_policy(
             port, 1, ctypes.byref(value), ctypes.byref(count), ctypes.byref(default)
         )
         return -1 if result else value.value
 
     def set(self, enabled):
-        port, value, _, _ = self._state()
+        port, value, _, _, _, set_policy = self._state()
         value.value = enabled
-        return self.lib.thread_policy_set(port, 1, ctypes.byref(value), 1)
+        return set_policy(port, 1, ctypes.byref(value), 1)
 
 
 def darwin_policy():
