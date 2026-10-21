@@ -124,6 +124,7 @@ class Dex:
         self._runtime_bound = False
         self._serving_gil_free = _gil_free
         self._response_turn_handoff = False
+        self._response_turn_cpu_budget_ns = 0
         self._handoff_yield = None
         self._pool_size = POOL_SIZE
         self._max_queue = MAX_QUEUE
@@ -140,6 +141,7 @@ class Dex:
         self._response_turn_handoff = (
             sys.platform == "darwin" and self._serving_gil_free and self._handoff_yield is not None
         )
+        self._response_turn_cpu_budget_ns = 1_000_000 if self._response_turn_handoff else 0
         self._pool_size = POOL_SIZE
         self._max_queue = MAX_QUEUE
         if self._serving_gil_free != _gil_free:
@@ -169,6 +171,7 @@ class Dex:
             "max_queue": self._max_queue,
             "connection_limit": MAX_CONNECTIONS,
             "response_turn_handoff": self._response_turn_handoff,
+            "response_turn_cpu_budget_ns": self._response_turn_cpu_budget_ns,
         }
 
     def _runtime_description(self) -> str:
@@ -600,13 +603,21 @@ class Dex:
             with self._cond:
                 self._active_connections.add(conn)
         try:
+            handoff_enabled = self._response_turn_handoff
+            cpu_budget_ns = self._response_turn_cpu_budget_ns
+            yield_turn = self._handoff_yield
+            cpu_turn_start = (
+                time.thread_time_ns() if handoff_enabled and cpu_budget_ns and yield_turn else 0
+            )
             while not self._stopping.is_set():
                 keep_alive, buf = self._process(conn, buf)
                 if not keep_alive:
                     break
-                yield_turn = self._handoff_yield
-                if self._response_turn_handoff and yield_turn is not None:
-                    yield_turn()
+                if handoff_enabled and cpu_budget_ns and yield_turn is not None:
+                    cpu_now = time.thread_time_ns()
+                    if cpu_now - cpu_turn_start >= cpu_budget_ns:
+                        yield_turn()
+                        cpu_turn_start = cpu_now
         except (ConnectionError, OSError, ValueError):
             pass
         finally:

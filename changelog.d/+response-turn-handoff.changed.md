@@ -1,1 +1,1 @@
-On free-threaded macOS, yield a completed keep-alive connection owner's turn; runtime diagnostics report whether startup selected this strategy.
+On free-threaded macOS, this local candidate yields a connection owner's turn only after at least 1 ms of accumulated thread CPU across successfully completed keep-alive responses. Runtime diagnostics expose the selected CPU budget. This CPU-quantum experiment is not performance-qualified or published.

@@ -239,6 +239,8 @@ fixed-offered-load latency and resource budgets from milestone 4. A candidate mu
 correctness and show a repeatable scoped benefit without violating mandatory workload budgets.
 Do not replace a failed throughput/tail gate with a source-level simplification argument.
 
+- Local completed-response CPU-quantum handoff experiment: the free-threaded Darwin connection owner samples thread CPU and yields only after 1 ms of accumulated CPU across successfully completed keep-alive responses. The startup diagnostic exposes the selected budget; this candidate is not performance-qualified or shipped.
+
 #### 3.3 Paired lifecycle and typed input sources
 
 - Add one synchronous paired acquisition/cleanup mechanism with reverse-order teardown and
