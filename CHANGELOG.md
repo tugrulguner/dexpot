@@ -10,6 +10,37 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.7.1] - 2026-10-21
+
+### Changed
+
+- Add visible social links and public website feedback routes.
+- Adds privacy-safe browser-local playground outcome events. The shared `playground_preview_started` / `playground_preview_completed` contract includes only bounded project, mode, result, failure class, and an ephemeral per-attempt correlation ID; it excludes request values and output. No library telemetry was added.
+- Compile eligible flat checked-response projections on free-threaded CPython only when replacing the native whole-codec fallback; retain existing graph preparers and unsupported schemas or values unchanged.
+- Compile narrow required nested Struct/list response preparation at registration on free-threaded Darwin, with worker-owned executable/guard state and captured slot getters. Keep the existing graph for unsupported schemas and values, and retain GIL/Linux selection and native encoding. Skip Mach policy RPCs for direct captures while preserving the incumbent fallback policy scope and restoration.
+- Give each Darwin preparation worker its own ctypes policy-call wrappers and argument metadata, while preserving the existing policy selection, borrowed thread port and failure-safe restoration behavior.
+- On free-threaded macOS, connection owners yield only after at least 1 ms of accumulated thread CPU across successfully completed keep-alive responses. Runtime diagnostics expose the selected budget. Paired with owner-lifetime scheduling policy, the rebuilt artifact passed the scoped macOS FT flat, nested and mixed HTTP gates; this does not establish a general cross-platform performance improvement.
+- Reuse the immutable HTTP path-validation character table across requests instead of rebuilding it, avoiding repeated set allocation and shared-set copying on free-threaded Python without changing URI validation.
+- Synchronize response-contract visuals and documentation with the v0.7.0 checked-output behavior.
+- The README and homepage now show the original execution overview alongside the response-contract diagram.
+- The homepage now presents the execution overview before the response-contract diagram.
+- Use Dexpot cyan accents for primary actions, links, selected states, and focus indicators across light and dark themes.
+- Use the existing flask cyan for the Dexpot wordmark suffix across canonical artwork, site branding, and image derivatives.
+
+### Fixed
+
+- Align the narrow documentation homepage hero with the content's 16px page gutters instead of applying a second horizontal inset.
+- Applications now bind the scheduler at `serve()` startup using the actual GIL state after imports; late GIL changes are reported without changing the running mode.
+- Correct the Dexpot wordmark suffix colour; the final artwork uses the existing flask cyan.
+- Defer below-the-fold homepage diagrams and reserve their intrinsic dimensions to reduce loading competition and layout shifts.
+- Keep a direct, clearly labeled Feedback action visible in compact navigation, while retaining ModePot in the menu and keeping feedback context limited to the canonical public page.
+- Keep free-threaded connection capacity reserved until its owner thread has fully exited, preventing replacement threads from exceeding the process-wide limit.
+- Keep personal GitHub, LinkedIn and X links beside the creator attribution with restrained text sizing instead of crowding project navigation.
+- On macOS free-threaded serving, dexpot now applies fixed timeshare scheduling only for the lifetime of each connection-owning worker, restoring that worker's prior policy before exit. This is paired with the existing bounded CPU-budget response-turn handoff; it does not alter process power settings or the main/acceptor thread policy.
+- Sanitize website analytics URLs and acquisition properties to exclude query strings, fragments, campaign values and ad identifiers, with intercepted real-SDK privacy regression coverage.
+- The documentation homepage now exposes its feedback action, and linked README diagrams resolve to their raw image assets.
+
+
 ## [0.7.0] - 2026-10-10
 
 ### Added
