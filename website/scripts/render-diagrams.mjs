@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -27,6 +28,9 @@ const diagrams = [
   // Preserve the original execution artwork byte-for-byte; corrective artwork is additive.
   {
     source: 'docs/assets/dexpot-response-contract.svg',
+    // Preserve published raster bytes while this source is unchanged. Re-encoding
+    // an identical SVG on another OS can produce different PNG/WebP bytes.
+    preserveSourceSha256: '80c4be20db7a5ce9b249deddf752ed2240411184d87bd92486dd688392bd69d8',
     png: 'docs/assets/dexpot-response-contract.png',
     webp: 'website/public/dexpot-response-contract.webp',
   },
@@ -34,6 +38,13 @@ const diagrams = [
 
 for (const diagram of diagrams) {
   const svg = await readFile(join(root, diagram.source));
+  if (diagram.preserveSourceSha256 === createHash('sha256').update(svg).digest('hex')) {
+    // Missing committed assets are an error, not permission to silently replace them.
+    await readFile(join(root, diagram.png));
+    if (diagram.webp) await readFile(join(root, diagram.webp));
+    console.log(`Preserved unchanged published artwork: ${diagram.source}`);
+    continue;
+  }
   let image = sharp(svg, { density: 72 });
   if (diagram.width) image = image.resize({ width: diagram.width, height: diagram.height, fit: 'fill' });
   await writeFile(join(root, diagram.png), await image.clone().png({ compressionLevel: 9 }).toBuffer());

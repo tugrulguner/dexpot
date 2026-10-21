@@ -17,6 +17,7 @@ test('worker lifecycle remains readable and additive in both themes and narrow l
         expect(body.scroll).toBeLessThanOrEqual(body.width + 1);
         const box = await diagram.boundingBox();
         expect(box.width).toBeLessThanOrEqual(width);
+        expect(Math.abs(box.height - box.width * 1800 / 2400), 'lifecycle uses its full intrinsic ratio rather than shrinking inside a short image cap').toBeLessThan(1.5);
         if (route === '/') {
           const sources = await page.locator('figure.homepage-diagram img').evaluateAll((images) => images.map((image) => new URL(image.src).pathname));
           expect(sources).toEqual(['/dexpot-execution.webp', '/dexpot-worker-lifecycle.webp', '/dexpot-response-contract.webp']);

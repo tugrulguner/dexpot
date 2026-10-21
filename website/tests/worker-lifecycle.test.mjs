@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
@@ -42,6 +43,11 @@ test('both existing diagrams retain their original SVG, PNG and WebP bytes', asy
     'website/public/dexpot-execution.webp': '53a5045c73d6c355c8030cd104457e925ee3aa3df22c244ec2e1899b8eb05c20',
     'website/public/dexpot-response-contract.webp': '3ef549f51327e3059be955d88f15646d23ac83c85cb3c60f3a10f706713ab8e1',
   };
+  const paths = Object.keys(preserved).map((name) => join(root, name));
+  const before = await Promise.all(paths.map(async (path) => (await stat(path, { bigint: true })).mtimeNs));
+  execFileSync(process.execPath, ['scripts/render-diagrams.mjs'], { cwd: join(root, 'website') });
+  const after = await Promise.all(paths.map(async (path) => (await stat(path, { bigint: true })).mtimeNs));
+  assert.deepEqual(after, before, 'unchanged published diagrams must not be re-encoded by the renderer');
   for (const [name, expected] of Object.entries(preserved)) {
     const bytes = await readFile(join(root, name));
     assert.equal(createHash('sha256').update(bytes).digest('hex'), expected, `${name}: existing artwork must remain unchanged`);
