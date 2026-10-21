@@ -1,5 +1,7 @@
 # Completed-response handoff experiment
 
+> Historical source generation: the unconditional-handoff failures below remain retained. A later owner-lifetime policy plus CPU-budget correction passed the original 16-connection gate and the final macOS FT artifact screen; see [the correction and exact measured scope](darwin-ft-owner-policy.md). This does not reinterpret the earlier results.
+
 This is an **unmerged macOS free-threaded experiment**, not a release claim or a general scheduling recommendation.
 
 ## Mechanism and dependencies

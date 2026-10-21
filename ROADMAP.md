@@ -239,7 +239,7 @@ fixed-offered-load latency and resource budgets from milestone 4. A candidate mu
 correctness and show a repeatable scoped benefit without violating mandatory workload budgets.
 Do not replace a failed throughput/tail gate with a source-level simplification argument.
 
-- Local completed-response CPU-quantum handoff experiment: the free-threaded Darwin connection owner samples thread CPU and yields only after 1 ms of accumulated CPU across successfully completed keep-alive responses. The startup diagnostic exposes the selected budget; this candidate is not performance-qualified or shipped.
+- The Darwin FT correction pairs owner-lifetime scheduling policy with a 1 ms accumulated-thread-CPU completed-response handoff. The rebuilt installed artifact passed all 18 macOS FT flat/nested/mixed capacity and fixed-load trials, including the original 16-connection mixed tail gate. This is branch qualification, not a shipped or cross-platform performance claim; see [the measured scope and retained failures](docs/darwin-ft-owner-policy.md).
 
 #### 3.3 Paired lifecycle and typed input sources
 
