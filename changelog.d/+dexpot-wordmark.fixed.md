@@ -1,1 +1,0 @@
-Correct the Dexpot wordmark suffix colour to amber.

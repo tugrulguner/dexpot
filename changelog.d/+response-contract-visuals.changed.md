@@ -1,1 +1,0 @@
-Synchronize response-contract visuals and documentation with the v0.7.0 checked-output behavior.
