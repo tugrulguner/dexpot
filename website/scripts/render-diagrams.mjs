@@ -17,6 +17,13 @@ const diagrams = [
     width: 1200,
     height: 630,
   },
+  {
+    source: 'docs/assets/dexpot-worker-lifecycle.svg',
+    png: 'docs/assets/dexpot-worker-lifecycle.png',
+    webp: 'website/public/dexpot-worker-lifecycle.webp',
+    width: 2400,
+    height: 1800,
+  },
   // Preserve the original execution artwork byte-for-byte; corrective artwork is additive.
   {
     source: 'docs/assets/dexpot-response-contract.svg',

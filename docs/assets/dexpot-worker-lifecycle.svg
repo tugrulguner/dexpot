@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1800" viewBox="0 0 2400 1800" role="img" aria-labelledby="title desc">
+  <title id="title">Dexpot v0.7.1 worker lifecycle</title>
+  <desc id="desc">After the application and its dependencies are imported, serving binds the runtime by inspecting the actual GIL state. A free-threaded build may still have its GIL enabled: that selects the GIL pool, not bounded free-threaded owners. Environment limits are read and validated at import time. GIL mode uses a bounded pool and queue and may use process workers; free-threaded mode admits connections up to a retained permit limit. Each admitted connection owns a thread until it fully exits. On macOS free-threaded mode, a worker saves its prior response scheduling policy, applies the response-owner policy when available, and restores the prior policy before thread exit; restore failure is surfaced. Missing Darwin policy support falls back. After a completed continuing response, Darwin free-threaded workers yield when accumulated thread CPU reaches 1 ms; waiting is not CPU time, close/error does not trigger a yield, and handlers are never preempted. Socket closure alone does not reclaim a free-threaded permit: the acceptor reaps and joins the exited thread before releasing it. These Darwin hooks do not apply to Linux or GIL mode; bounded free-threaded ownership still applies on Linux. Main/acceptor scheduling policy is unchanged.</desc>
+  <defs>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#292c30" stroke-width="1"/></pattern>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto"><path d="M1 1L12 7L1 13" fill="none" stroke="#66d9ff" stroke-width="2"/></marker>
+    <marker id="arrowMuted" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto"><path d="M1 1L12 7L1 13" fill="none" stroke="#aab4bd" stroke-width="2"/></marker>
+    <style>
+      text{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;fill:#edf2f5}
+      .title{font-size:58px;font-weight:750;letter-spacing:-1.5px}.subtitle{font-size:27px;fill:#aab4bd}
+      .section{font-size:25px;font-weight:750;letter-spacing:2px;fill:#66d9ff}.head{font-size:30px;font-weight:700}.body{font-size:24px;fill:#d0d6db}.small{font-size:21px;fill:#aab4bd}.tag{font-size:20px;font-weight:700;letter-spacing:1px;fill:#66d9ff}
+      .box{fill:#202226;stroke:#66d9ff;stroke-width:2}.muted{fill:#1b1e21;stroke:#68717a;stroke-width:2}.darwin{fill:#202226;stroke:#66d9ff;stroke-width:2;stroke-dasharray:10 8}.line{fill:none;stroke:#66d9ff;stroke-width:3;marker-end:url(#arrow)}.lineMuted{fill:none;stroke:#aab4bd;stroke-width:2.5;marker-end:url(#arrowMuted)}
+    </style>
+  </defs>
+  <rect width="2400" height="1800" fill="#16181b"/><rect width="2400" height="1800" fill="url(#grid)"/>
+  <text x="100" y="112" class="title">Worker lifecycle · Dexpot v0.7.1</text>
+  <text x="102" y="158" class="subtitle">Import-time configuration → startup mode selection → connection ownership → orderly reclamation</text>
+
+  <text x="100" y="225" class="section">01 / IMPORT &amp; SERVE STARTUP</text>
+  <rect x="100" y="250" width="430" height="140" rx="18" class="box"/>
+  <text x="132" y="298" class="head">Import application</text><text x="132" y="338" class="body">Dependencies load first</text><text x="132" y="370" class="small">Module env limits are read + validated here</text>
+  <path d="M530 320H640" class="line"/>
+  <rect x="650" y="250" width="450" height="140" rx="18" class="box"/>
+  <text x="682" y="298" class="head">serve() begins</text><text x="682" y="338" class="body">_bind_runtime() → compile routes</text><text x="682" y="370" class="small">Inspect actual sys._is_gil_enabled()</text>
+  <path d="M1100 320H1215" class="line"/>
+  <polygon points="1360,250 1505,320 1360,390 1215,320" fill="#202226" stroke="#66d9ff" stroke-width="2"/>
+  <text x="1360" y="312" text-anchor="middle" class="head">GIL enabled?</text><text x="1360" y="345" text-anchor="middle" class="small">actual runtime state</text>
+  <path d="M1505 292H1625V270H1700" class="line"/><text x="1550" y="270" class="tag">YES</text>
+  <path d="M1505 348H1625V370H1700" class="line"/><text x="1550" y="400" class="tag">NO</text>
+  <rect x="1710" y="220" width="590" height="135" rx="18" class="box"/>
+  <text x="1742" y="269" class="head">GIL execution</text><text x="1742" y="309" class="body">Bounded worker pool + bounded queue</text><text x="1742" y="339" class="small">Optional process fan-out when configured</text>
+  <rect x="1710" y="370" width="590" height="135" rx="18" class="box"/>
+  <text x="1742" y="419" class="head">Free-threaded execution</text><text x="1742" y="459" class="body">Bounded connection-owning threads</text><text x="1742" y="489" class="small">Permit cap: DEXPOT_MAX_CONNECTIONS</text>
+  <rect x="100" y="420" width="1460" height="85" rx="14" class="muted"/>
+  <text x="130" y="455" class="body">Important: free-threaded build ≠ GIL disabled. A free-threaded build with GIL enabled selects GIL mode.</text>
+  <text x="130" y="486" class="small">Environment-derived pool / queue / connection limits remain import-time settings; startup binds the observed runtime mode.</text>
+
+  <text x="100" y="585" class="section">02 / PER-CONNECTION OWNERSHIP</text>
+  <rect x="100" y="620" width="410" height="140" rx="18" class="box"/>
+  <text x="132" y="670" class="head">Accept connection</text><text x="132" y="711" class="body">acceptor configures socket</text><text x="132" y="742" class="small">main / acceptor policy unchanged</text>
+  <path d="M510 690H625" class="line"/>
+  <rect x="635" y="620" width="465" height="140" rx="18" class="box"/>
+  <text x="667" y="670" class="head">Admission</text><text x="667" y="711" class="body">GIL: enqueue or fast-shed</text><text x="667" y="742" class="small">FT: acquire permit, register owner, start</text>
+  <path d="M1100 690H1215" class="line"/>
+  <rect x="1225" y="620" width="465" height="140" rx="18" class="box"/>
+  <text x="1257" y="670" class="head">Connection owner</text><text x="1257" y="711" class="body">Owns request processing + socket</text><text x="1257" y="742" class="small">Continuing keep-alive responses repeat</text>
+  <path d="M1690 690H1805" class="line"/>
+  <rect x="1815" y="620" width="485" height="140" rx="18" class="box"/>
+  <text x="1847" y="670" class="head">Connection ends</text><text x="1847" y="711" class="body">Close socket; owner then exits</text><text x="1847" y="742" class="small">Close is not permit reclamation</text>
+
+  <rect x="635" y="790" width="1665" height="105" rx="16" class="muted"/>
+  <text x="667" y="832" class="head">GIL mode detail</text><text x="667" y="869" class="body">Pool workers take queued sockets; when queue is full, the accepted connection is fast-shed (503).</text>
+  <path d="M1457 760V780" class="lineMuted"/>
+
+  <text x="100" y="970" class="section">03 / FREE-THREADED RESPONSE TURN · DARWIN-ONLY HOOKS</text>
+  <rect x="100" y="1000" width="1060" height="480" rx="22" class="darwin"/>
+  <text x="138" y="1048" class="tag">macOS · FT MODE ONLY</text>
+  <rect x="140" y="1080" width="430" height="115" rx="16" class="box"/>
+  <text x="170" y="1125" class="head">Owner thread starts</text><text x="170" y="1166" class="body">Read prior response policy</text>
+  <path d="M570 1138H680" class="line"/>
+  <rect x="690" y="1080" width="420" height="115" rx="16" class="box"/>
+  <text x="720" y="1125" class="head">Apply owner policy</text><text x="720" y="1166" class="body">If available; otherwise fallback</text>
+  <rect x="140" y="1230" width="970" height="125" rx="16" class="muted"/>
+  <text x="170" y="1278" class="head">After a completed, continuing response</text><text x="170" y="1318" class="body">If accumulated thread CPU ≥ 1 ms: sched_yield(), then reset turn baseline.</text><text x="170" y="1345" class="small">Waiting spends no CPU budget. No yield on close/error; handlers are never preempted.</text>
+  <path d="M900 1195V1215" class="lineMuted"/>
+  <path d="M1110 1285H1135V1210H625V1220" class="lineMuted"/>
+  <text x="170" y="1220" class="small">Continue while the connection is open</text>
+  <rect x="140" y="1380" width="970" height="70" rx="14" class="box"/>
+  <text x="170" y="1425" class="body">Before owner exits: restore prior policy; restoration failure is surfaced.</text>
+  <path d="M1000 1355V1365" class="lineMuted"/>
+  <text x="700" y="1375" class="small">On owner completion</text>
+
+  <rect x="1200" y="1000" width="1100" height="480" rx="22" class="box"/>
+  <text x="1238" y="1048" class="tag">ALL FT PLATFORMS · PERMIT LIFETIME</text>
+  <rect x="1240" y="1080" width="1020" height="125" rx="16" class="muted"/>
+  <text x="1270" y="1128" class="head">Active owner registry</text><text x="1270" y="1168" class="body">Permit remains held while the connection thread is running.</text>
+  <path d="M1750 1205V1240" class="line"/>
+  <rect x="1240" y="1250" width="1020" height="125" rx="16" class="muted"/>
+  <text x="1270" y="1298" class="head">Acceptor reaps completed owners</text><text x="1270" y="1338" class="body">Confirm not alive → join native thread → remove registry entry → release permit.</text>
+  <rect x="1240" y="1400" width="1020" height="55" rx="12" fill="#202226" stroke="#ffb86b" stroke-width="2"/>
+  <text x="1270" y="1437" class="body" fill="#ffcf9e">Socket close alone never frees an FT permit.</text>
+  <text x="100" y="1530" class="small">Linux and GIL mode do not use Darwin scheduling hooks; bounded FT connection ownership still applies on Linux.</text>
+
+  <text x="100" y="1610" class="section">04 / PLATFORM BOUNDARIES</text>
+  <rect x="100" y="1640" width="700" height="105" rx="16" class="muted"/>
+  <text x="132" y="1685" class="head">Darwin FT</text><text x="132" y="1723" class="body">Policy save/apply/restore + 1 ms CPU-turn yield</text>
+  <rect x="850" y="1640" width="700" height="105" rx="16" class="muted"/>
+  <text x="882" y="1685" class="head">Linux FT</text><text x="882" y="1723" class="body">Bounded owners + permits; no Darwin hooks</text>
+  <rect x="1600" y="1640" width="700" height="105" rx="16" class="muted"/>
+  <text x="1632" y="1685" class="head">Any GIL-enabled runtime</text><text x="1632" y="1723" class="body">Pool / queue path; no Darwin owner hooks</text>
+  <text x="100" y="1780" class="small">Source: Dexpot v0.7.1 runtime lifecycle in src/dexpot/app.py.</text>
+</svg>

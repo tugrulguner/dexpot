@@ -135,6 +135,20 @@ for await (const path of htmlFiles(distRoot)) {
 
 const visualContracts = [
   {
+    route: 'index.html',
+    image: 'dexpot-worker-lifecycle.webp',
+    marker: '/dexpot-worker-lifecycle.webp?v=071-lifecycle-v1',
+    alt: 'Dexpot worker lifecycle: serve-time GIL selection',
+    width: 2400,
+  },
+  {
+    route: 'execution-model/index.html',
+    image: 'dexpot-worker-lifecycle.webp',
+    marker: '/dexpot-worker-lifecycle.webp?v=071-lifecycle-v1',
+    alt: 'Dexpot worker lifecycle: actual GIL selection at serve startup',
+    width: 2400,
+  },
+  {
     route: 'route-contract/index.html',
     image: 'dexpot-response-contract.webp',
     marker: '/dexpot-response-contract.webp?v=070-response-v1',
@@ -183,6 +197,17 @@ if (!/\.sl-markdown-content table :is\(th,td\)\s*\{[^}]*overflow-wrap:\s*anywher
 }
 if (/\.sl-markdown-content table\s*\{[^}]*display:\s*table/.test(tableRules)) {
   failures.push('emitted CSS: markdown tables must not force native table display sizing');
+}
+
+for (const route of ['index.html', 'execution-model/index.html', 'guides/deployment/index.html']) {
+  const html = await readFile(join(distRoot, route), 'utf8');
+  const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+  if (!/when\s+serve\(\)\s+starts, after application imports/.test(text)) {
+    failures.push(`${route}: scheduler selection must follow application imports at serve startup`);
+  }
+  if (/selected at import time|scheduler once when the module imports|scheduling selected once when the module imports/i.test(text)) {
+    failures.push(`${route}: stale import-time scheduler selection claim`);
+  }
 }
 
 const projectDocs = [

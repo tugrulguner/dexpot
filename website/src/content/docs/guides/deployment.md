@@ -7,7 +7,7 @@ description: Select Dexpot's interpreter-specific scheduler, size bounded admiss
 
 ## Select the serving model
 
-The scheduler branch is selected at import time from the interpreter's GIL state. Configure environment values before starting the process (and before any importing launcher initializes Dexpot).
+The scheduler branch is selected when `serve()` starts, after application imports, from the actual GIL state. A free-threaded build whose GIL was enabled by an application dependency uses the GIL serving model. Later GIL changes are reported without switching the running scheduler; load dependencies before serving and restart to select a different mode. Configure environment values before starting the process (and before any importing launcher initializes Dexpot): admission-limit values are still read and validated during import.
 
 | Runtime | Default model | Capacity and overload |
 |---|---|---|
@@ -16,6 +16,8 @@ The scheduler branch is selected at import time from the interpreter's GIL state
 | Standard GIL CPython, POSIX workers | `DEXPOT_WORKERS=N` processes, each with its own bounded pool | Each worker sheds independently; the local capacities multiply across workers |
 
 These limits bound admitted connections or queued work, not request rate or total memory. Each worker owns a keep-alive connection until it closes; idle live connections are not recycled through a shared queue. Free-threaded execution remains single-process. Multiple workers require POSIX `fork` and `SO_REUSEPORT`.
+
+The [worker-lifecycle diagram and text explanation](/execution-model/#worker-lifecycle) distinguish startup selection, macOS-only owner policy, completed-response CPU fairness, and FT capacity reclaimed after owner-thread exit. Linux keeps its existing scheduling path; no machine-wide power setting changes.
 
 ## Set and validate capacity
 

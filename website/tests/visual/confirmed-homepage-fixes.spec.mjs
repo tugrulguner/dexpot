@@ -18,9 +18,9 @@ for (const width of [1280, 390, 320]) {
 
       await page.goto('/project/readme/');
       const diagrams = page.locator('a[href*="/docs/assets/dexpot-"]');
-      await expect(diagrams).toHaveCount(2);
+      await expect(diagrams).toHaveCount(3);
       for (const link of await diagrams.all()) {
-        await expect(link).toHaveAttribute('href', /^https:\/\/raw\.githubusercontent\.com\/tugrulguner\/dexpot\/[0-9a-f]{40}\/docs\/assets\/dexpot-(execution|response-contract)\.png/);
+        await expect(link).toHaveAttribute('href', /^https:\/\/raw\.githubusercontent\.com\/tugrulguner\/dexpot\/[0-9a-f]{40}\/docs\/assets\/dexpot-(execution|worker-lifecycle|response-contract)\.png/);
         await expect(link.locator('img')).toBeVisible();
         await expect.poll(() => link.locator('img').evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
         if (width === 1280 && theme === 'light') {

@@ -2,16 +2,18 @@ import { expect, test } from '@playwright/test';
 
 const widths = [1280, 768, 390, 320];
 
-test('homepage diagrams render in execution-then-response order at desktop and mobile widths', async ({ page }) => {
+test('homepage diagrams render in overview-then-lifecycle-then-response order at desktop and mobile widths', async ({ page }) => {
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 850 });
     await page.goto('/');
     const diagrams = page.locator('main .content-panel figure.homepage-diagram');
-    await expect(diagrams).toHaveCount(2);
+    await expect(diagrams).toHaveCount(3);
     await expect(diagrams.nth(0).locator('img')).toHaveAttribute('src', /dexpot-execution\.webp\?v=127306a$/);
-    await expect(diagrams.nth(1).locator('img')).toHaveAttribute('src', /dexpot-response-contract\.webp\?v=070-response-v1$/);
+    await expect(diagrams.nth(1).locator('img')).toHaveAttribute('src', /dexpot-worker-lifecycle\.webp\?v=071-lifecycle-v1$/);
+    await expect(diagrams.nth(2).locator('img')).toHaveAttribute('src', /dexpot-response-contract\.webp\?v=070-response-v1$/);
     const positions = await diagrams.evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().top));
     expect(positions[0]).toBeLessThan(positions[1]);
+    expect(positions[1]).toBeLessThan(positions[2]);
     await expect(page.getByText('The original execution diagram is a conceptual overview')).toBeVisible();
     await expect(page.getByText('In v0.7.0,')).toBeVisible();
   }
@@ -180,6 +182,7 @@ for (const colorScheme of ['light', 'dark']) {
 test('deep homepage diagrams defer initial loading, reserve exact ratios, and decode after scrolling in cold mobile and desktop contexts', async ({ browser, baseURL }) => {
   const expected = [
     { width: '2400', height: '1350', ratio: 16 / 9 },
+    { width: '2400', height: '1800', ratio: 4 / 3 },
     { width: '1200', height: '624', ratio: 25 / 13 },
   ];
   for (const width of [320, 1280]) {
