@@ -29,7 +29,7 @@ def create_item(item: ItemIn) -> tuple[int, Item]:
   <p id="contract-error" role="alert"></p>
 </section>
 <script>
-import { createState, execute, measureRun } from '../scripts/crud-playground.js';
+import { createState, execute, measureRun, parseItemId } from '../scripts/crud-playground.js';
   import { createOutcomeTracker } from '../scripts/playground-outcomes.mjs';
   const outcomes = createOutcomeTracker('dexpot', (event: string, properties: Record<string, string>) => (window as typeof window & { posthog?: { capture: (name: string, props: Record<string, string>) => void } }).posthog?.capture(event, properties));
   const state = createState();
@@ -60,10 +60,16 @@ import { createState, execute, measureRun } from '../scripts/crud-playground.js'
     const timing = document.querySelector<HTMLElement>('#run-timing');
     if (timing) timing.firstChild!.textContent = '— ';
     const rawPrice = priceField.value;
+    const itemId = operation.value === 'create' ? undefined : parseItemId(idField.value);
+    if (operation.value !== 'create' && itemId === undefined) {
+      text('#contract-request', 'Awaiting run()'); text('#contract-response', 'No response yet.');
+      text('#contract-error', 'Item ID is required and must be an integer.');
+      return;
+    }
     const attempt = outcomes.start('crud');
     try {
       const measured = measureRun(() => {
-        const result = execute(state, { operation: operation.value, id: Number(idField.value), name: nameField.value, price: rawPrice === '' ? Number.NaN : Number(rawPrice) });
+        const result = execute(state, { operation: operation.value, id: itemId, name: nameField.value, price: rawPrice === '' ? Number.NaN : Number(rawPrice) });
         Object.assign(state, result.state);
         const status = result.result.response.status;
         text('#contract-request', JSON.stringify(result.result.request, null, 2));

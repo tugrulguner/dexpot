@@ -46,6 +46,28 @@ test('presentation failure completes one execution as failed, not successful', a
   await expect(page.locator('#contract-response')).toContainText('"status": 200');
 });
 
+test('blank and whitespace Item IDs are rejected visibly for GET, PUT, and DELETE without state change', async ({ page }) => {
+  await page.goto('/playground/');
+  for (const operation of ['get', 'update', 'delete']) {
+    await page.locator('#operation').selectOption(operation);
+    for (const id of ['', '   ']) {
+      await page.locator('#item-id').fill(id);
+      await page.locator('#contract-run').click();
+      await expect(page.locator('#contract-error')).toContainText('Item ID is required');
+      await expect(page.locator('#contract-response')).toHaveText('No response yet.');
+      await expect(page.locator('#run-timing')).toContainText('—');
+    }
+  }
+  await page.locator('#item-id').fill('1');
+  await page.locator('#operation').selectOption('get');
+  await page.locator('#contract-run').click();
+  await expect(page.locator('#contract-response')).toContainText('"name": "starter"');
+  await page.locator('#contract-reset').click();
+  await expect(page.locator('#operation')).toHaveValue('create');
+  await expect(page.locator('#item-id')).toHaveValue('1');
+  await expect(page.locator('#contract-error')).toHaveText('');
+});
+
 test('throwing analytics at start and completion does not block a valid preview', async ({ page }) => {
   await page.goto('/playground/');
   await page.evaluate(() => { window.posthog = { capture: () => { throw new Error('analytics offline'); } }; });

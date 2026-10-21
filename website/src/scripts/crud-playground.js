@@ -7,12 +7,17 @@ export function measureRun(run, clock = () => performance.now()) {
   }
 }
 export const MAX_ITEMS = 20;
+export function parseItemId(value) {
+  if (typeof value !== 'string' || value.trim() === '') return undefined;
+  const id = Number(value);
+  return Number.isInteger(id) ? id : undefined;
+}
 export function createState() { return { items: new Map([[1, { id: 1, name: 'starter', price: 9.99 }]]), nextId: 2, result: null }; }
 export function execute(state, request) {
   const { operation: op, id, name, price } = request;
   const methods = { create: 'POST', update: 'PUT', get: 'GET', delete: 'DELETE' };
   if (!methods[op]) throw new Error('unknown operation');
-  const path = op === 'create' ? '/items' : `/items/${id}`;
+  const path = op === 'create' ? '/items' : `/items/${id ?? ''}`;
   const payload = { method: methods[op], path, ...(['create', 'update'].includes(op) ? { body: { name, price } } : {}) };
   let status, body;
   if (op !== 'create' && !Number.isInteger(id)) { status = 422; body = { detail: 'invalid int for item_id' }; }
