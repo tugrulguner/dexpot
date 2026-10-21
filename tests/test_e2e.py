@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import functools
+import inspect
 import socket
-import threading
+import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -32,8 +34,7 @@ def _free_port() -> int:
     return port
 
 
-@pytest.fixture()
-def server():
+def _make_app():
     app = Dex()
 
     class Item(msgspec.Struct):
@@ -135,18 +136,55 @@ def server():
             return Enum("Envelope", {"CONTEXT": request}).CONTEXT
         return [request]
 
+    return app
+
+
+@pytest.fixture()
+def server():
+    from pathlib import Path
+
     port = _free_port()
-    t = threading.Thread(target=app.serve, kwargs={"host": "127.0.0.1", "port": port}, daemon=True)
-    t.start()
+    script = (
+        "import runpy; "
+        f"app = runpy.run_path({str(Path(__file__).resolve())!r})['_make_app'](); "
+        f"app.serve(host='127.0.0.1', port={port})"
+    )
+    process = subprocess.Popen(
+        [sys.executable, "-c", script], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     base = f"http://127.0.0.1:{port}"
-    for _ in range(50):
+    try:
+        deadline = time.monotonic() + 8
+        while True:
+            try:
+                response = httpx.get(f"{base}/health", timeout=0.5)
+                assert response.status_code == 200
+                break
+            except httpx.HTTPError:
+                assert process.poll() is None and time.monotonic() < deadline
+                time.sleep(0.02)
+        yield base
+    finally:
+        process.terminate()
         try:
-            httpx.get(f"{base}/health", timeout=0.5)
-            break
-        except httpx.HTTPError:
-            time.sleep(0.1)
-    yield base
-    # daemon thread dies with the test process
+            stdout, stderr = process.communicate(timeout=8)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.communicate()
+            raise
+        assert process.returncode == 0, (stdout, stderr)
+
+
+def test_server_fixture_closes_listener_on_teardown():
+    from urllib.parse import urlsplit
+
+    fixture = inspect.unwrap(server)()
+    base = next(fixture)
+    address = urlsplit(base)
+    fixture.close()
+    with socket.socket() as probe:
+        probe.settimeout(1)
+        assert probe.connect_ex((address.hostname, address.port)) != 0
 
 
 def test_health(server):
