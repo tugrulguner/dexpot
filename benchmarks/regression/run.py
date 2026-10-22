@@ -293,10 +293,17 @@ def trial(cell: dict, plan: dict, python: str, env: dict, out: Path, args, froze
     return row
 
 
+def validate_plan(plan: dict) -> None:
+    # Owners retain keep-alive until close; queued cohorts cannot receive a turn.
+    if type(plan.get("pool")) is not int or plan["pool"] < plan["connections"]:
+        raise ValueError("the GIL pool must admit every persistent connection in this screen")
+
+
 def record(args) -> int:
     if os.name != "posix" or os.environ.get("PYTHON_GIL") or "gil" in sys._xoptions:
         raise ValueError("requires POSIX process/fd monitoring and unforced interpreter modes")
     plan = json.loads(args.plan.read_text())
+    validate_plan(plan)
     if (
         not 1 <= plan["duration_s"] <= 60
         or plan["client_threads"] != 4

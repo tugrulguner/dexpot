@@ -11,7 +11,10 @@ screen.
 CPython, three workloads, two reversed-order repeats, five seconds per cell. That is 60
 seconds of timed native traffic, plus startup, correctness and cleanup checks. Both modes
 use one process, sixteen client connections and four native client threads. The GIL pool
-has eight workers; FT admission permits at most 32 active connections.
+has sixteen workers; FT admission permits at most 32 active connections. Every persistent
+client connection must fit in the GIL pool: otherwise queued route cohorts can be starved
+for the whole closed-loop trial. The runner rejects that invalid screen configuration;
+overload is tested separately with explicit smaller limits.
 
 - `flat`: fresh, schema-validated small Struct responses.
 - `nested`: fresh, schema-validated groups containing sixteen fresh Structs.

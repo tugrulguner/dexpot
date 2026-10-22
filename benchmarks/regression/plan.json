@@ -4,7 +4,7 @@
   "duration_s": 5,
   "client_threads": 4,
   "connections": 16,
-  "pool": 8,
+  "pool": 16,
   "budgets": {"rss_bytes": 536870912, "threads": 128, "fds": 256, "cpu_cores": 10},
   "comparison": {"min_goodput_ratio": 0.90, "max_adjusted_p99_ratio": 1.25},
   "latency_scope": "wrk-adjusted closed-loop histogram; not scheduled-arrival SLO qualification",

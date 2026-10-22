@@ -47,6 +47,16 @@ def test_worker_identity_must_match_the_verified_installation():
             verify(dict(observed, **{key: value}), expected, "gil")
 
 
+def test_plan_admits_every_persistent_connection_before_timing():
+    namespace = runpy.run_path(str(RUNNER))
+    assert "validate_plan" in namespace
+    validate = namespace["validate_plan"]
+    plan = json.loads(RUNNER.with_name("plan.json").read_text())
+    validate(dict(plan, pool=16))
+    with pytest.raises(ValueError, match="persistent"):
+        validate(dict(plan, pool=8))
+
+
 def test_native_metrics_parser_requires_one_complete_finite_record():
     assert RUNNER.exists(), "the regression screen needs a checked native-result parser"
     parse = runpy.run_path(str(RUNNER))["parse_metrics"]
