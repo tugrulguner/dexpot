@@ -66,16 +66,17 @@ or several worker processes for CPU parallelism. Free-threaded CPython changes t
 Threads can execute Python simultaneously and share normal in-process state.
 
 dexpot supports both runtimes instead of optimizing for one and treating the other as a
-compatibility mode. It uses bounded threads and optional process fan-out on standard GIL
-builds, then uses real parallel threads in one process when the GIL is disabled. The application
+compatibility mode. It uses bounded threads and optional process fan-out while the GIL is
+enabled, then uses real parallel threads in one process when the GIL is disabled. The application
 keeps the same plain synchronous handlers in both modes:
 
 - **Plain synchronous handlers.** No `async def`, event loop, or coroutine bridge.
 - **Compiled endpoint plans.** Route matching metadata, argument sources, path conversions,
   and msgspec codecs are prepared when a handler is registered.
-- **Interpreter-adaptive scheduling.** Free-threaded builds use one process and a real thread
-  per connection, capped at 1,024 active connections by default. GIL builds use a bounded
-  thread pool with fast 503 overload shedding and can fan out through `SO_REUSEPORT` workers.
+- **Interpreter-adaptive scheduling.** With the GIL disabled, one process uses a real thread
+  per connection, capped at 1,024 active connections by default. With the GIL enabled, a bounded
+  thread pool provides fast 503 overload shedding and can fan out through `SO_REUSEPORT` workers.
+  A free-threaded build with its GIL enabled uses the GIL serving model too.
 - **msgspec request bodies.** JSON decoding and validation happen together in compiled C
   codecs.
 - **Optional Rust/PyO3 request-head parser.** A compatible `dexpot-native` installation
@@ -383,9 +384,9 @@ dexpot binds its scheduler when `serve()` starts, after application loading, usi
 
 | Runtime | Default serving model | Overload behavior |
 |---|---|---|
-| Free-threaded CPython (`sys._is_gil_enabled() == False`) | One process; each admitted connection owns a thread | Active connections capped at 1,024 by default; excess connections receive 503 before thread creation |
-| Standard GIL CPython | Bounded pool of `CPU * 2 + 2` connection-owning threads | Queue capped at `2 * pool`; excess connections receive 503 |
-| Standard GIL CPython with `DEXPOT_WORKERS>1` | POSIX `SO_REUSEPORT` processes, each with its own bounded pool | Each worker sheds independently |
+| Free-threaded CPython (GIL disabled) | One process; each admitted connection owns a thread | Active connections capped at 1,024 by default; excess connections receive 503 before thread creation |
+| CPython with the GIL enabled | Bounded pool of `CPU * 2 + 2` connection-owning threads | Queue capped at `2 * pool`; excess connections receive 503 |
+| CPython with the GIL enabled and `DEXPOT_WORKERS>1` | POSIX `SO_REUSEPORT` processes, each with its own bounded pool | Each worker sheds independently |
 
 A worker owns a keep-alive connection until it closes. This avoids putting idle keep-alive
 sockets back into a shared queue, where they can consume admission capacity and stall a
@@ -408,9 +409,9 @@ DEXPOT_WORKERS=4 dexpot serve main:app
 ```
 
 `DEXPOT_WORKERS>1` requires POSIX `fork` and `SO_REUSEPORT`; dexpot rejects that setting on
-unsupported platforms rather than pretending multiprocess serving is active. Free-threaded
-builds intentionally remain single-process because their threads can execute Python in
-parallel.
+unsupported platforms rather than pretending multiprocess serving is active. GIL-disabled
+execution intentionally remains single-process because its threads can execute Python in
+parallel. This restriction follows the active GIL state, not the interpreter build flag.
 
 SIGINT and SIGTERM stop admission and allow active connections up to five seconds to drain.
 The GIL supervisor restarts a worker that exits unexpectedly.
@@ -542,9 +543,9 @@ grow only as middleware, schemas, deployment support, and other roadmap capabili
 The shipped foundation now includes the HTTP-hardening gate and the optional native
 request-head seam. Remaining work is organized around four gates:
 
-1. Complete request-aware response handling and output policy, then extend the shipped request
-   context with decoded query parameters, cookies, and client metadata, and complete middleware
-   and schemas;
+1. Consolidate the already-shipped request-aware response handling and output policy, then
+   extend the shipped request context with decoded query parameters, cookies, and client metadata,
+   and complete middleware and schemas;
 2. publish reproducible GIL and free-threaded benchmarks with correctness parity; and
 3. add production operations without replacing the synchronous execution model; and
 4. grow runnable examples, testing support, deployment guidance, and stable extension points.

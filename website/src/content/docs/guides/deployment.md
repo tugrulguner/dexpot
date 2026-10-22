@@ -11,11 +11,11 @@ The scheduler branch is selected when `serve()` starts, after application import
 
 | Runtime | Default model | Capacity and overload |
 |---|---|---|
-| Free-threaded CPython | One process; one thread per admitted connection | `DEXPOT_MAX_CONNECTIONS=1024` process-wide active-connection cap; excess admission receives 503 before creating a thread |
-| Standard GIL CPython | Bounded pool of connection-owning threads | `DEXPOT_POOL=0` means automatic `CPU * 2 + 2`; `DEXPOT_MAX_QUEUE=2 * pool`; excess queued work receives 503 |
-| Standard GIL CPython, POSIX workers | `DEXPOT_WORKERS=N` processes, each with its own bounded pool | Each worker sheds independently; the local capacities multiply across workers |
+| Free-threaded CPython (GIL disabled) | One process; one thread per admitted connection | `DEXPOT_MAX_CONNECTIONS=1024` process-wide active-connection cap; excess admission receives 503 before creating a thread |
+| CPython with the GIL enabled | Bounded pool of connection-owning threads | `DEXPOT_POOL=0` means automatic `CPU * 2 + 2`; `DEXPOT_MAX_QUEUE=2 * pool`; excess queued work receives 503 |
+| CPython with the GIL enabled, POSIX workers | `DEXPOT_WORKERS=N` processes, each with its own bounded pool | Each worker sheds independently; the local capacities multiply across workers |
 
-These limits bound admitted connections or queued work, not request rate or total memory. Each worker owns a keep-alive connection until it closes; idle live connections are not recycled through a shared queue. Free-threaded execution remains single-process. Multiple workers require POSIX `fork` and `SO_REUSEPORT`.
+These limits bound admitted connections or queued work, not request rate or total memory. Each worker owns a keep-alive connection until it closes; idle live connections are not recycled through a shared queue. GIL-disabled execution remains single-process. Multiple workers require the GIL enabled, POSIX `fork` and `SO_REUSEPORT`.
 
 The [worker-lifecycle diagram and text explanation](/execution-model/#worker-lifecycle) distinguish startup selection, macOS-only owner policy, completed-response CPU fairness, and FT capacity reclaimed after owner-thread exit. Linux keeps its existing scheduling path; no machine-wide power setting changes.
 

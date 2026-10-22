@@ -205,6 +205,9 @@ for (const route of ['index.html', 'execution-model/index.html', 'guides/deploym
   if (!/when\s+serve\(\)\s+starts, after application imports/.test(text)) {
     failures.push(`${route}: scheduler selection must follow application imports at serve startup`);
   }
+  if (!text.includes('Free-threaded CPython (GIL disabled)') || !text.includes('CPython with the GIL enabled')) {
+    failures.push(`${route}: runtime table must distinguish build capability from actual GIL state`);
+  }
   if (/selected at import time|scheduler once when the module imports|scheduling selected once when the module imports/i.test(text)) {
     failures.push(`${route}: stale import-time scheduler selection claim`);
   }

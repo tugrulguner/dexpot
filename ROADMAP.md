@@ -15,7 +15,7 @@ graceful shutdown. It is not an ASGI wrapper and will not require application au
 maintain async and sync versions of the same endpoint.
 
 The performance strategy spans both interpreter modes: bounded concurrency and optional
-process fan-out for standard GIL builds, real parallel threads for free-threaded builds,
+process fan-out with the GIL enabled, real parallel threads with the GIL disabled,
 compiled C-backed codecs, and evidence-gated Rust acceleration for narrow hot paths. The
 developer workflow is agent-ready too: bundled coding-agent skills track the same shipped
 route contract and runtime boundaries as the framework documentation.
@@ -44,11 +44,15 @@ or operating system; platform adapters must stay narrow, documented, and indepen
 - **Shipped:** HTTP hardening, registration ownership/direct invocation, and the v0.7.0 checked
   response and envelope contracts. Their completed release gates do not establish broad
   benchmark leadership or performance parity with older, weaker response contracts.
+- **Shipped in v0.7.1:** response-preparation improvements and the Darwin FT owner-lifetime
+  scheduling and completed-response handoff correction. Its measured scope is recorded below;
+  shipping the implementation does not establish a general release-to-release speedup.
 - **Implemented but not published:** the optional native request-head parser distribution;
   publication remains subject to the native promotion gates below.
 - **Next engineering priority:** establish the continuous performance gate in milestone 4 and
-  consolidate response semantics under milestone 3.2a. Local compiler, ownership, and pass-removal
-  experiments are not shipped improvements and do not clear their own promotion gates.
+  consolidate response semantics under milestone 3.2a. Remaining compiler, ownership, and
+  pass-removal proposals are experiments, not additional shipped improvements, and do not clear
+  their own promotion gates.
 - **Next application capabilities:** paired lifecycle, typed input sources, and OpenAPI in 3.3,
   followed by evidence-driven hooks and scoped factories in 3.4. Build on the existing plans;
   these capabilities are not contingent on first winning every external benchmark.
@@ -239,7 +243,7 @@ fixed-offered-load latency and resource budgets from milestone 4. A candidate mu
 correctness and show a repeatable scoped benefit without violating mandatory workload budgets.
 Do not replace a failed throughput/tail gate with a source-level simplification argument.
 
-- The Darwin FT correction pairs owner-lifetime scheduling policy with a 1 ms accumulated-thread-CPU completed-response handoff. The rebuilt installed artifact passed all 18 macOS FT flat/nested/mixed capacity and fixed-load trials, including the original 16-connection mixed tail gate. This is branch qualification, not a shipped or cross-platform performance claim; see [the measured scope and retained failures](docs/darwin-ft-owner-policy.md).
+- The Darwin FT correction shipped in v0.7.1: owner-lifetime scheduling policy paired with a 1 ms accumulated-thread-CPU completed-response handoff. The pre-release rebuilt installed artifact passed all 18 macOS FT flat/nested/mixed capacity and fixed-load trials, including the original 16-connection mixed tail gate. Those measurements qualify the tested candidate/control configurations; they are not a direct v0.7.0-to-v0.7.1 benchmark and not a cross-platform performance guarantee. Shipping the implementation does not change the scope of that evidence; see [the measured scope and retained failures](docs/darwin-ft-owner-policy.md).
 
 #### 3.3 Paired lifecycle and typed input sources
 
