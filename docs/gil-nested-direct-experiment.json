@@ -1,0 +1,707 @@
+{
+  "schema": 1,
+  "scope": "same-host macOS installed-wheel closed-loop diagnostic; not release qualification or scheduled-arrival SLO",
+  "base_commit": "ed552cf80d2940df2644d9840401cf9d823c0f44",
+  "measured_source_commit": "45df5f1dd2c634874316c2fe977708dd8f5cb092",
+  "legacy_source_sha256": "d710817a6d91339f054859b0dec2ded5d7ed21f83c5aa15dd306eccaf7dcbecf",
+  "primary": {
+    "status": "screen-passed",
+    "errors": [],
+    "pairs": [
+      {
+        "id": "gil-flat-0",
+        "goodput_ratio": 1.0053216293861211,
+        "p99_ratio": 1.0207964601769912,
+        "passed": true
+      },
+      {
+        "id": "ft-flat-0",
+        "goodput_ratio": 1.0159981503373905,
+        "p99_ratio": 0.961218836565097,
+        "passed": true
+      },
+      {
+        "id": "gil-nested-0",
+        "goodput_ratio": 1.025707258771467,
+        "p99_ratio": 1.0683601045946955,
+        "passed": true
+      },
+      {
+        "id": "ft-nested-0",
+        "goodput_ratio": 1.055069644962919,
+        "p99_ratio": 0.23694634497659345,
+        "passed": true
+      },
+      {
+        "id": "gil-mixed-0",
+        "goodput_ratio": 1.0258038978167683,
+        "p99_ratio": 1.0002050230650947,
+        "passed": true
+      },
+      {
+        "id": "ft-mixed-0",
+        "goodput_ratio": 1.0008113674353187,
+        "p99_ratio": 1.0028901734104045,
+        "passed": true
+      },
+      {
+        "id": "ft-mixed-1",
+        "goodput_ratio": 1.0148572673369278,
+        "p99_ratio": 0.9906810035842294,
+        "passed": true
+      },
+      {
+        "id": "gil-mixed-1",
+        "goodput_ratio": 0.9738684417076362,
+        "p99_ratio": 1.00010216591745,
+        "passed": true
+      },
+      {
+        "id": "ft-nested-1",
+        "goodput_ratio": 1.0186977518598594,
+        "p99_ratio": 0.7604961832061069,
+        "passed": true
+      },
+      {
+        "id": "gil-nested-1",
+        "goodput_ratio": 1.066969124739441,
+        "p99_ratio": 0.8752130923968633,
+        "passed": true
+      },
+      {
+        "id": "ft-flat-1",
+        "goodput_ratio": 1.003399249577439,
+        "p99_ratio": 0.8480519480519481,
+        "passed": true
+      },
+      {
+        "id": "gil-flat-1",
+        "goodput_ratio": 1.0135382620095972,
+        "p99_ratio": 0.9138302455838001,
+        "passed": true
+      }
+    ]
+  },
+  "confirmation": {
+    "original_gates_passed": true,
+    "held_out_benefit_passed": true,
+    "nested_ratios": [
+      {
+        "id": "gil-nested-0",
+        "goodput_ratio": 1.0466235293743453,
+        "p99_ratio": 0.9793226381461676,
+        "passed": true
+      },
+      {
+        "id": "gil-nested-1",
+        "goodput_ratio": 1.0484111859032759,
+        "p99_ratio": 0.9608819345661451,
+        "passed": true
+      },
+      {
+        "id": "gil-nested-2",
+        "goodput_ratio": 1.053503568999348,
+        "p99_ratio": 0.9393203883495146,
+        "passed": true
+      },
+      {
+        "id": "gil-nested-3",
+        "goodput_ratio": 1.0414584631952535,
+        "p99_ratio": 0.9705673758865249,
+        "passed": true
+      },
+      {
+        "id": "gil-nested-4",
+        "goodput_ratio": 1.0550921896260117,
+        "p99_ratio": 0.9454163750874738,
+        "passed": true
+      }
+    ],
+    "pairs": [
+      {
+        "repeat": 0,
+        "order": [
+          "control",
+          "candidate"
+        ],
+        "recordings": {
+          "control": {
+            "returncode": 0,
+            "report": {
+              "status": "baseline-recorded",
+              "errors": [],
+              "expected": 2,
+              "completed": 2,
+              "valid": 2
+            }
+          },
+          "candidate": {
+            "returncode": 0,
+            "report": {
+              "status": "baseline-recorded",
+              "errors": [],
+              "expected": 2,
+              "completed": 2,
+              "valid": 2
+            }
+          }
+        },
+        "comparison": {
+          "status": "screen-passed",
+          "errors": [],
+          "pairs": [
+            {
+              "id": "gil-flat-0",
+              "goodput_ratio": 0.9996747818146788,
+              "p99_ratio": 0.9933392539964476,
+              "passed": true
+            },
+            {
+              "id": "gil-nested-0",
+              "goodput_ratio": 1.0466235293743453,
+              "p99_ratio": 0.9793226381461676,
+              "passed": true
+            }
+          ]
+        }
+      },
+      {
+        "repeat": 1,
+        "order": [
+          "candidate",
+          "control"
+        ],
+        "recordings": {
+          "candidate": {
+            "returncode": 0,
+            "report": {
+              "status": "baseline-recorded",
+              "errors": [],
+              "expected": 1,
+              "completed": 1,
+              "valid": 1
+            }
+          },
+          "control": {
+            "returncode": 0,
+            "report": {
+              "status": "baseline-recorded",
+              "errors": [],
+              "expected": 1,
+              "completed": 1,
+              "valid": 1
+            }
+          }
+        },
+        "comparison": {
+          "status": "screen-passed",
+          "errors": [],
+          "pairs": [
+            {
+              "id": "gil-nested-1",
+              "goodput_ratio": 1.0484111859032759,
+              "p99_ratio": 0.9608819345661451,
+              "passed": true
+            }
+          ]
+        }
+      },
+      {
+        "repeat": 2,
+        "order": [
+          "control",
+          "candidate"
+        ],
+        "recordings": {
+          "control": {
+            "returncode": 0,
+            "report": {
+              "status": "baseline-recorded",
+              "errors": [],
+              "expected": 1,
+              "completed": 1,
+              "valid": 1
+            }
+          },
+          "candidate": {
+            "returncode": 0,
+            "report": {
+              "status": "baseline-recorded",
+              "errors": [],
+              "expected": 1,
+              "completed": 1,
+              "valid": 1
+            }
+          }
+        },
+        "comparison": {
+          "status": "screen-passed",
+          "errors": [],
+          "pairs": [
+            {
+              "id": "gil-nested-2",
+              "goodput_ratio": 1.053503568999348,
+              "p99_ratio": 0.9393203883495146,
+              "passed": true
+            }
+          ]
+        }
+      },
+      {
+        "repeat": 3,
+        "order": [
+          "candidate",
+          "control"
+        ],
+        "recordings": {
+          "candidate": {
+            "returncode": 0,
+            "report": {
+              "status": "baseline-recorded",
+              "errors": [],
+              "expected": 1,
+              "completed": 1,
+              "valid": 1
+            }
+          },
+          "control": {
+            "returncode": 0,
+            "report": {
+              "status": "baseline-recorded",
+              "errors": [],
+              "expected": 1,
+              "completed": 1,
+              "valid": 1
+            }
+          }
+        },
+        "comparison": {
+          "status": "screen-passed",
+          "errors": [],
+          "pairs": [
+            {
+              "id": "gil-nested-3",
+              "goodput_ratio": 1.0414584631952535,
+              "p99_ratio": 0.9705673758865249,
+              "passed": true
+            }
+          ]
+        }
+      },
+      {
+        "repeat": 4,
+        "order": [
+          "control",
+          "candidate"
+        ],
+        "recordings": {
+          "control": {
+            "returncode": 0,
+            "report": {
+              "status": "baseline-recorded",
+              "errors": [],
+              "expected": 2,
+              "completed": 2,
+              "valid": 2
+            }
+          },
+          "candidate": {
+            "returncode": 0,
+            "report": {
+              "status": "baseline-recorded",
+              "errors": [],
+              "expected": 2,
+              "completed": 2,
+              "valid": 2
+            }
+          }
+        },
+        "comparison": {
+          "status": "screen-passed",
+          "errors": [],
+          "pairs": [
+            {
+              "id": "gil-nested-4",
+              "goodput_ratio": 1.0550921896260117,
+              "p99_ratio": 0.9454163750874738,
+              "passed": true
+            },
+            {
+              "id": "gil-mixed-4",
+              "goodput_ratio": 0.9909394050377479,
+              "p99_ratio": 1.0038886614817848,
+              "passed": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "valid_trials": 38,
+  "validated_replies": 12360850,
+  "bad_or_transport_errors": 0,
+  "all_owned_server_pids_exited": true,
+  "held_out_median_goodput_gain_percent": 4.841118590327587,
+  "registration_diagnostic": {
+    "control": {
+      "count": 200,
+      "registration_cpu_ns": 59332125,
+      "first_encode_cpu_ns": 3002333,
+      "second_encode_cpu_ns": 2860250,
+      "retained_python_bytes": 2434178,
+      "scope": "200 routes sharing a required nested schema; warm global caches; tracemalloc pass separate from CPU timings"
+    },
+    "candidate": {
+      "count": 200,
+      "registration_cpu_ns": 115151333,
+      "first_encode_cpu_ns": 2730083,
+      "second_encode_cpu_ns": 2525042,
+      "retained_python_bytes": 4548178,
+      "scope": "200 routes sharing a required nested schema; warm global caches; tracemalloc pass separate from CPU timings"
+    }
+  },
+  "raw_trial_index": [
+    {
+      "recording": "control-v1",
+      "id": "gil-flat-0",
+      "good": 108262,
+      "duration_us": 5200007,
+      "p99_us": 2260,
+      "raw_sha256": "4ca0db13975acaf7db565683d10b89e8ac7745c39bbdbb870c3a3cf9d2ea57c6",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "control-v1",
+      "id": "ft-flat-0",
+      "good": 576711,
+      "duration_us": 5099320,
+      "p99_us": 722,
+      "raw_sha256": "4c2286c3c42c852d1a81db320ee43c148e8534bb4cdc15e95b7b8943d486f072",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "control-v1",
+      "id": "gil-nested-0",
+      "good": 85492,
+      "duration_us": 5199549,
+      "p99_us": 2677,
+      "raw_sha256": "57fdbf74099076015401ef3f97cba9260b21f6431c7603e0a11d1435d929656c",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "control-v1",
+      "id": "ft-nested-0",
+      "good": 462731,
+      "duration_us": 5100102,
+      "p99_us": 2777,
+      "raw_sha256": "e02087f77f15d55dd7a4bfe42b3255e0dcf1f6eaf255b0a1351e767be7ccc7ca",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "control-v1",
+      "id": "gil-mixed-0",
+      "good": 91368,
+      "duration_us": 5226733,
+      "p99_us": 9755,
+      "raw_sha256": "9afaa3c100263fb5a251636fb2985d4e0f1ada331af5e5e6b1c99590f7aac929",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "control-v1",
+      "id": "ft-mixed-0",
+      "good": 499834,
+      "duration_us": 5103354,
+      "p99_us": 1384,
+      "raw_sha256": "92e93150f793b33cc6446cf3e3c7ea700c4fe94dfb144f53196b0f41eb69bafb",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "control-v1",
+      "id": "ft-mixed-1",
+      "good": 493435,
+      "duration_us": 5099256,
+      "p99_us": 1395,
+      "raw_sha256": "cd2171403f4a72644a5520476dce3213f989216dd2f38d7f3b011803478f5b00",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "control-v1",
+      "id": "gil-mixed-1",
+      "good": 92710,
+      "duration_us": 5199503,
+      "p99_us": 9788,
+      "raw_sha256": "4aa9971277cf7b90a67819e2ab39cb33b5af31c49eda0264da47abdf52388e3a",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "control-v1",
+      "id": "ft-nested-1",
+      "good": 475801,
+      "duration_us": 5100160,
+      "p99_us": 1048,
+      "raw_sha256": "7e285e3767128476bd9b4048ce48efb5c720b8c190924284ae9f926f6e0dd8a3",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "control-v1",
+      "id": "gil-nested-1",
+      "good": 83911,
+      "duration_us": 5200126,
+      "p99_us": 2933,
+      "raw_sha256": "fae201c16704a415f15212c6c7678442db11a1f600f52b697d6d30682d1a5ccc",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "control-v1",
+      "id": "ft-flat-1",
+      "good": 593622,
+      "duration_us": 5199021,
+      "p99_us": 770,
+      "raw_sha256": "d0bcaae120eeada103cfa8d744114cb9084ff886d4aa0b5de3da2e4292ffcc78",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "control-v1",
+      "id": "gil-flat-1",
+      "good": 108564,
+      "duration_us": 5199385,
+      "p99_us": 2321,
+      "raw_sha256": "0645d6ce494143b713535ad977046f12b3f10715c923c372dabf60fffee9da93",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "candidate-v1",
+      "id": "gil-flat-0",
+      "good": 108837,
+      "duration_us": 5199953,
+      "p99_us": 2307,
+      "raw_sha256": "df21c08b2acb4d29d71f29a6072634e2d01acdc8cda7e02c1f2b82a935294677",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "candidate-v1",
+      "id": "ft-flat-0",
+      "good": 597474,
+      "duration_us": 5199722,
+      "p99_us": 694,
+      "raw_sha256": "d85658baeba96c6101cbc69fd40aca444e40ce87948a4bb3b30500f1dc6f43d3",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "candidate-v1",
+      "id": "gil-nested-0",
+      "good": 87697,
+      "duration_us": 5199978,
+      "p99_us": 2860,
+      "raw_sha256": "7b20113058de2013de2c91f9124e5e82574780c8a443fe04cf0ea8e4196926d8",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "candidate-v1",
+      "id": "ft-nested-0",
+      "good": 497729,
+      "duration_us": 5199506,
+      "p99_us": 658,
+      "raw_sha256": "e0f8de892eac49b870102b47c9e3d2af48495318c1d351d502858115530f2e14",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "candidate-v1",
+      "id": "gil-mixed-0",
+      "good": 93236,
+      "duration_us": 5199427,
+      "p99_us": 9757,
+      "raw_sha256": "f3efced925c142590f60b099cd3d226a1c8ac39840eb120d508c11e2429a18e7",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "candidate-v1",
+      "id": "ft-mixed-0",
+      "good": 499910,
+      "duration_us": 5099992,
+      "p99_us": 1388,
+      "raw_sha256": "15b2dd5f15d38a95015fd1d127e2cd169de74cc487f03a0ec5a9f38b9dd198a3",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "candidate-v1",
+      "id": "ft-mixed-1",
+      "good": 500826,
+      "duration_us": 5099866,
+      "p99_us": 1382,
+      "raw_sha256": "5d9721e36d4dd2fc52625ea44cffb269e09467d1a531d48e724ed52bc7b9b8dd",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "candidate-v1",
+      "id": "gil-mixed-1",
+      "good": 90669,
+      "duration_us": 5221482,
+      "p99_us": 9789,
+      "raw_sha256": "c9c958c9d4e9a752f0a5ef03bdb128918ef0dfd302675d96d7f939247658be28",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "candidate-v1",
+      "id": "ft-nested-1",
+      "good": 494170,
+      "duration_us": 5199834,
+      "p99_us": 797,
+      "raw_sha256": "8f91737e43ce9ce9576952c48f176f3f74a9256d620fa1b9522b87dedf28e306",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "candidate-v1",
+      "id": "gil-nested-1",
+      "good": 89529,
+      "duration_us": 5200042,
+      "p99_us": 2567,
+      "raw_sha256": "9e4a6aa5bffd2e27740baa53500334ee54ed92c56f6aa6bbea186e32bb7b661a",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "candidate-v1",
+      "id": "ft-flat-1",
+      "good": 595751,
+      "duration_us": 5199991,
+      "p99_us": 653,
+      "raw_sha256": "5383c2072ed14f7e0825c05d60e179518ee9801e97f0dd49bd0e918652e3a8b8",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "candidate-v1",
+      "id": "gil-flat-1",
+      "good": 110046,
+      "duration_us": 5199963,
+      "p99_us": 2121,
+      "raw_sha256": "99a992e2760cd8015890be2e38197e8f5e68f2d55306746f27463d573396998c",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "confirm-0-control",
+      "id": "gil-flat-0",
+      "good": 423879,
+      "duration_us": 20200023,
+      "p99_us": 2252,
+      "raw_sha256": "14283e7761991464bf318fc40da1d424a36408260f0ce48da7430a206e5494dc",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "confirm-0-control",
+      "id": "gil-nested-0",
+      "good": 328654,
+      "duration_us": 20200718,
+      "p99_us": 2805,
+      "raw_sha256": "acfd84043e25e437e91f6d4babc4dd4d41dc7d774036c7f669ab17b1de2c3961",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "confirm-0-candidate",
+      "id": "gil-flat-0",
+      "good": 423741,
+      "duration_us": 20200016,
+      "p99_us": 2237,
+      "raw_sha256": "ad0bb7cca5c9c05454d71df19bbfde4ea19049d7ff1168d35022a819e1b266fb",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "confirm-0-candidate",
+      "id": "gil-nested-0",
+      "good": 343953,
+      "duration_us": 20199308,
+      "p99_us": 2747,
+      "raw_sha256": "691795f2c180eb721d425abba92c5e3e9fb8fc1059a08b9de676787acd1671ff",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "confirm-1-control",
+      "id": "gil-nested-1",
+      "good": 328642,
+      "duration_us": 20199685,
+      "p99_us": 2812,
+      "raw_sha256": "eb5d04effc05e46bb7a0bdcfd678fea6d3363b9b7ecee9cee5a3908d0092972e",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "confirm-1-candidate",
+      "id": "gil-nested-1",
+      "good": 344560,
+      "duration_us": 20200157,
+      "p99_us": 2702,
+      "raw_sha256": "6d30661f547ed322924ce21ecdb8960983820c954c2b79b04bd12e22081eaab1",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "confirm-2-control",
+      "id": "gil-nested-2",
+      "good": 327498,
+      "duration_us": 20200404,
+      "p99_us": 2884,
+      "raw_sha256": "4e3f82f579d8790896aedd186932f6440f582ed671616cbe45226e637664166b",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "confirm-2-candidate",
+      "id": "gil-nested-2",
+      "good": 345015,
+      "duration_us": 20200093,
+      "p99_us": 2709,
+      "raw_sha256": "7ca4cdb2f842ccb4dd7dc9f5d06c7efc3fb1c518b6acaea0c61cb22c8bc14373",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "confirm-3-control",
+      "id": "gil-nested-3",
+      "good": 330115,
+      "duration_us": 20199766,
+      "p99_us": 2820,
+      "raw_sha256": "453d500e008e4af6b491cf91ea8c73ed11a91d4edd29c041c94d7478a1fbba82",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "confirm-3-candidate",
+      "id": "gil-nested-3",
+      "good": 343815,
+      "duration_us": 20200585,
+      "p99_us": 2737,
+      "raw_sha256": "02bb67cfa0cae26988505b30dcd71f38445756831d7164f3f9f94d5142d9c91f",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "confirm-4-control",
+      "id": "gil-nested-4",
+      "good": 328688,
+      "duration_us": 20200708,
+      "p99_us": 2858,
+      "raw_sha256": "40fa4907c9abed2fe5750e257eec85156edd7ce6982365385892addc95c4edd8",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "confirm-4-control",
+      "id": "gil-mixed-4",
+      "good": 355200,
+      "duration_us": 20199840,
+      "p99_us": 9772,
+      "raw_sha256": "bbc181dc9989ab15e14c7a3afa6b80c99d87f403cd04627701b1110f04e4e6ce",
+      "wheel_sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    {
+      "recording": "confirm-4-candidate",
+      "id": "gil-nested-4",
+      "good": 346797,
+      "duration_us": 20200758,
+      "p99_us": 2702,
+      "raw_sha256": "4bc02a767964a24c4b7376ebebda25ec8d41a302158b8b404c49e4aad7bc756b",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    },
+    {
+      "recording": "confirm-4-candidate",
+      "id": "gil-mixed-4",
+      "good": 351978,
+      "duration_us": 20199629,
+      "p99_us": 9810,
+      "raw_sha256": "2a53888ea3e64669889d97c32bf67e00f79a2e3de190c7791a50f4196333c3e1",
+      "wheel_sha256": "c009561567569b64ad32eee3413900e9e22fb578adadb17018e5aceb3e88f6d6"
+    }
+  ]
+}
