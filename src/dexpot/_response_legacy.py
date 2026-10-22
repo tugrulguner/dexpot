@@ -7,6 +7,7 @@ values; unsupported preparation shapes retain the complete native checked path.
 from __future__ import annotations
 
 import math
+import sys
 import types
 import typing
 from collections.abc import Callable
@@ -25,6 +26,7 @@ Prepare = Callable[[Any], Any]
 def compile_preparer(schema: Any, fallback: Callable[[Any], Prepare]) -> Prepare:
     """Compile field access and scalar validators once per endpoint."""
     memo: dict[Any, Prepare] = {}
+    infos: dict[Any, Any] = {}
     defaults_to_check: list[tuple[str, Prepare, Any]] = []
     validating_defaults = False
     deferred_defaults = 0
@@ -36,6 +38,7 @@ def compile_preparer(schema: Any, fallback: Callable[[Any], Prepare]) -> Prepare
         if annotation in memo:
             return lambda value: memo[annotation](value)
         info = type_info(annotation)
+        infos[annotation] = info
         # Install a recursive reference before compiling child fields.
         memo[annotation] = lambda value: None
         prepare = build(annotation, info)
@@ -519,7 +522,11 @@ def compile_preparer(schema: Any, fallback: Callable[[Any], Prepare]) -> Prepare
             for item in info:
                 visit_defaults(item)
 
-    visit_defaults(type_info(schema))
+    root_info = infos.get(schema)
+    if root_info is None:
+        # Preserve rejection of root-only wrappers stripped by compile_type.
+        root_info = type_info(schema)
+    visit_defaults(root_info)
     validating_defaults = True
     try:
         for name, prepare, default in defaults_to_check:
@@ -529,6 +536,12 @@ def compile_preparer(schema: Any, fallback: Callable[[Any], Prepare]) -> Prepare
                 raise TypeError(f"invalid checked response default for {name}") from exc
     finally:
         validating_defaults = False
+    if getattr(sys, "_is_gil_enabled", lambda: True)():
+        from ._nested_response import compile_direct
+
+        direct_factory, supported = compile_direct(schema, prepared, infos=infos)
+        if supported and direct_factory is not None:
+            return direct_factory()
     return prepared
 
 
