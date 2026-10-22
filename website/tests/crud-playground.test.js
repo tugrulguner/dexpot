@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createState, execute, measureRun } from '../src/scripts/crud-playground.js';
+import { createState, execute, measureRun, parseItemId } from '../src/scripts/crud-playground.js';
 test('measured runs use the injected clock around execution on every invocation', () => {
   const readings = [10, 13.25, 20, 24.5];
   const clock = () => readings.shift();
@@ -30,6 +30,26 @@ test('create/update/get/delete exactly match example status and body contracts',
   assert.equal(run(state, 'get', { id: 2 }).result.response.body.detail, 'item not found');
   assert.deepEqual(run(state, 'update', { id: 90 }).result.response, { status: 404, body: { detail: 'item not found' } });
   assert.deepEqual(run(state, 'delete', { id: 90 }).result.response, { status: 404, body: { detail: 'item not found' } });
+});
+test('required item IDs reject blank input but preserve valid integer zero', () => {
+  for (const value of ['', '   ', '\t\n']) assert.equal(parseItemId(value), undefined);
+  assert.equal(parseItemId('0'), 0);
+  assert.equal(parseItemId('12'), 12);
+  assert.equal(parseItemId('1.5'), undefined);
+});
+test('missing, empty, and whitespace item IDs are rejected before coercion or state change', () => {
+  const initial = createState();
+  for (const operation of ['get', 'update', 'delete']) {
+    for (const id of ['', '   ', '\t\n']) {
+      const parsedId = parseItemId(id);
+      const out = execute(initial, { operation, id: parsedId, name: 'changed', price: 2 });
+      assert.equal(out.result.response.status, 422, `${operation} with ${JSON.stringify(id)}`);
+      assert.equal(out.result.request.path, `/items/${parsedId ?? ''}`);
+      assert.equal(out.state.items.get(1).name, 'starter');
+      assert.equal(out.state.items.size, 1);
+      assert.equal(initial.items.get(1).name, 'starter');
+    }
+  }
 });
 test('empty, nonfinite, fractional ID/price invalid; no overwrite; live item cap', () => {
   let state = createState();
