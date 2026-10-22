@@ -8,15 +8,15 @@ test:
 	uv run pytest tests/ -v --cov=src/dexpot --cov-report=term-missing --cov-fail-under=65
 
 lint:
-	uv run ruff check src/ tests/ examples/ scripts/
-	uv run ruff format --check src/ tests/ examples/ scripts/
+	uv run ruff check src/ tests/ examples/ scripts/ benchmarks/regression/
+	uv run ruff format --check src/ tests/ examples/ scripts/ benchmarks/regression/
 
 format:
-	uv run ruff check --fix src/ tests/ examples/ scripts/
-	uv run ruff format src/ tests/ examples/ scripts/
+	uv run ruff check --fix src/ tests/ examples/ scripts/ benchmarks/regression/
+	uv run ruff format src/ tests/ examples/ scripts/ benchmarks/regression/
 
 typecheck:
-	uv run pyright src/ tests/ examples/ scripts/
+	uv run pyright src/ tests/ examples/ scripts/ benchmarks/regression/
 
 check: lint typecheck test
 
