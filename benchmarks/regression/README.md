@@ -7,8 +7,8 @@ screen.
 
 ## Recorded diagnostic baseline
 
-[`baseline-macos-v071.json`](baseline-macos-v071.json) records the first complete macOS
-v0.7.1 matrix: **12/12 valid trials and 3,515,946 exact successful replies**, with zero bad
+[`baseline-macos-v071.json`](baseline-macos-v071.json) records the repaired harness's macOS
+v0.7.1 matrix: **12/12 valid trials and 3,709,985 exact successful replies**, with zero bad
 bodies or transport errors. Both modes passed connection churn, overload and owned-listener
 cleanup checks. Source/client/wheel hashes, per-trial record hashes, resource observations
 and all repeat ranges are included.
@@ -19,8 +19,9 @@ successful retries. A separate pool-sixteen generation reran the entire frozen m
 none of the prior ten valid rows were reused.
 
 This is traffic-valid baseline data, **not evidence of repeatability or an optimization
-win**. FT nested p99 ranged from 662 to 3,086 microseconds across only two trials. Treat
-that spread as an observed limitation: stabilize measurement/extend confirmation before
+win**. The latest FT nested p99 range is 770–788 microseconds, but the previous valid source
+generation ranged from 662 to 3,086 microseconds. Both generations are retained; no timing
+improvement is attributed to the harness repairs. Extend confirmation before
 using a short screen to justify promotion. Resource sampling uses a requested 100ms loop
 delay, not guaranteed 100ms observation spacing; actual sample counts/spans are retained.
 
@@ -79,6 +80,15 @@ manifest hashes that executable, the wheel, workload, validator, controller, eva
 plan. Every installed Python module is checked against the supplied wheel. Dependencies,
 interpreter versions, actual serving GIL state and parser selection are recorded. The
 Python parser and one serving process are explicit controls, not best-deployment claims.
+
+Every preflight and trial is bound to its own manifest fingerprints and observed serving
+identity; resume and comparison reject detached rows or changed control limits. Candidate
+versions and installation paths may legitimately differ from the baseline, but each must
+match its own recorded artifact. Cleanup terminates and checks only the owned process
+session/group, including descendants; forced cleanup is never a lifecycle pass. The
+optional monitor is loaded only for recording, so parser/evaluator checks work without the
+benchmark extra. Registry-digest verification is an explicit preparation step, not a claim
+that the runner contacts PyPI automatically.
 
 `baseline-recorded` means the complete matrix passed observed response/transport, runtime,
 sampled-resource and lifecycle checks. It is **not** a candidate-performance verdict. A

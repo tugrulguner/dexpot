@@ -9,16 +9,19 @@ import math
 import os
 import platform
 import runpy
+import signal
 import socket
 import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import psutil
+if TYPE_CHECKING:
+    import psutil
 
 ROOT = Path(__file__).resolve().parent
+PREFLIGHT_LIMITS = {"DEXPOT_POOL": "2", "DEXPOT_MAX_QUEUE": "2", "DEXPOT_MAX_CONNECTIONS": "4"}
 FLAT = b'{"id":7,"name":"item-7","price":9.99}'
 PROBE = """
 import hashlib,importlib.metadata,json,sys,sysconfig,zipfile
@@ -132,27 +135,48 @@ def server(python: str, env: dict, log: Path):
             yield process, port, state
         finally:
             forced = False
-            if process.poll() is None:
-                process.terminate()
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGTERM)
             try:
                 process.wait(timeout=8)
             except subprocess.TimeoutExpired:
                 forced = True
-                process.kill()
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(process.pid, signal.SIGKILL)
                 process.wait(timeout=3)
+
+            def group_alive():
+                try:
+                    os.killpg(process.pid, 0)
+                    return True
+                except ProcessLookupError:
+                    return False
+
+            if group_alive():
+                forced = True
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(process.pid, signal.SIGKILL)
+                deadline = time.monotonic() + 3
+                while group_alive() and time.monotonic() < deadline:
+                    time.sleep(0.02)
+            state["group_exited"] = not group_alive()
             with socket.socket() as sock:
                 state["cleanup_pass"] = (
                     not forced
+                    and state["group_exited"]
                     and process.returncode == 0
                     and sock.connect_ex(("127.0.0.1", port)) != 0
                 )
 
 
-def preflight(python: str, env: dict, log: Path) -> dict:
+def preflight(python: str, env: dict, log: Path, expected: dict, mode: str, frozen: dict) -> dict:
     result: dict[str, Any] = {"churn_pass": False, "overload_pass": False, "cleanup_pass": False}
-    limited = dict(env, DEXPOT_POOL="2", DEXPOT_MAX_QUEUE="2", DEXPOT_MAX_CONNECTIONS="4")
+    limited = dict(env, **PREFLIGHT_LIMITS)
+    result.update(fingerprints=frozen, limits=dict(PREFLIGHT_LIMITS))
     try:
         with server(python, limited, log) as (_, port, state):
+            verify_runtime(state["runtime"], expected, mode)
+            result["runtime"] = state["runtime"]
             result["churn_pass"] = all(request(port, "/flat") == (200, FLAT) for _ in range(8))
             # Incomplete request heads keep all four admission positions occupied.
             time.sleep(0.1)
@@ -171,7 +195,7 @@ def preflight(python: str, env: dict, log: Path) -> dict:
     return result
 
 
-def snapshot(process: psutil.Process) -> dict:
+def snapshot(process: "psutil.Process") -> dict:
     with process.oneshot():
         cpu = process.cpu_times()
         return {
@@ -213,8 +237,11 @@ def fingerprints(args) -> dict:
 
 
 def trial(cell: dict, plan: dict, python: str, env: dict, out: Path, args, frozen: dict) -> dict:
+    import psutil
+
     row = {
         "cell": cell,
+        "fingerprints": frozen,
         "metrics": None,
         "resources": {"complete": False},
         "error": None,
@@ -300,6 +327,8 @@ def validate_plan(plan: dict) -> None:
 
 
 def record(args) -> int:
+    import psutil
+
     if os.name != "posix" or os.environ.get("PYTHON_GIL") or "gil" in sys._xoptions:
         raise ValueError("requires POSIX process/fd monitoring and unforced interpreter modes")
     plan = json.loads(args.plan.read_text())
@@ -370,7 +399,14 @@ def record(args) -> int:
             if path.exists():
                 preflights[mode] = json.loads(path.read_text())
             else:
-                preflights[mode] = preflight(python, env, args.output / (mode + ".preflight.log"))
+                preflights[mode] = preflight(
+                    python,
+                    env,
+                    args.output / (mode + ".preflight.log"),
+                    identities[mode],
+                    mode,
+                    frozen,
+                )
                 save(path, preflights[mode])
         rows = []
         for cell in plan["matrix"]:
@@ -382,8 +418,7 @@ def record(args) -> int:
                     trial(cell, plan, interpreters[cell["runtime"]], env, args.output, args, frozen)
                 )
                 print(cell["id"], "saved", flush=True)
-        evaluate = runpy.run_path(str(ROOT / "evaluate.py"))["evaluate"]
-        report = evaluate(plan, rows, preflights)
+        report = check_recording(manifest, rows, preflights)
         # Reports are derived; preserve every report generation as well as raw trials.
         save(
             args.output
@@ -392,6 +427,33 @@ def record(args) -> int:
         )
         print(json.dumps(report, indent=2), flush=True)
         return 0 if report["status"] == "baseline-recorded" else 1
+
+
+def check_recording(manifest: dict, rows: list, controls: dict) -> dict:
+    evaluate = runpy.run_path(str(ROOT / "evaluate.py"))["evaluate"]
+    report = evaluate(manifest["plan"], rows, controls)
+    if report["status"] != "baseline-recorded":
+        return report
+    try:
+        modes = {cell["runtime"] for cell in manifest["plan"]["matrix"]}
+        if set(controls) != modes or set(manifest["runtime"]) != modes:
+            raise ValueError("recording has inconsistent runtime/control inventory")
+        for row in rows:
+            mode = row["cell"]["runtime"]
+            if row.get("fingerprints") != manifest["fingerprints"]:
+                raise ValueError("trial is detached from its artifact/input manifest")
+            verify_runtime(row["runtime"], manifest["runtime"][mode], mode)
+        for mode, control in controls.items():
+            if (
+                control.get("fingerprints") != manifest["fingerprints"]
+                or control.get("limits") != PREFLIGHT_LIMITS
+            ):
+                raise ValueError("preflight provenance or limits changed")
+            verify_runtime(control["runtime"], manifest["runtime"][mode], mode)
+    except (ValueError, KeyError, TypeError) as exc:
+        report["status"] = "invalid"
+        report["errors"].append(str(exc))
+    return report
 
 
 def compare_directories(args) -> int:
@@ -431,7 +493,7 @@ def compare_directories(args) -> int:
                 for mode in manifest["runtime"]
                 if mode in ("gil", "ft")
             }
-            validation = api["evaluate"](manifest["plan"], rows, controls)
+            validation = check_recording(manifest, rows, controls)
             if validation["status"] != "baseline-recorded":
                 raise ValueError("incomplete or invalid recording: " + str(validation["errors"]))
             observations.append(rows)

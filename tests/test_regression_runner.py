@@ -1,5 +1,6 @@
 """Result parsing must fail closed before native timed traffic is used."""
 
+import builtins
 import json
 import os
 import runpy
@@ -21,6 +22,18 @@ def test_benchmark_sources_participate_in_canonical_quality_gates():
     ]
     assert len(commands) == 5
     assert all("benchmarks/regression/" in command for command in commands)
+
+
+def test_parser_import_does_not_require_optional_benchmark_dependencies(monkeypatch):
+    original = builtins.__import__
+
+    def without_psutil(name, *args, **kwargs):
+        if name == "psutil":
+            raise ModuleNotFoundError("optional benchmark dependency deliberately unavailable")
+        return original(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", without_psutil)
+    assert callable(runpy.run_path(str(RUNNER))["parse_metrics"])
 
 
 def test_worker_identity_must_match_the_verified_installation():
@@ -142,3 +155,7 @@ def test_record_cli_executes_native_trial_and_refuses_overwriting_evidence(tmp_p
     )
     assert rejected.returncode == 1
     assert json.loads(comparison.read_text())["status"] == "invalid"
+    row["runtime"]["version"] = "detached-observation"
+    (output / "gil-flat-0.json").write_text(json.dumps(row))
+    resumed = subprocess.run([*command, "--resume"], capture_output=True, text=True, timeout=10)
+    assert resumed.returncode != 0, "resume accepted a trial from a different serving identity"

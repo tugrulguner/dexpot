@@ -19,7 +19,7 @@ def test_benchmark_fixture_serves_checked_flat_nested_and_actual_runtime(tmp_pat
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
     env = {k: v for k, v in os.environ.items() if not k.startswith("DEXPOT_")}
-    env["DEXPOT_WORKERS"] = "1"
+    env.update(DEXPOT_WORKERS="1", DEXPOT_HTTP_PARSER="python")
     with (tmp_path / "server.log").open("w") as log:
         process = subprocess.Popen(
             [sys.executable, str(APP), "--port", str(port)], env=env, stdout=log, stderr=log

@@ -1,6 +1,7 @@
 {
   "kind": "diagnostic-baseline-not-candidate-acceptance",
-  "harness_commit": "78c1e98b3a353f329c6d0e647e2434a14c34e391",
+  "harness_commit": null,
+  "source_identity": "Review/CI repair source frozen by the file SHA256 fingerprints; verify the final PR source against those fingerprints.",
   "framework_version": "0.7.1",
   "artifact": {
     "comment_text": null,
@@ -127,7 +128,7 @@
   "fingerprints": {
     "application": "1f0a0a7a116cb01e688e0790b34bf444c7b3686c7ad49690489a5a1af1bced02",
     "validator": "b4db9bf1a4d3ee83e71c37d9742746f5bd9c0f528deecb73bde280c37731a68d",
-    "runner": "4bf9c0f759c346a3a626ebb5dbc266af5718b4a8952fc3ffbe50c85588880d79",
+    "runner": "ccf736e157c16a311fd877f60137497d6ba3f00eac13e668300d46a6d106a1b1",
     "evaluator": "a3242d73315a2b4109794c2f6ab9034134c520b6355a9c196ae8f96c4f414f29",
     "plan": "a55f5877a787ca18f7dd954e7af2dca8eb020b6f3c1dd246bdc8cd6a9f3ae99d",
     "client": "3dde9a2186ec70f63f3ebfafb76d9665aba5db18824e1b40660cad8c1328d29f",
@@ -136,7 +137,7 @@
   "expected": 12,
   "completed": 12,
   "valid": 12,
-  "validated_replies": 3515946,
+  "validated_replies": 3709985,
   "bad_replies": 0,
   "transport_errors": 0,
   "predeclared_timed_seconds": 60,
@@ -144,29 +145,75 @@
     "gil": {
       "churn_pass": true,
       "overload_pass": true,
-      "cleanup_pass": true
+      "cleanup_pass": true,
+      "fingerprints": {
+        "application": "1f0a0a7a116cb01e688e0790b34bf444c7b3686c7ad49690489a5a1af1bced02",
+        "validator": "b4db9bf1a4d3ee83e71c37d9742746f5bd9c0f528deecb73bde280c37731a68d",
+        "runner": "ccf736e157c16a311fd877f60137497d6ba3f00eac13e668300d46a6d106a1b1",
+        "evaluator": "a3242d73315a2b4109794c2f6ab9034134c520b6355a9c196ae8f96c4f414f29",
+        "plan": "a55f5877a787ca18f7dd954e7af2dca8eb020b6f3c1dd246bdc8cd6a9f3ae99d",
+        "client": "3dde9a2186ec70f63f3ebfafb76d9665aba5db18824e1b40660cad8c1328d29f",
+        "wheel": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+      },
+      "limits": {
+        "DEXPOT_POOL": "2",
+        "DEXPOT_MAX_QUEUE": "2",
+        "DEXPOT_MAX_CONNECTIONS": "4"
+      },
+      "runtime": {
+        "gil_enabled": true,
+        "ft_build": false,
+        "selected_ft": false,
+        "version": "0.7.1",
+        "python": "3.14.7 (main, Aug  7 2026, 02:15:30) [Clang 22.1.3 ]",
+        "pid": 60413,
+        "parser": "python"
+      }
     },
     "ft": {
       "churn_pass": true,
       "overload_pass": true,
-      "cleanup_pass": true
+      "cleanup_pass": true,
+      "fingerprints": {
+        "application": "1f0a0a7a116cb01e688e0790b34bf444c7b3686c7ad49690489a5a1af1bced02",
+        "validator": "b4db9bf1a4d3ee83e71c37d9742746f5bd9c0f528deecb73bde280c37731a68d",
+        "runner": "ccf736e157c16a311fd877f60137497d6ba3f00eac13e668300d46a6d106a1b1",
+        "evaluator": "a3242d73315a2b4109794c2f6ab9034134c520b6355a9c196ae8f96c4f414f29",
+        "plan": "a55f5877a787ca18f7dd954e7af2dca8eb020b6f3c1dd246bdc8cd6a9f3ae99d",
+        "client": "3dde9a2186ec70f63f3ebfafb76d9665aba5db18824e1b40660cad8c1328d29f",
+        "wheel": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+      },
+      "limits": {
+        "DEXPOT_POOL": "2",
+        "DEXPOT_MAX_QUEUE": "2",
+        "DEXPOT_MAX_CONNECTIONS": "4"
+      },
+      "runtime": {
+        "gil_enabled": false,
+        "ft_build": true,
+        "selected_ft": true,
+        "version": "0.7.1",
+        "python": "3.14.7 free-threading build (main, Aug  7 2026, 02:15:12) [Clang 22.1.3 ]",
+        "pid": 60417,
+        "parser": "python"
+      }
     }
   },
   "runtimes": {
-    "ft": {
-      "version": "0.7.1",
-      "python": "3.14.7 free-threading build (main, Aug  7 2026, 02:15:12) [Clang 22.1.3 ]",
-      "msgspec": "0.22.0",
-      "gil_enabled": false,
-      "ft_build": true,
-      "source_sha256": "1b921115b84ac245fca0d518f1bc3e233386c48c0148161f48b6a4e86d3479a7"
-    },
     "gil": {
       "version": "0.7.1",
       "python": "3.14.7 (main, Aug  7 2026, 02:15:30) [Clang 22.1.3 ]",
       "msgspec": "0.22.0",
       "gil_enabled": true,
       "ft_build": false,
+      "source_sha256": "1b921115b84ac245fca0d518f1bc3e233386c48c0148161f48b6a4e86d3479a7"
+    },
+    "ft": {
+      "version": "0.7.1",
+      "python": "3.14.7 free-threading build (main, Aug  7 2026, 02:15:12) [Clang 22.1.3 ]",
+      "msgspec": "0.22.0",
+      "gil_enabled": false,
+      "ft_build": true,
       "source_sha256": "1b921115b84ac245fca0d518f1bc3e233386c48c0148161f48b6a4e86d3479a7"
     }
   },
@@ -175,130 +222,130 @@
       "runtime": "gil",
       "profile": "flat",
       "trials": 2,
-      "median_trial_goodput_rps": 20473.266318045964,
+      "median_trial_goodput_rps": 21137.35673179233,
       "goodput_range_rps": [
-        20145.265599129252,
-        20801.26703696268
+        21051.111352988755,
+        21223.6021105959
       ],
-      "median_of_trial_p99_us": 2382.0,
+      "median_of_trial_p99_us": 2140.5,
       "trial_p99_range_us": [
-        2362,
-        2402
+        2117,
+        2164
       ],
-      "sampled_peak_rss_bytes": 32423936,
+      "sampled_peak_rss_bytes": 32243712,
       "sampled_peak_threads": 17,
       "sampled_peak_fds": 20,
-      "max_sampled_average_cpu_cores": 2.001044804527121
+      "max_sampled_average_cpu_cores": 2.0340969871002446
     },
     {
       "runtime": "gil",
       "profile": "nested",
       "trials": 2,
-      "median_trial_goodput_rps": 15550.100970030733,
+      "median_trial_goodput_rps": 16099.099471711897,
       "goodput_range_rps": [
-        15225.863379004388,
-        15874.338561057079
+        16081.260946248163,
+        16116.937997175632
       ],
-      "median_of_trial_p99_us": 3084.5,
+      "median_of_trial_p99_us": 2976.5,
       "trial_p99_range_us": [
-        3010,
-        3159
+        2974,
+        2979
       ],
-      "sampled_peak_rss_bytes": 32620544,
+      "sampled_peak_rss_bytes": 32440320,
       "sampled_peak_threads": 17,
       "sampled_peak_fds": 20,
-      "max_sampled_average_cpu_cores": 1.6760852473381191
+      "max_sampled_average_cpu_cores": 1.6802007954541753
     },
     {
       "runtime": "gil",
       "profile": "mixed",
       "trials": 2,
-      "median_trial_goodput_rps": 16515.937968071845,
+      "median_trial_goodput_rps": 17440.629710819987,
       "goodput_range_rps": [
-        15684.254961514935,
-        17347.620974628757
+        17419.870130417636,
+        17461.38929122234
       ],
-      "median_of_trial_p99_us": 9795.5,
+      "median_of_trial_p99_us": 9789.5,
       "trial_p99_range_us": [
-        9771,
-        9820
+        9764,
+        9815
       ],
-      "sampled_peak_rss_bytes": 32342016,
+      "sampled_peak_rss_bytes": 32358400,
       "sampled_peak_threads": 17,
       "sampled_peak_fds": 20,
-      "max_sampled_average_cpu_cores": 1.7752475398575642
+      "max_sampled_average_cpu_cores": 1.7701848356070145
     },
     {
       "runtime": "ft",
       "profile": "flat",
       "trials": 2,
-      "median_trial_goodput_rps": 107229.42780979359,
+      "median_trial_goodput_rps": 114414.27603793121,
       "goodput_range_rps": [
-        100206.74521895674,
-        114252.11040063045
+        113842.0802581009,
+        114986.4718177615
       ],
-      "median_of_trial_p99_us": 1336.0,
+      "median_of_trial_p99_us": 703.0,
       "trial_p99_range_us": [
-        843,
-        1829
+        662,
+        744
       ],
-      "sampled_peak_rss_bytes": 54067200,
+      "sampled_peak_rss_bytes": 54394880,
       "sampled_peak_threads": 17,
       "sampled_peak_fds": 20,
-      "max_sampled_average_cpu_cores": 6.347800501498136
+      "max_sampled_average_cpu_cores": 6.438438896413867
     },
     {
       "runtime": "ft",
       "profile": "nested",
       "trials": 2,
-      "median_trial_goodput_rps": 89572.52633470247,
+      "median_trial_goodput_rps": 94669.7165211738,
       "goodput_range_rps": [
-        82743.1038590155,
-        96401.94881038947
+        94643.80777590522,
+        94695.62526644237
       ],
-      "median_of_trial_p99_us": 1874.0,
+      "median_of_trial_p99_us": 779.0,
       "trial_p99_range_us": [
-        662,
-        3086
+        770,
+        788
       ],
-      "sampled_peak_rss_bytes": 56967168,
+      "sampled_peak_rss_bytes": 56950784,
       "sampled_peak_threads": 17,
       "sampled_peak_fds": 20,
-      "max_sampled_average_cpu_cores": 7.010074987869249
+      "max_sampled_average_cpu_cores": 6.993739079712138
     },
     {
       "runtime": "ft",
       "profile": "mixed",
       "trials": 2,
-      "median_trial_goodput_rps": 92451.52568218311,
+      "median_trial_goodput_rps": 96960.12578337616,
       "goodput_range_rps": [
-        90397.91785550251,
-        94505.13350886371
+        95900.08247686915,
+        98020.16908988319
       ],
-      "median_of_trial_p99_us": 1393.5,
+      "median_of_trial_p99_us": 1388.5,
       "trial_p99_range_us": [
-        1387,
-        1400
+        1385,
+        1392
       ],
-      "sampled_peak_rss_bytes": 55099392,
+      "sampled_peak_rss_bytes": 54870016,
       "sampled_peak_threads": 17,
       "sampled_peak_fds": 20,
-      "max_sampled_average_cpu_cores": 6.096291252293597
+      "max_sampled_average_cpu_cores": 6.31830323807516
     }
   ],
   "raw_trial_sha256": {
-    "gil-flat-0": "e6f254a936af8807dc1bf2a9dc9c9116a92e1304c55acf65b3358cd96649ba34",
-    "ft-flat-0": "1ee64877de5833cd2dfeed1506e6dff6ff7a302f27ea29290308173b6fe68eef",
-    "gil-nested-0": "34945e8204dcbf5394c9453907f0caffceb63deed243edaedb2608ade26d4f47",
-    "ft-nested-0": "a0222866e2198a983e450e9627061a17229d0a35e55bb873d1226ae2ebf81521",
-    "gil-mixed-0": "96e903c57c54df77b7c3fe7b86e7b12c911fb471651d7d4067acc647fde371a6",
-    "ft-mixed-0": "e5e65a35ced00eb842f46d8c0717eae26027a52cb3b54a68648666dfb971db68",
-    "ft-mixed-1": "47f2f70106866e4acc5016f36339ad22a24396c305715b631d4aba467c39d137",
-    "gil-mixed-1": "9a51095ae837b4e157b5fc01d5a4ae25adc2f9ad4baca22421969de473830789",
-    "ft-nested-1": "97b13935cec8d155c25013bba11203922ef6afaad6b91fecd3fbb2218519b3eb",
-    "gil-nested-1": "cd7b40dfe768a883555af7f382c6252a6f38525e64f7962f1c58e1a5d4126888",
-    "ft-flat-1": "da9d86e6dc5e80aab5923ae0c22c0ebcc8ef938951e51020485c86ba697d738a",
-    "gil-flat-1": "824b1db6ac7d4e082797efc96a8536a5332e6e188222de99e7b9ab7706275dc7"
+    "gil-flat-0": "fc68b6d94c9a0d7f814aff3db7163ac1a9817c179789ec6a1361b8bb4112f94d",
+    "ft-flat-0": "3859eac53842450742823dc32a95ba46438422f8e2263c160e6ea4fc25bc91ba",
+    "gil-nested-0": "ba78c846e175a56c4233516ad7dc961da52bc7e76a6758a80b0c5c4e1b3de564",
+    "ft-nested-0": "6b968182135eb36d570906a31db4c99f11429ba9ceb7c16fe29edd5df73afd12",
+    "gil-mixed-0": "6e7d15b0ddc17a580d4d5d95c52d3dc1d634363cf8200157416bdad4130fd1ed",
+    "ft-mixed-0": "2ab91ab63203bdc39d266a2a915f3789aaf9f373872e8d9fde9448c77aa3e154",
+    "ft-mixed-1": "0aa33015534bb36e26edd41a02dcf5074243d4ffe48759c118494296e7ca90cf",
+    "gil-mixed-1": "8927efa5e07f75040135925ffd3495b1753e0cfd5f316db6b48e6d00c293b17d",
+    "ft-nested-1": "7671b2f9a0466a481fae17559cdb7b4aa18ad6fb3585b331d7bea3d1bbcd9f82",
+    "gil-nested-1": "08187bb7b477abd456f93adf9fda2cdea6677a7f8aea4f965c2f81604b6a15b5",
+    "ft-flat-1": "752f5d6f00ef02a9450d70040c973ac1d46290157f16d243d7050b71d61a6138",
+    "gil-flat-1": "d073c7597f42bdc5de9b04889f64212475f80095589c53e9b38b0affccd507dc"
   },
   "limits": [
     "Two five-second repeats are diagnostic only; no statistical-significance, SLO, release-comparison or cross-framework claim.",
@@ -336,5 +383,14 @@
       }
     ],
     "interpretation": "Insufficient GIL connection owners left required persistent route cohorts unserved. Entire generation remains invalid; no rows were replaced or combined with v2. Pool16 and a preflight configuration guard are benchmark-only corrections; all original thresholds remain unchanged."
+  },
+  "retained_prior_valid_generation": {
+    "generation": "baseline-v2",
+    "harness_commit": "78c1e98b3a353f329c6d0e647e2434a14c34e391",
+    "completed": 12,
+    "valid": 12,
+    "validated_replies": 3515946,
+    "summary_sha256": "cec54705c9c912a99d9ecfa64cc16e9bbfaef49ac3afb77516b9f60d753d4490",
+    "scope": "Prior source generation; not reused as evidence for the repaired identity, resume and process-group lifecycle checks."
   }
 }
