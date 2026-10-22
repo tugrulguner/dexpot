@@ -7,9 +7,9 @@ Dexpot chooses its scheduler when `serve()` starts, after application imports, u
 
 | Runtime | Default serving model | Overload behavior |
 |---|---|---|
-| Free-threaded CPython (`sys._is_gil_enabled() == False`) | One process; each admitted connection owns a thread | Active connections are capped at 1,024 by default; excess connections receive 503 before thread creation |
-| Standard GIL CPython | A bounded pool of `CPU * 2 + 2` connection-owning threads | The queue is capped at `2 * pool`; excess connections receive 503 |
-| Standard GIL CPython with `DEXPOT_WORKERS>1` | POSIX `SO_REUSEPORT` processes, each with its own bounded pool | Each worker sheds independently |
+| Free-threaded CPython (GIL disabled) | One process; each admitted connection owns a thread | Active connections are capped at 1,024 by default; excess connections receive 503 before thread creation |
+| CPython with the GIL enabled | A bounded pool of `CPU * 2 + 2` connection-owning threads | The queue is capped at `2 * pool`; excess connections receive 503 |
+| CPython with the GIL enabled and `DEXPOT_WORKERS>1` | POSIX `SO_REUSEPORT` processes, each with its own bounded pool | Each worker sheds independently |
 
 A worker owns a keep-alive connection until it closes. Idle keep-alive sockets are not returned to a shared admission queue.
 
@@ -54,7 +54,7 @@ On supported POSIX systems:
 DEXPOT_WORKERS=4 dexpot serve main:app
 ```
 
-`DEXPOT_WORKERS>1` requires POSIX `fork` and `SO_REUSEPORT`. Dexpot rejects the setting on unsupported platforms. Free-threaded builds intentionally remain single-process because their threads can execute Python in parallel.
+`DEXPOT_WORKERS>1` requires POSIX `fork` and `SO_REUSEPORT`. Dexpot rejects the setting on unsupported platforms. GIL-disabled execution intentionally remains single-process because its threads can execute Python in parallel. A free-threaded build with its GIL enabled uses the GIL serving model, including supported process fan-out.
 
 ## Shutdown and supervision
 

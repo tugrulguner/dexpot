@@ -98,9 +98,9 @@ Dexpot keeps application code synchronous while changing admission and schedulin
 
 | Runtime | Serving model | Overload behavior |
 |---|---|---|
-| Free-threaded CPython | One process; each admitted connection owns a thread | A process-wide active-connection cap sheds excess work before thread creation |
-| Standard GIL CPython | A bounded pool of connection-owning threads | A bounded queue sheds excess work with 503 |
-| Standard GIL CPython with workers | POSIX `SO_REUSEPORT` processes, each with its own bounded pool | Each worker sheds independently |
+| Free-threaded CPython (GIL disabled) | One process; each admitted connection owns a thread | A process-wide active-connection cap sheds excess work before thread creation |
+| CPython with the GIL enabled | A bounded pool of connection-owning threads | A bounded queue sheds excess work with 503 |
+| CPython with the GIL enabled and workers | POSIX `SO_REUSEPORT` processes, each with its own bounded pool | Each worker sheds independently |
 
 <figure class="homepage-diagram">
   <a href="/dexpot-execution.webp?v=127306a" aria-label="Open full-size original Dexpot execution overview">

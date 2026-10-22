@@ -175,7 +175,10 @@ def test_roadmap_separates_shipped_native_seam_from_promotion_gates() -> None:
 
     assert "optional native request-head seam" in readme
     assert "Remaining work is organized around four gates" in readme
-    assert "Complete request-aware response handling and output policy" in readme
+    assert (
+        "Consolidate the already-shipped request-aware response handling and output policy"
+        in readme
+    )
     assert roadmap.index("### 2. Optional native request-head seam") < roadmap.index(
         "## Next milestones"
     )
