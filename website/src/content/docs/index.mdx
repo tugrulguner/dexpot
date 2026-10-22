@@ -114,6 +114,21 @@ Dexpot keeps application code synchronous while changing admission and schedulin
 
 
 
+## Worker lifecycle
+
+The new supporting diagram explains v0.7.1 startup and connection ownership without replacing the execution overview above. Dexpot selects its serving mode when `serve()` starts, after application imports, using the actual GIL state. The application handler syntax does not change.
+
+<figure class="homepage-diagram worker-lifecycle-diagram">
+  <a href="/dexpot-worker-lifecycle.webp?v=071-lifecycle-v1" aria-label="Open the worker-lifecycle diagram at full size">
+    <img loading="lazy" decoding="async" width="2400" height="1800" src="/dexpot-worker-lifecycle.webp?v=071-lifecycle-v1" alt="Dexpot worker lifecycle: serve-time GIL selection, macOS FT owner-scoped scheduling, completed-response CPU fairness and capacity reclaimed after owner exit." />
+  </a>
+  <figcaption>Connection close and worker exit are separate events: the FT capacity slot is reclaimed only after the owner has exited and been joined. <a href="/execution-model/#worker-lifecycle">Read the complete text explanation</a> or <a href="/dexpot-worker-lifecycle.webp?v=071-lifecycle-v1">open full size</a>.</figcaption>
+</figure>
+
+On macOS with the GIL disabled, workers can use an owner-scoped scheduling policy and offer other workers a turn after at least 1 ms of accumulated CPU work, at a completed continuing-response boundary. Waiting does not use that budget; application handlers are not preempted. Successful policy changes are restored before worker exit. Linux and GIL-enabled execution retain their existing paths; the main/acceptor thread policy is unchanged.
+
+## Checked response policy
+
 In v0.7.0, `response=ItemOut` also checks the returned data and projects it onto the declared public fields before sending success bytes. Malformed or non-finite output returns a sanitized 500. Leave `response=None` for generic JSON, or use `RawResponse` on an unchecked route for bytes. The [response-contract illustration](/route-contract/#responses) shows the public-field and rejection paths.
 
 <figure class="homepage-diagram response-contract-diagram">
@@ -136,7 +151,7 @@ In v0.7.0, `response=ItemOut` also checks the returned data and projects it onto
 
 - **Plain synchronous handlers** without an event loop or coroutine bridge.
 - **Compiled endpoint plans** for route matching, argument binding, path conversion, and msgspec codecs.
-- **Interpreter-adaptive scheduling** selected once when the module imports.
+- **Interpreter-adaptive scheduling** selected when `serve()` starts, after application imports, from the actual GIL state.
 - **A bounded HTTP core** for parsing, routing, scheduling, draining, and response writes.
 - **An optional parser-only Rust extension** without moving sockets, routing, handlers, or scheduling out of Python.
 
