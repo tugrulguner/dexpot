@@ -50,6 +50,9 @@ dev = [
   "ruff>=0.6",
   "towncrier>=24.8",
 ]
+benchmark = [
+    "psutil>=7",
+]
 
 [project.urls]
 Homepage = "https://github.com/tugrulguner/dexpot"

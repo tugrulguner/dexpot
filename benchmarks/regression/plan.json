@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "kind": "bounded-diagnostic-screen",
+  "duration_s": 5,
+  "client_threads": 4,
+  "connections": 16,
+  "pool": 8,
+  "budgets": {"rss_bytes": 536870912, "threads": 128, "fds": 256, "cpu_cores": 10},
+  "comparison": {"min_goodput_ratio": 0.90, "max_adjusted_p99_ratio": 1.25},
+  "latency_scope": "wrk-adjusted closed-loop histogram; not scheduled-arrival SLO qualification",
+  "matrix": [
+    {"id": "gil-flat-0", "runtime": "gil", "profile": "flat", "repeat": 0},
+    {"id": "ft-flat-0", "runtime": "ft", "profile": "flat", "repeat": 0},
+    {"id": "gil-nested-0", "runtime": "gil", "profile": "nested", "repeat": 0},
+    {"id": "ft-nested-0", "runtime": "ft", "profile": "nested", "repeat": 0},
+    {"id": "gil-mixed-0", "runtime": "gil", "profile": "mixed", "repeat": 0},
+    {"id": "ft-mixed-0", "runtime": "ft", "profile": "mixed", "repeat": 0},
+    {"id": "ft-mixed-1", "runtime": "ft", "profile": "mixed", "repeat": 1},
+    {"id": "gil-mixed-1", "runtime": "gil", "profile": "mixed", "repeat": 1},
+    {"id": "ft-nested-1", "runtime": "ft", "profile": "nested", "repeat": 1},
+    {"id": "gil-nested-1", "runtime": "gil", "profile": "nested", "repeat": 1},
+    {"id": "ft-flat-1", "runtime": "ft", "profile": "flat", "repeat": 1},
+    {"id": "gil-flat-1", "runtime": "gil", "profile": "flat", "repeat": 1}
+  ]
+}
