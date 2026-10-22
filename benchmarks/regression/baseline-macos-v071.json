@@ -1,0 +1,340 @@
+{
+  "kind": "diagnostic-baseline-not-candidate-acceptance",
+  "harness_commit": "78c1e98b3a353f329c6d0e647e2434a14c34e391",
+  "framework_version": "0.7.1",
+  "artifact": {
+    "comment_text": null,
+    "core-metadata": {
+      "sha256": "dbd2ab4f695c63decb0dfe5ab13b751c4e0a3729a8f2ea7dcd570470c226da75"
+    },
+    "digests": {
+      "blake2b_256": "3519b395900108406fe3267ca534a14c947fb66cc06a71e570ee4941afb3194f",
+      "md5": "dda178a1eac99ffac1fa4a72d02b19a1",
+      "sha256": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+    },
+    "downloads": -1,
+    "filename": "dexpot-0.7.1-py3-none-any.whl",
+    "has_sig": false,
+    "md5_digest": "dda178a1eac99ffac1fa4a72d02b19a1",
+    "packagetype": "bdist_wheel",
+    "python_version": "py3",
+    "requires_python": ">=3.12",
+    "size": 63364,
+    "upload_time": "2026-10-21T13:14:21",
+    "upload_time_iso_8601": "2026-10-21T13:14:21.252048Z",
+    "url": "https://files.pythonhosted.org/packages/35/19/b395900108406fe3267ca534a14c947fb66cc06a71e570ee4941afb3194f/dexpot-0.7.1-py3-none-any.whl",
+    "yanked": false,
+    "yanked_reason": null
+  },
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "logical_cpus": 10,
+  "client": "native wrk 4.2.0; same-host closed-loop with exact response validation",
+  "latency_scope": "wrk-adjusted closed-loop histogram; not scheduled-arrival SLO qualification",
+  "plan": {
+    "schema": 1,
+    "kind": "bounded-diagnostic-screen",
+    "duration_s": 5,
+    "client_threads": 4,
+    "connections": 16,
+    "pool": 16,
+    "budgets": {
+      "rss_bytes": 536870912,
+      "threads": 128,
+      "fds": 256,
+      "cpu_cores": 10
+    },
+    "comparison": {
+      "min_goodput_ratio": 0.9,
+      "max_adjusted_p99_ratio": 1.25
+    },
+    "latency_scope": "wrk-adjusted closed-loop histogram; not scheduled-arrival SLO qualification",
+    "matrix": [
+      {
+        "id": "gil-flat-0",
+        "runtime": "gil",
+        "profile": "flat",
+        "repeat": 0
+      },
+      {
+        "id": "ft-flat-0",
+        "runtime": "ft",
+        "profile": "flat",
+        "repeat": 0
+      },
+      {
+        "id": "gil-nested-0",
+        "runtime": "gil",
+        "profile": "nested",
+        "repeat": 0
+      },
+      {
+        "id": "ft-nested-0",
+        "runtime": "ft",
+        "profile": "nested",
+        "repeat": 0
+      },
+      {
+        "id": "gil-mixed-0",
+        "runtime": "gil",
+        "profile": "mixed",
+        "repeat": 0
+      },
+      {
+        "id": "ft-mixed-0",
+        "runtime": "ft",
+        "profile": "mixed",
+        "repeat": 0
+      },
+      {
+        "id": "ft-mixed-1",
+        "runtime": "ft",
+        "profile": "mixed",
+        "repeat": 1
+      },
+      {
+        "id": "gil-mixed-1",
+        "runtime": "gil",
+        "profile": "mixed",
+        "repeat": 1
+      },
+      {
+        "id": "ft-nested-1",
+        "runtime": "ft",
+        "profile": "nested",
+        "repeat": 1
+      },
+      {
+        "id": "gil-nested-1",
+        "runtime": "gil",
+        "profile": "nested",
+        "repeat": 1
+      },
+      {
+        "id": "ft-flat-1",
+        "runtime": "ft",
+        "profile": "flat",
+        "repeat": 1
+      },
+      {
+        "id": "gil-flat-1",
+        "runtime": "gil",
+        "profile": "flat",
+        "repeat": 1
+      }
+    ]
+  },
+  "fingerprints": {
+    "application": "1f0a0a7a116cb01e688e0790b34bf444c7b3686c7ad49690489a5a1af1bced02",
+    "validator": "b4db9bf1a4d3ee83e71c37d9742746f5bd9c0f528deecb73bde280c37731a68d",
+    "runner": "4bf9c0f759c346a3a626ebb5dbc266af5718b4a8952fc3ffbe50c85588880d79",
+    "evaluator": "a3242d73315a2b4109794c2f6ab9034134c520b6355a9c196ae8f96c4f414f29",
+    "plan": "a55f5877a787ca18f7dd954e7af2dca8eb020b6f3c1dd246bdc8cd6a9f3ae99d",
+    "client": "3dde9a2186ec70f63f3ebfafb76d9665aba5db18824e1b40660cad8c1328d29f",
+    "wheel": "a5a95791062b7c45fa23740b3be43d76a5705f6523a778ffe6f6d42c34bf79ce"
+  },
+  "expected": 12,
+  "completed": 12,
+  "valid": 12,
+  "validated_replies": 3515946,
+  "bad_replies": 0,
+  "transport_errors": 0,
+  "predeclared_timed_seconds": 60,
+  "preflights": {
+    "gil": {
+      "churn_pass": true,
+      "overload_pass": true,
+      "cleanup_pass": true
+    },
+    "ft": {
+      "churn_pass": true,
+      "overload_pass": true,
+      "cleanup_pass": true
+    }
+  },
+  "runtimes": {
+    "ft": {
+      "version": "0.7.1",
+      "python": "3.14.7 free-threading build (main, Aug  7 2026, 02:15:12) [Clang 22.1.3 ]",
+      "msgspec": "0.22.0",
+      "gil_enabled": false,
+      "ft_build": true,
+      "source_sha256": "1b921115b84ac245fca0d518f1bc3e233386c48c0148161f48b6a4e86d3479a7"
+    },
+    "gil": {
+      "version": "0.7.1",
+      "python": "3.14.7 (main, Aug  7 2026, 02:15:30) [Clang 22.1.3 ]",
+      "msgspec": "0.22.0",
+      "gil_enabled": true,
+      "ft_build": false,
+      "source_sha256": "1b921115b84ac245fca0d518f1bc3e233386c48c0148161f48b6a4e86d3479a7"
+    }
+  },
+  "groups": [
+    {
+      "runtime": "gil",
+      "profile": "flat",
+      "trials": 2,
+      "median_trial_goodput_rps": 20473.266318045964,
+      "goodput_range_rps": [
+        20145.265599129252,
+        20801.26703696268
+      ],
+      "median_of_trial_p99_us": 2382.0,
+      "trial_p99_range_us": [
+        2362,
+        2402
+      ],
+      "sampled_peak_rss_bytes": 32423936,
+      "sampled_peak_threads": 17,
+      "sampled_peak_fds": 20,
+      "max_sampled_average_cpu_cores": 2.001044804527121
+    },
+    {
+      "runtime": "gil",
+      "profile": "nested",
+      "trials": 2,
+      "median_trial_goodput_rps": 15550.100970030733,
+      "goodput_range_rps": [
+        15225.863379004388,
+        15874.338561057079
+      ],
+      "median_of_trial_p99_us": 3084.5,
+      "trial_p99_range_us": [
+        3010,
+        3159
+      ],
+      "sampled_peak_rss_bytes": 32620544,
+      "sampled_peak_threads": 17,
+      "sampled_peak_fds": 20,
+      "max_sampled_average_cpu_cores": 1.6760852473381191
+    },
+    {
+      "runtime": "gil",
+      "profile": "mixed",
+      "trials": 2,
+      "median_trial_goodput_rps": 16515.937968071845,
+      "goodput_range_rps": [
+        15684.254961514935,
+        17347.620974628757
+      ],
+      "median_of_trial_p99_us": 9795.5,
+      "trial_p99_range_us": [
+        9771,
+        9820
+      ],
+      "sampled_peak_rss_bytes": 32342016,
+      "sampled_peak_threads": 17,
+      "sampled_peak_fds": 20,
+      "max_sampled_average_cpu_cores": 1.7752475398575642
+    },
+    {
+      "runtime": "ft",
+      "profile": "flat",
+      "trials": 2,
+      "median_trial_goodput_rps": 107229.42780979359,
+      "goodput_range_rps": [
+        100206.74521895674,
+        114252.11040063045
+      ],
+      "median_of_trial_p99_us": 1336.0,
+      "trial_p99_range_us": [
+        843,
+        1829
+      ],
+      "sampled_peak_rss_bytes": 54067200,
+      "sampled_peak_threads": 17,
+      "sampled_peak_fds": 20,
+      "max_sampled_average_cpu_cores": 6.347800501498136
+    },
+    {
+      "runtime": "ft",
+      "profile": "nested",
+      "trials": 2,
+      "median_trial_goodput_rps": 89572.52633470247,
+      "goodput_range_rps": [
+        82743.1038590155,
+        96401.94881038947
+      ],
+      "median_of_trial_p99_us": 1874.0,
+      "trial_p99_range_us": [
+        662,
+        3086
+      ],
+      "sampled_peak_rss_bytes": 56967168,
+      "sampled_peak_threads": 17,
+      "sampled_peak_fds": 20,
+      "max_sampled_average_cpu_cores": 7.010074987869249
+    },
+    {
+      "runtime": "ft",
+      "profile": "mixed",
+      "trials": 2,
+      "median_trial_goodput_rps": 92451.52568218311,
+      "goodput_range_rps": [
+        90397.91785550251,
+        94505.13350886371
+      ],
+      "median_of_trial_p99_us": 1393.5,
+      "trial_p99_range_us": [
+        1387,
+        1400
+      ],
+      "sampled_peak_rss_bytes": 55099392,
+      "sampled_peak_threads": 17,
+      "sampled_peak_fds": 20,
+      "max_sampled_average_cpu_cores": 6.096291252293597
+    }
+  ],
+  "raw_trial_sha256": {
+    "gil-flat-0": "e6f254a936af8807dc1bf2a9dc9c9116a92e1304c55acf65b3358cd96649ba34",
+    "ft-flat-0": "1ee64877de5833cd2dfeed1506e6dff6ff7a302f27ea29290308173b6fe68eef",
+    "gil-nested-0": "34945e8204dcbf5394c9453907f0caffceb63deed243edaedb2608ade26d4f47",
+    "ft-nested-0": "a0222866e2198a983e450e9627061a17229d0a35e55bb873d1226ae2ebf81521",
+    "gil-mixed-0": "96e903c57c54df77b7c3fe7b86e7b12c911fb471651d7d4067acc647fde371a6",
+    "ft-mixed-0": "e5e65a35ced00eb842f46d8c0717eae26027a52cb3b54a68648666dfb971db68",
+    "ft-mixed-1": "47f2f70106866e4acc5016f36339ad22a24396c305715b631d4aba467c39d137",
+    "gil-mixed-1": "9a51095ae837b4e157b5fc01d5a4ae25adc2f9ad4baca22421969de473830789",
+    "ft-nested-1": "97b13935cec8d155c25013bba11203922ef6afaad6b91fecd3fbb2218519b3eb",
+    "gil-nested-1": "cd7b40dfe768a883555af7f382c6252a6f38525e64f7962f1c58e1a5d4126888",
+    "ft-flat-1": "da9d86e6dc5e80aab5923ae0c22c0ebcc8ef938951e51020485c86ba697d738a",
+    "gil-flat-1": "824b1db6ac7d4e082797efc96a8536a5332e6e188222de99e7b9ab7706275dc7"
+  },
+  "limits": [
+    "Two five-second repeats are diagnostic only; no statistical-significance, SLO, release-comparison or cross-framework claim.",
+    "Same-host client/server; unrelated host load was not controlled. Resource peaks are sampled, not exact high-water marks.",
+    "No candidate runtime change was measured or authorized by this baseline."
+  ],
+  "retained_invalid_generation": {
+    "harness_commit": "f66f3e29b952ae44b722692e2875318f1519c2ba",
+    "status": "invalid",
+    "expected": 12,
+    "completed": 12,
+    "valid": 10,
+    "gil_pool": 8,
+    "connections": 16,
+    "failed_cells": [
+      {
+        "id": "gil-mixed-0",
+        "error": "ValueError('a required route cohort did not validate traffic')",
+        "route_validated_replies": {
+          "flat_good": 46380,
+          "nested_good": 47575,
+          "cpu_good": 0,
+          "io_good": 0
+        }
+      },
+      {
+        "id": "gil-mixed-1",
+        "error": "ValueError('a required route cohort did not validate traffic')",
+        "route_validated_replies": {
+          "flat_good": 45846,
+          "nested_good": 46802,
+          "cpu_good": 0,
+          "io_good": 0
+        }
+      }
+    ],
+    "interpretation": "Insufficient GIL connection owners left required persistent route cohorts unserved. Entire generation remains invalid; no rows were replaced or combined with v2. Pool16 and a preflight configuration guard are benchmark-only corrections; all original thresholds remain unchanged."
+  }
+}

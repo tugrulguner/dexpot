@@ -5,6 +5,25 @@ ranking, scheduled-arrival latency/SLO test, or release qualification. It change
 code. Do not close the broader benchmark-harness contributor issue on the strength of this
 screen.
 
+## Recorded diagnostic baseline
+
+[`baseline-macos-v071.json`](baseline-macos-v071.json) records the first complete macOS
+v0.7.1 matrix: **12/12 valid trials and 3,515,946 exact successful replies**, with zero bad
+bodies or transport errors. Both modes passed connection churn, overload and owned-listener
+cleanup checks. Source/client/wheel hashes, per-trial record hashes, resource observations
+and all repeat ranges are included.
+
+The earlier pool-eight generation remains invalid: two GIL mixed trials did not execute
+all required route cohorts. Its failures are retained in the summary, not replaced by
+successful retries. A separate pool-sixteen generation reran the entire frozen matrix;
+none of the prior ten valid rows were reused.
+
+This is traffic-valid baseline data, **not evidence of repeatability or an optimization
+win**. FT nested p99 ranged from 662 to 3,086 microseconds across only two trials. Treat
+that spread as an observed limitation: stabilize measurement/extend confirmation before
+using a short screen to justify promotion. Resource sampling uses a requested 100ms loop
+delay, not guaranteed 100ms observation spacing; actual sample counts/spans are retained.
+
 ## Fixed first screen
 
 `plan.json` freezes 12 cells: ordinary GIL-enabled CPython and GIL-disabled free-threaded
