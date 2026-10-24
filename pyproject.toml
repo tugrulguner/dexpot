@@ -9,7 +9,7 @@ description = "A synchronous Python API framework with adaptive GIL and free-thr
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
-authors = [{ name = "Tugrul Guner", email = "tugrulgunr@gmail.com" }]
+authors = [{ name = "Tugrul Guner", email = "tugrul@modepot.io" }]
 keywords = [
   "api",
   "framework",
