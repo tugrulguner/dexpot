@@ -1,0 +1,1 @@
+The checked-response engines now re-export the same finite-value, length, omission, generic-substitution, type-info, and record-detection helpers; response preparation and compilation strategies remain separate.
