@@ -7,6 +7,7 @@ from the repository root after `uv sync --all-extras`:
 uv run python examples/minimal.py
 uv run python examples/typed_crud.py
 uv run python examples/bounded_api.py
+uv run python examples/lifecycle.py
 ```
 
 Set `DEXPOT_EXAMPLE_PORT` when port 8000 is already in use.
@@ -93,3 +94,38 @@ non-finite floats and post-init hooks; raw responses require an unchecked route.
 In `typed_crud.py`, GET and PUT explicitly use `response=None` because their success and
 404 bodies have different shapes. POST still checks `response=Item`. A declared response schema
 applies to returned payloads at every status, including tuple and Response error bodies.
+
+
+## Paired application lifecycle
+
+Register synchronous context-manager factories with `app.lifespan(factory)`. Registration and
+plan compilation do not call the factory. Each serving process enters factories in order before
+accepting traffic and normally exit them in reverse order after active handlers finish. Shutdown waits
+for a bounded drain deadline; if handlers remain, cleanup is deferred until they finish. A factory
+that fails to enter aborts startup and already-entered managers are unwound. Forced process
+termination may skip Python cleanup. These resources are
+process-owned: GIL worker processes each acquire their own copy; free-threaded serving threads
+share the serving process's acquired resources, so those resources must be thread-safe.
+
+```python
+import contextlib
+from dexpot import Dex
+
+app = Dex()
+
+@contextlib.contextmanager
+def database_pool():
+    pool = create_pool()
+    try:
+        yield
+    finally:
+        pool.close()
+
+app.lifespan(database_pool)
+```
+
+A disconnected client does not cancel Python handler work. Shutdown drains for a bounded period; if
+handlers remain, their connections and application resources are left untouched and cleanup runs
+when the last handler finishes. In a single-process embedded caller, serve returns after the deadline
+without killing the host interpreter; resources remain owned until quiescence. Forced process
+termination may skip Python cleanup.

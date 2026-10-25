@@ -132,6 +132,9 @@ class Dex:
         self._pool_size = POOL_SIZE
         self._max_queue = MAX_QUEUE
         self._runtime_mode_warning_logged = False
+        self._lifecycle_factories: list[Callable[[], Any]] = []
+        self._deferred_lifecycle_stacks: list[contextlib.ExitStack] = []
+        self._lifecycle_frozen = False
 
     def _bind_runtime(self) -> None:
         """Bind the scheduler once after application imports, before route compilation."""
@@ -195,6 +198,56 @@ class Dex:
                     "GIL state changed after startup; retaining %s execution. Restart after loading application dependencies to reselect the runtime.",
                     "bounded-ft" if self._serving_gil_free else "pooled-gil",
                 )
+
+    def lifespan(self, factory: Callable[[], Any]) -> Callable[[], Any]:
+        """Register a synchronous context-manager factory for each serving process.
+
+        Factories are called only when serving starts, never during registration or
+        application compilation. Acquired resources are released in reverse order.
+        """
+        if not callable(factory):
+            raise TypeError("lifespan factory must be callable")
+        with self._declaration_lock:
+            if self._lifecycle_frozen:
+                raise RuntimeError("lifespan factories are frozen after application compilation")
+            self._lifecycle_factories.append(factory)
+        return factory
+
+    @contextlib.contextmanager
+    def _acquire_lifecycle(self):
+        with self._declaration_lock:
+            self._lifecycle_frozen = True
+            factories = tuple(self._lifecycle_factories)
+        with contextlib.ExitStack() as stack:
+            for factory in factories:
+                manager = factory()
+                if not hasattr(manager, "__enter__") or not hasattr(manager, "__exit__"):
+                    raise TypeError("lifespan factory must return a synchronous context manager")
+                stack.enter_context(manager)
+            try:
+                yield
+            finally:
+                # Atomically publish ownership before final completion can observe it.
+                with self._cond:
+                    if self._active_connections:
+                        self._deferred_lifecycle_stacks.append(stack.pop_all())
+
+        # Deferred cleanup runs on whichever handler finishes last. Context managers
+        # requiring enter/exit thread affinity are therefore unsupported.
+
+    @contextlib.contextmanager
+    def _lifecycle_signals(self):
+        """Keep startup interruption cooperative, including factory acquisition."""
+        self._stopping.clear()
+        previous = {}
+        if threading.current_thread() is threading.main_thread():
+            for sig in (signal.SIGTERM, signal.SIGINT):
+                previous[sig] = signal.signal(sig, lambda *_args: self._stopping.set())
+        try:
+            yield
+        finally:
+            for sig, handler in previous.items():
+                signal.signal(sig, handler)
 
     # ---- route registration ----
 
@@ -344,6 +397,7 @@ class Dex:
 
     def _compile(self) -> ApplicationPlan:
         """Compile declarations once into the immutable plan used by traffic."""
+        self._lifecycle_frozen = True
         plan = self._plan
         if plan is not None:
             return plan
@@ -561,6 +615,14 @@ class Dex:
 
     # ---- scheduling ----
 
+    def _release_deferred_lifecycle(self) -> None:
+        with self._cond:
+            if self._active_connections or not self._deferred_lifecycle_stacks:
+                return
+            stacks, self._deferred_lifecycle_stacks = self._deferred_lifecycle_stacks, []
+        for stack in reversed(stacks):
+            stack.close()
+
     def _worker_gil(self) -> None:
         cond = self._cond
         while True:
@@ -584,6 +646,8 @@ class Dex:
                 with cond:
                     self._active_connections.discard(conn)
                     cond.notify_all()
+                if self._lifecycle_factories:
+                    self._release_deferred_lifecycle()
 
     def _start_gil_workers(self, listener: socket.socket) -> None:
         """Roll back a partially started pool before propagating startup failure."""
@@ -633,6 +697,7 @@ class Dex:
             with self._cond:
                 self._active_connections.discard(conn)
                 self._cond.notify_all()
+            self._release_deferred_lifecycle()
 
     def _own_connection_ft(self, conn: socket.socket, buf: bytes) -> None:
         # The admitting thread reaps/join()s this owner before returning its
@@ -653,6 +718,8 @@ class Dex:
                 with self._cond:
                     self._active_connections.discard(conn)
                     self._cond.notify_all()
+                if self._lifecycle_factories:
+                    self._release_deferred_lifecycle()
             if changed and policy is not None and policy.set(previous) != 0:
                 raise RuntimeError("could not restore owner scheduling policy")
 
@@ -759,48 +826,50 @@ class Dex:
             self._serve_multiprocess(host, port, n_workers)
             return
 
+        with self._lifecycle_signals(), self._acquire_lifecycle():
+            if not self._stopping.is_set():
+                self._serve_single_process(host, port)
+
+    def _serve_single_process(self, host: str, port: int) -> None:
         srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        srv.bind((host, port))
-        srv.listen(SOCKET_BACKLOG)
-        srv.settimeout(0.5)
-        mode = (
-            f"bounded-ft({MAX_CONNECTIONS})"
-            if self._serving_gil_free
-            else f"pooled-gil({self._pool_size})"
-        )
-        print(
-            f"dexpot serving on http://{host}:{port} pid={os.getpid()} mode={mode} runtime={self._runtime_description()}",
-            flush=True,
-        )
-        if not self._serving_gil_free:
-            self._start_gil_workers(srv)
-        # clean exit on SIGTERM/SIGINT (main thread only); otherwise default behavior
-        stopping = threading.Event()
-
-        def stop(*_args: object) -> None:
-            stopping.set()
-
-        if threading.current_thread() is threading.main_thread():
-            signal.signal(signal.SIGTERM, stop)
-            signal.signal(signal.SIGINT, stop)
-        while not stopping.is_set():
-            try:
-                conn, _addr = srv.accept()
-            except TimeoutError:
+        try:
+            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            srv.bind((host, port))
+            srv.listen(SOCKET_BACKLOG)
+            srv.settimeout(0.5)
+            mode = (
+                f"bounded-ft({MAX_CONNECTIONS})"
+                if self._serving_gil_free
+                else f"pooled-gil({self._pool_size})"
+            )
+            print(
+                f"dexpot serving on http://{host}:{port} pid={os.getpid()} mode={mode} runtime={self._runtime_description()}",
+                flush=True,
+            )
+            if not self._serving_gil_free:
+                self._start_gil_workers(srv)
+            stopping = self._stopping
+            while not stopping.is_set():
+                try:
+                    conn, _addr = srv.accept()
+                except TimeoutError:
+                    self._check_runtime_mode()
+                    continue
                 self._check_runtime_mode()
-                continue
-            self._check_runtime_mode()
-            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            conn.settimeout(self.limits.idle_read_seconds)
-            self._handle_admission(conn, b"")
-        with contextlib.suppress(OSError):
-            srv.close()
-        self._begin_drain(timeout=5.0)
+                conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                conn.settimeout(self.limits.idle_read_seconds)
+                self._handle_admission(conn, b"")
+        finally:
+            with contextlib.suppress(OSError):
+                srv.close()
+            self._begin_drain(timeout=5.0)
 
     def _begin_drain(self, timeout: float) -> None:
-        """Stop new work, discard queued idle connections, and wait for active
-        connections up to *timeout*. Close survivors after the deadline."""
+        """Stop new work and wait up to *timeout* for active connections.
+
+        On deadline, leave in-flight connections and their application resources
+        untouched; the serving caller may return while handlers finish.
+        """
         self._stopping.set()
         deadline = time.monotonic() + timeout
         with self._cond:
@@ -811,7 +880,7 @@ class Dex:
             self._cond.notify_all()
             while self._active_connections and time.monotonic() < deadline:
                 self._cond.wait(timeout=min(0.1, max(0.0, deadline - time.monotonic())))
-            survivors = list(self._active_connections)
+            survivors = list(self._active_connections) if not self._lifecycle_factories else []
         for conn in survivors:
             with contextlib.suppress(OSError):
                 conn.shutdown(socket.SHUT_RDWR)
@@ -861,13 +930,8 @@ class Dex:
         finally:
             probe.close()
 
-        print(
-            f"dexpot serving on http://{host}:{port} pid={os.getpid()} "
-            f"mode=pooled-gil({self._pool_size})x{n_workers} runtime={self._runtime_description()}",
-            flush=True,
-        )
-
         procs: list[Any] = []
+        ready_channels: list[Any] = []
         stopping = threading.Event()
 
         def stop(*_args: object) -> None:
@@ -878,48 +942,89 @@ class Dex:
 
         try:
             for _ in range(n_workers):
-                proc = self._new_worker(host, port)
-                proc.start()
+                channel = _multiprocessing.Queue()
+                proc = self._new_worker(host, port, channel)
                 procs.append(proc)
+                ready_channels.append(channel)
+                procs[-1] = self._start_ready_worker(
+                    self,
+                    proc,
+                    channel,
+                    host,
+                    port,
+                    on_started=lambda started: procs.__setitem__(-1, started),
+                )
 
-            # Stabilize the full worker set before announcing startup success.
-            # On macOS, rapid SO_REUSEPORT restarts can transiently fail one
-            # child bind; retry within a bounded startup window. If the set
-            # cannot stabilize, teardown is atomic in the finally block.
-            startup_deadline = time.monotonic() + 3.0
-            while True:
-                dead = [i for i, p in enumerate(procs) if not p.is_alive()]
-                if not dead:
-                    break
-                if time.monotonic() >= startup_deadline:
-                    raise RuntimeError(f"{len(dead)} dexpot worker(s) failed during startup")
-                for i in dead:
-                    replacement = self._new_worker(host, port)
-                    replacement.start()
-                    procs[i] = replacement
-                time.sleep(0.2)
-
+            print(
+                f"dexpot serving on http://{host}:{port} pid={os.getpid()} "
+                f"mode=pooled-gil({self._pool_size})x{n_workers} runtime={self._runtime_description()}",
+                flush=True,
+            )
             while not stopping.is_set():
-                self._restart_dead_workers(self, host, port, procs)
+                self._restart_dead_workers(self, host, port, procs, ready_channels)
                 stopping.wait(1.0)
         finally:
             self._teardown(procs)
 
-    def _new_worker(self, host: str, port: int) -> Any:
+    def _new_worker(self, host: str, port: int, ready: Any = None) -> Any:
         return _multiprocessing.Process(
             target=self._worker_process,
-            args=(host, port),
+            args=(host, port, ready),
             daemon=True,
         )
 
     @staticmethod
-    def _restart_dead_workers(owner: Dex, host: str, port: int, procs: list[Any]) -> None:
+    def _start_ready_worker(
+        owner: Dex,
+        proc: Any,
+        channel: Any,
+        host: str,
+        port: int,
+        on_started: Callable[[Any], None] | None = None,
+    ) -> Any:
+        """Start a worker and wait for acquisition/listener readiness.
+
+        Listener bind errors retain the bounded retry; application acquisition
+        errors are fatal and never trigger repeated factory calls.
+        """
+        deadline = time.monotonic() + 3.0
+        while True:
+            proc.start()
+            if on_started is not None:
+                on_started(proc)
+            try:
+                status, detail = channel.get(timeout=max(0.0, deadline - time.monotonic()))
+            except Exception as exc:
+                raise RuntimeError("dexpot worker did not acknowledge readiness") from exc
+            if status == "ready":
+                return proc
+            proc.join(timeout=0.2)
+            if status != "bind_error":
+                raise RuntimeError(f"dexpot worker initialization failed: {detail}")
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f"dexpot worker listener bind failed: {detail}")
+            time.sleep(0.05)
+            proc = owner._new_worker(host, port, channel)
+
+    @staticmethod
+    def _restart_dead_workers(
+        owner: Dex, host: str, port: int, procs: list[Any], channels: list[Any]
+    ) -> None:
         for i, proc in enumerate(procs):
             if not proc.is_alive():
                 print(f"dexpot worker {i} exited; restarting", flush=True)
-                replacement = owner._new_worker(host, port)
-                replacement.start()
+                channel = _multiprocessing.Queue()
+                replacement = owner._new_worker(host, port, channel)
                 procs[i] = replacement
+                channels[i] = channel
+                procs[i] = owner._start_ready_worker(
+                    owner,
+                    replacement,
+                    channel,
+                    host,
+                    port,
+                    on_started=lambda started, index=i: procs.__setitem__(index, started),
+                )
 
     @staticmethod
     def _teardown(procs: list[Any]) -> None:
@@ -939,25 +1044,42 @@ class Dex:
                     proc.kill()
                     proc.join(timeout=1)
 
-    def _worker_process(self, host: str, port: int) -> None:
-        """Child entrypoint: create a process-local listener, serve, then drain."""
-        self._bind_runtime()
-        self._stopping.clear()
-        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        listener.bind((host, port))
-        listener.listen(SOCKET_BACKLOG)
-        listener.settimeout(0.5)
-
-        def stop(*_args: object) -> None:
-            self._stopping.set()
-
-        signal.signal(signal.SIGTERM, stop)
-        signal.signal(signal.SIGINT, stop)
-
-        self._start_gil_workers(listener)
+    def _worker_process(self, host: str, port: int, ready: Any = None) -> None:
+        """Child entrypoint: acquire resources, acknowledge readiness, then drain."""
         try:
+            with self._lifecycle_signals(), self._acquire_lifecycle():
+                if not self._stopping.is_set():
+                    self._worker_process_serving(host, port, ready)
+        except BaseException as exc:
+            if ready is not None:
+                with contextlib.suppress(Exception):
+                    ready.put(("fatal", f"{type(exc).__name__}: {exc}"))
+            raise
+
+    def _worker_process_serving(self, host: str, port: int, ready: Any = None) -> None:
+        self._bind_runtime()
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            try:
+                listener.bind((host, port))
+                listener.listen(SOCKET_BACKLOG)
+            except OSError as exc:
+                if ready is not None:
+                    ready.put(("bind_error", str(exc)))
+                return
+            listener.settimeout(0.5)
+
+            def stop(*_args: object) -> None:
+                self._stopping.set()
+
+            signal.signal(signal.SIGTERM, stop)
+            signal.signal(signal.SIGINT, stop)
+
+            self._start_gil_workers(listener)
+            if ready is not None:
+                ready.put(("ready", ""))
             while not self._stopping.is_set():
                 try:
                     conn, _addr = listener.accept()

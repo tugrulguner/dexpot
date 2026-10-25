@@ -177,3 +177,13 @@ nested static defaults at registration. Schemas containing custom types or `__po
 immutable header snapshots, status/header bounds, server-owned framing, tuple compatibility,
 HEAD and 204/205/304 behavior, sanitized failures, and pipelined keep-alive recovery. Raw output
 cannot bypass checked schemas. Maintain real-socket regressions for these contracts.
+
+
+### Paired application lifecycle
+
+`Dex.lifespan(factory)` registers synchronous context-manager factories, without calling them
+during registration or compilation. Each serving process acquires its own resources before
+accepting traffic and unwinds them in reverse order on shutdown or startup failure. Under GIL
+process fan-out each child owns a separate resource set; FT connection threads share one
+process-local set, which must be thread-safe. Shutdown's connection drain is bounded and Python
+threads cannot safely be forcibly cancelled.

@@ -523,6 +523,9 @@ pip install "dexpot[cli]"   # framework runtime + dexpot command
 
 ## Examples
 
+Application resources can use synchronous `app.lifespan(factory)` context managers. Factories are acquired once per serving process before traffic and normally cleaned up in reverse order after handlers finish. Shutdown waits for a bounded drain deadline; surviving handlers keep their connections and resources until quiescence. Deferred cleanup runs on the last finishing handler's thread, so lifecycle managers must support cleanup from a different thread than acquisition. Forced process termination may skip Python cleanup. GIL worker processes own separate resources, while free-threaded worker threads share process-local resources; see [the runnable lifecycle example](examples/README.md#paired-application-lifecycle).
+
+
 The runnable progression under [`examples/`](examples/README.md) exercises the shipped framework
 through its real socket server:
 
@@ -532,7 +535,8 @@ through its real socket server:
 - [`typed_crud.py`](examples/typed_crud.py): thread-safe shared state, typed JSON writes, and a
   complete create/read/update/delete lifecycle; and
 - [`bounded_api.py`](examples/bounded_api.py): custom `HttpLimits`, 413/422 failures, 405
-  method handling, and `/context` with an explicit factory-local annotation namespace.
+  method handling, and `/context` with an explicit factory-local annotation namespace; and
+- [`lifecycle.py`](examples/lifecycle.py): paired process-scoped resource setup and cleanup.
 
 Each example runs directly with `uv run python examples/<name>.py`, and the test suite launches
 every example as a subprocess and validates its public HTTP behavior. Examples will continue to

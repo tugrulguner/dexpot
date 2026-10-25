@@ -247,8 +247,8 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
 
 #### 3.3 Paired lifecycle and typed input sources
 
-- Add one synchronous paired acquisition/cleanup mechanism with reverse-order teardown and
-  partial-startup rollback before accepting traffic.
+- **Implemented:** `Dex.lifespan(factory)` registers synchronous context-manager factories; serving processes acquire them before accepting traffic and unwind in reverse order on shutdown or partial startup. GIL processes acquire independently; FT serving threads share the process-local resources. See README and `examples/README.md`.
+- Add typed input sources and continue the remaining work below.
 - Distinguish process/application, worker/thread, connection, and request lifetimes. A leased
   database connection need not have the sharing rules of its pool; a process-local singleton
   is not shared state across workers.
