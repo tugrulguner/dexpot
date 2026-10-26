@@ -69,6 +69,32 @@ def power_snapshot(governor=Path("/sys/devices/system/cpu/cpu0/cpufreq/scaling_g
     }
 
 
+def collect_cohorts(matrix, pair, harness, enabled_harness):
+    expected = [cell["id"] for cell in matrix]
+    aa = [
+        pair(cell, "aa", [("left", "main", harness), ("right", "main", harness)], bool(index % 2))
+        for index, cell in enumerate(matrix)
+    ]
+    if not passed(aa, expected):
+        return aa, [], None
+    ab = [
+        pair(cell, "ab", [("main", "main", harness), ("pr", "pr", harness)], bool(index % 2))
+        for index, cell in enumerate(matrix)
+    ]
+    if not passed(ab, expected):
+        return aa, ab, None
+    enabled = [
+        pair(
+            cell,
+            "enabled",
+            [("main", "main", enabled_harness), ("enabled", "pr", enabled_harness)],
+            bool(index % 2),
+        )
+        for index, cell in enumerate(matrix)
+    ]
+    return aa, ab, enabled
+
+
 def main():
     repo = Path(__file__).resolve().parents[1]
     root = Path(os.environ["RUNNER_TEMP"]) / "dexpot-lifecycle-qualification"
@@ -129,7 +155,7 @@ def main():
             "original_plan": original,
             "cells": expected,
             "no_retries": True,
-            "schedule": "each cell: AA then AB; reverse side order on odd cell indices",
+            "schedule": "all12 AA first; only if passing all12 AB; reverse side order on odd cell indices",
             "enabled_condition": "all 12 AA and all 12 AB pass; otherwise not qualified",
             "enabled_schedule": "all 12 enabled/main pairs, same reversed order",
             "decision": "all cells pass unchanged numerical and resource budgets",
@@ -304,27 +330,7 @@ if _supports_lifespan:
         save(evidence / (cell["id"] + "-" + cohort + ".result.json"), row)
         return row
 
-    aa, ab = [], []
-    for index, cell in enumerate(original["matrix"]):
-        aa.append(
-            pair(
-                cell, "aa", [("left", "main", harness), ("right", "main", harness)], bool(index % 2)
-            )
-        )
-        ab.append(
-            pair(cell, "ab", [("main", "main", harness), ("pr", "pr", harness)], bool(index % 2))
-        )
-    enabled = None
-    if passed(aa, expected) and passed(ab, expected):
-        enabled = [
-            pair(
-                cell,
-                "enabled",
-                [("main", "main", enabled_harness), ("enabled", "pr", enabled_harness)],
-                bool(index % 2),
-            )
-            for index, cell in enumerate(original["matrix"])
-        ]
+    aa, ab, enabled = collect_cohorts(original["matrix"], pair, harness, enabled_harness)
     verdict = decide(aa, ab, enabled, expected)
     save(
         evidence / "results.json",
@@ -333,6 +339,9 @@ if _supports_lifespan:
             "source_base": BASE,
             "source_head": HEAD,
             "expected_cells_each": 12,
+            "completed_aa": len(aa),
+            "completed_ab": len(ab),
+            "completed_enabled": len(enabled) if enabled is not None else 0,
             "aa": aa,
             "ab": ab,
             "enabled": enabled,
