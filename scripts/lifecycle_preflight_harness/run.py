@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     import psutil
 
 ROOT = Path(__file__).resolve().parent
+ChildrenObserver = runpy.run_path(str(ROOT / "process_observer.py"))["ChildrenObserver"]
 PREFLIGHT_LIMITS = {"DEXPOT_POOL": "2", "DEXPOT_MAX_QUEUE": "2", "DEXPOT_MAX_CONNECTIONS": "4"}
 FLAT = b'{"id":7,"name":"item-7","price":9.99}'
 PROBE = """
@@ -230,7 +231,7 @@ def preflight(python: str, env: dict, log: Path, expected: dict, mode: str, froz
     return result
 
 
-def snapshot(process: "psutil.Process") -> dict:
+def snapshot(process: "psutil.Process", observer=None) -> dict:
     with process.oneshot():
         cpu = process.cpu_times()
         return {
@@ -239,7 +240,7 @@ def snapshot(process: "psutil.Process") -> dict:
             "rss": process.memory_info().rss,
             "threads": process.num_threads(),
             "fds": process.num_fds(),
-            "children": len(process.children()),
+            "children": len(process.children()) if observer is None else observer.children(process),
         }
 
 
@@ -264,6 +265,7 @@ def fingerprints(args) -> dict:
         "application": sha(ROOT / "application.py"),
         "validator": sha(ROOT / "validate.lua"),
         "runner": sha(Path(__file__)),
+        "process_observer": sha(ROOT / "process_observer.py"),
         "evaluator": sha(ROOT / "evaluate.py"),
         "plan": sha(args.plan),
         "client": sha(args.wrk),
@@ -285,6 +287,7 @@ def trial(cell: dict, plan: dict, python: str, env: dict, out: Path, args, froze
     }
     save(out / (cell["id"] + ".started.json"), {"cell": cell, "started_epoch": time.time()})
     state = {}
+    observer = ChildrenObserver()
     try:
         if fingerprints(args) != frozen:
             raise RuntimeError("frozen measurement inputs changed")
@@ -313,7 +316,7 @@ def trial(cell: dict, plan: dict, python: str, env: dict, out: Path, args, froze
             ]
             row["command"] = command
             monitor = psutil.Process(process.pid)
-            samples = [snapshot(monitor)]
+            samples = [snapshot(monitor, observer)]
             client_samples = []
             client = subprocess.Popen(
                 command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env
@@ -322,10 +325,10 @@ def trial(cell: dict, plan: dict, python: str, env: dict, out: Path, args, froze
             try:
                 client_monitor = psutil.Process(client.pid)
                 while client.poll() is None and time.monotonic() < deadline:
-                    samples.append(snapshot(monitor))
+                    samples.append(snapshot(monitor, observer))
                     with contextlib.suppress(psutil.NoSuchProcess):
                         try:
-                            client_samples.append(snapshot(client_monitor))
+                            client_samples.append(snapshot(client_monitor, observer))
                         except psutil.AccessDenied as exc:
                             if client.poll() is None:
                                 raise
@@ -358,6 +361,10 @@ def trial(cell: dict, plan: dict, python: str, env: dict, out: Path, args, froze
     except Exception as exc:
         row["error"] = repr(exc)
     finally:
+        try:
+            observer.close()
+        except Exception as exc:
+            row["error"] = f"child observer cleanup failed: {exc!r}"
         row["cleanup_pass"] = state.get("cleanup_pass", False)
         if fingerprints(args) != frozen:
             row["error"] = "measurement inputs changed during trial"
