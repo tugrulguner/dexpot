@@ -33,6 +33,33 @@ def schedule():
     ]
 
 
+def calibration_schedule(matrix):
+    return [
+        dict(
+            id=f"{cell['id']}-{side}",
+            runtime=cell["runtime"],
+            placement="disjoint",
+            side=side,
+            cell=cell,
+        )
+        for index, cell in enumerate(matrix)
+        for side in (("left", "right") if index % 2 == 0 else ("right", "left"))
+    ]
+
+
+def calibration_verdict(rows, pairs):
+    okay = (
+        len(rows) == 24
+        and len(pairs) == 12
+        and all(r["valid"] for r in rows)
+        and all(p.get("comparison") and p["comparison"]["status"] == "screen-passed" for p in pairs)
+    )
+    return {
+        "status": "calibration-only-passed" if okay else "invalid-control",
+        "candidate_qualified": False,
+    }
+
+
 def diagnostic_verdict(rows):
     status = "diagnostic-complete"
     if len(rows) != 8:
@@ -75,7 +102,10 @@ def main():
         raise RuntimeError("Linux-only diagnostic; no machine-wide setting changes")
     allowed = sorted(os.sched_getaffinity(0))
     masks = placements(allowed)
-    evidence = Path(os.environ["RUNNER_TEMP"]) / "dexpot-placement-evidence"
+    calibration = "--calibration" in sys.argv[1:]
+    evidence = Path(os.environ["RUNNER_TEMP"]) / (
+        "dexpot-placement-calibration-evidence" if calibration else "dexpot-placement-evidence"
+    )
     evidence.mkdir(exist_ok=False)
     harness = ROOT / "scripts/lifecycle_preflight_harness"
     work = evidence / "build"
@@ -101,12 +131,15 @@ def main():
         interpreters[mode] = python
     wrk = Path(shutil.which("wrk"))
     original = json.loads((harness / "plan.json").read_text())
+    selected_schedule = calibration_schedule(original["matrix"]) if calibration else schedule()
     manifest = {
-        "kind": "CPU-overlap-control-diagnostic-not-qualification",
+        "kind": "disjoint-full-control-calibration-not-candidate-qualification"
+        if calibration
+        else "CPU-overlap-control-diagnostic-not-qualification",
         "base_sha": BASE,
         "diagnostic_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         "hypothesis": "Separating client and server CPUs at equal two-CPU process budgets reduces competition; retain both adverse and invalid results.",
-        "schedule": schedule(),
+        "schedule": selected_schedule,
         "allowed_controller_cpus": allowed,
         "placements": masks,
         "duration_s": 15,
@@ -125,16 +158,20 @@ def main():
         else None,
     }
     save(evidence / "predeclared.json", manifest)
+    wrappers = work / "wrappers"
+    wrappers.mkdir()
     rows = []
-    for item in schedule():
+    for item in selected_schedule:
         trial_root = evidence / item["id"]
         trial_root.mkdir()
         mask = masks[item["placement"]]
-        python_wrapper = trial_root / "python-wrapper"
-        client_wrapper = trial_root / "wrk-wrapper"
-        launcher(python_wrapper, interpreters[item["runtime"]], mask["server"])
-        launcher(client_wrapper, wrk, mask["client"])
-        cell = {
+        python_wrapper = wrappers / (item["runtime"] + "-" + item["placement"] + "-python")
+        client_wrapper = wrappers / (item["placement"] + "-wrk")
+        if not python_wrapper.exists():
+            launcher(python_wrapper, interpreters[item["runtime"]], mask["server"])
+        if not client_wrapper.exists():
+            launcher(client_wrapper, wrk, mask["client"])
+        cell = item.get("cell") or {
             "id": f"{item['runtime']}-flat-0",
             "runtime": item["runtime"],
             "profile": "flat",
@@ -185,6 +222,14 @@ def main():
             )
         trial_path = output / (cell["id"] + ".json")
         trial = json.loads(trial_path.read_text()) if trial_path.exists() else None
+        masks_ok = (
+            masks_ok
+            and trial is not None
+            and any(
+                launch["pid"] == trial.get("runtime", {}).get("pid")
+                for launch in observed_masks["server"]
+            )
+        )
         row = dict(
             item,
             valid=result.returncode == 0
@@ -200,7 +245,38 @@ def main():
         print("OBSERVED", item["id"], row["valid"], flush=True)
     evaluator = runpy.run_path(str(harness / "evaluate.py"))
     pairs = []
-    for mode in ("gil", "ft"):
+    if calibration:
+        for cell in original["matrix"]:
+            group = {r["side"]: r for r in rows if r["cell"] == cell}
+            left, right = group["left"], group["right"]
+            comparison = None
+            if left["valid"] and right["valid"]:
+                left_manifest = json.loads(
+                    (evidence / left["id"] / "recording/manifest.json").read_text()
+                )
+                right_manifest = json.loads(
+                    (evidence / right["id"] / "recording/manifest.json").read_text()
+                )
+                keys = (
+                    "plan",
+                    "platform",
+                    "machine",
+                    "cpu_count",
+                    "psutil",
+                    "controller_python",
+                    "fingerprints",
+                    "runtime",
+                )
+                if all(left_manifest[k] == right_manifest[k] for k in keys):
+                    comparison = evaluator["compare"](
+                        dict(original, duration_s=15, matrix=[cell]),
+                        [left["trial"]],
+                        [right["trial"]],
+                    )
+                else:
+                    comparison = {"status": "invalid", "errors": ["A/A inputs differ"], "pairs": []}
+            pairs.append({"id": cell["id"], "comparison": comparison})
+    for mode in () if calibration else ("gil", "ft"):
         group = [row for row in rows if row["runtime"] == mode]
         for left, right in ((0, 1), (3, 2)):
             control, diagnostic = group[left], group[right]
@@ -221,14 +297,16 @@ def main():
                 }
             )
     final = dict(
-        diagnostic_verdict(rows),
+        calibration_verdict(rows, pairs) if calibration else diagnostic_verdict(rows),
         rows=rows,
         pairs=pairs,
-        scope="Two order-reversed pairs per runtime, flat workload only; not a complete calibration cohort, lifecycle or candidate qualification.",
+        scope="Full original 12-cell A/A under disjoint two-CPU process masks; candidate and lifecycle-enabled cohorts not run."
+        if calibration
+        else "Two order-reversed pairs per runtime, flat workload only; not a complete calibration cohort, lifecycle or candidate qualification.",
     )
     save(evidence / "results.json", final)
     print(json.dumps({k: v for k, v in final.items() if k != "rows"}, indent=2), flush=True)
-    return 0 if final["status"] == "diagnostic-complete" else 1
+    return 0 if final["status"] in ("diagnostic-complete", "calibration-only-passed") else 1
 
 
 if __name__ == "__main__":

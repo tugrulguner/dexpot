@@ -1,4 +1,4 @@
-name: Lifecycle CPU overlap diagnostic
+name: Lifecycle disjoint full calibration
 
 on:
   push:
@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   placement:
-    name: Equal-budget overlap and disjoint controls only
+    name: Complete disjoint controls only
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -37,13 +37,13 @@ jobs:
         run: >-
           "$RUNNER_TEMP/placement-driver/bin/python" -m pytest
           tests/test_placement_probe.py -q -o addopts=''
-      - name: Collect all eight predeclared records without retries
-        run: '"$RUNNER_TEMP/placement-driver/bin/python" scripts/placement_probe.py'
+      - name: Collect all 24 predeclared control records without retries
+        run: '"$RUNNER_TEMP/placement-driver/bin/python" scripts/placement_probe.py --calibration'
       - name: Preserve invalid and adverse results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: lifecycle-placement-evidence
-          path: ${{ runner.temp }}/dexpot-placement-evidence
+          name: lifecycle-placement-calibration-evidence
+          path: ${{ runner.temp }}/dexpot-placement-calibration-evidence
           retention-days: 14
           if-no-files-found: warn
