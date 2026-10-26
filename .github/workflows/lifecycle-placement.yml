@@ -1,4 +1,4 @@
-name: Lifecycle disjoint mixed stage diagnostic
+name: Routing lookup ownership HTTP diagnostic
 
 on:
   push:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   placement:
-    name: Sampled stage attribution on the losing FT mixed workload
+    name: Frozen main routing ownership ablation
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -37,17 +37,14 @@ jobs:
       - name: Test diagnostic scope and placement invariants
         run: >-
           "$RUNNER_TEMP/placement-driver/bin/python" -m pytest
-          tests/test_placement_probe.py tests/test_lifecycle_stage_probe.py tests/test_controlled_runner_stages.py -q -o addopts=''
+          tests/test_route_lookup_probe.py tests/test_route_lookup_http_probe.py -q -o addopts=''
       - name: Collect predeclared cohorts without retries
-        env:
-          DEXPOT_DISJOINT_CONTROL: "1"
-          DEXPOT_STAGE_DIAGNOSTIC: "1"
-        run: '"$RUNNER_TEMP/placement-driver/bin/python" scripts/controlled_lifecycle_qualification.py'
+        run: '"$RUNNER_TEMP/placement-driver/bin/python" scripts/route_lookup_http_probe.py --output "$RUNNER_TEMP/routing-http-evidence"'
       - name: Preserve invalid and adverse results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: lifecycle-disjoint-stage-evidence
-          path: ${{ runner.temp }}/dexpot-lifecycle-qualification/evidence
+          name: route-lookup-http-evidence
+          path: ${{ runner.temp }}/routing-http-evidence
           retention-days: 14
           if-no-files-found: warn

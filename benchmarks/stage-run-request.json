@@ -1,0 +1,16 @@
+{
+  "kind": "same-artifact-routing-ownership-ablation",
+  "source_base": "ca4979a6339e533f11ad135bc760aa081f3f60ab",
+  "schedule": ["original", "bound-shared", "local-proxy", "local-proxy", "bound-shared", "original"],
+  "duration_s": 30,
+  "runtime": "unforced CPython 3.14.7 FT",
+  "workload": "ft-mixed-1",
+  "server_cpus": [0, 1],
+  "client_cpus": [2, 3],
+  "connections": 16,
+  "native_client_threads": 4,
+  "original_budgets_retained": true,
+  "candidate_qualified": false,
+  "no_retries": true,
+  "hypothesis": "Thread-owned immutable route mappings reduce actual HTTP stalls relative to shared routing; compare binding-only separately. Retain all sides and both orders. No candidate/main or enabled qualification."
+}
