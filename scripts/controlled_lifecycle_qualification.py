@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 BASE = "ca4979a6339e533f11ad135bc760aa081f3f60ab"
-HEAD = "bfebdd64305460631d493b4f2006753cb67db4bf"
+HEAD = "6b27600f131ca8fd1b4d2a14467a92464f3c1935"
 
 
 def save(path, value):

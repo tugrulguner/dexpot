@@ -1,0 +1,17 @@
+{
+  "kind": "lifecycle-control-plane-original-gates",
+  "source_base": "ca4979a6339e533f11ad135bc760aa081f3f60ab",
+  "source_candidate": "6b27600f131ca8fd1b4d2a14467a92464f3c1935",
+  "protocol": "Original complete 12-cell identical-main controls, then all 12 candidate/main pairs only if controls pass, then all 12 enabled/main pairs only if candidate gate passes.",
+  "duration_s_per_side": 15,
+  "order": "reverse the adjacent pair on odd cell indices",
+  "no_retries": true,
+  "stage_instrumentation": false,
+  "server_mask": "first two allowed CPUs",
+  "client_mask": "next two allowed CPUs; disjoint and equal budget",
+  "min_goodput_ratio": 0.9,
+  "max_adjusted_p99_ratio": 1.25,
+  "resource_budgets": "unchanged plan.json",
+  "enabled_api": "app.lifespan(factory) registration; acquisition is performed by app.serve",
+  "prior_evidence": "Retain all failed old-candidate, stage, routing and earlier calibration observations; this campaign does not erase them."
+}
