@@ -57,6 +57,18 @@ def self_test():
     print("orchestration verdict self-test passed (not benchmark evidence)")
 
 
+def power_snapshot(governor=Path("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")):
+    if sys.platform == "darwin":
+        return {
+            "platform": sys.platform,
+            "pmset": subprocess.check_output(["pmset", "-g", "custom"], text=True),
+        }
+    return {
+        "platform": sys.platform,
+        "cpu0_governor": governor.read_text().strip() if governor.is_file() else None,
+    }
+
+
 def main():
     repo = Path(__file__).resolve().parents[1]
     root = Path(os.environ["RUNNER_TEMP"]) / "dexpot-lifecycle-qualification"
@@ -127,7 +139,7 @@ def main():
             "validator_sha256": hashlib.sha256((harness / "validate.lua").read_bytes()).hexdigest(),
             "wrk_sha256": hashlib.sha256(Path(wrk).read_bytes()).hexdigest(),
             "runtime": subprocess.check_output(["uname", "-a"], text=True),
-            "power_read_only": subprocess.check_output(["pmset", "-g", "custom"], text=True),
+            "power_read_only": power_snapshot(),
         },
     )
     enabled_harness = root / "enabled-harness"
