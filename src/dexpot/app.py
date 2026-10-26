@@ -620,8 +620,9 @@ class Dex:
             if self._active_connections or not self._deferred_lifecycle_stacks:
                 return
             stacks, self._deferred_lifecycle_stacks = self._deferred_lifecycle_stacks, []
-        for stack in reversed(stacks):
-            stack.close()
+        with contextlib.ExitStack() as cleanup:
+            for stack in stacks:
+                cleanup.callback(stack.close)
 
     def _worker_gil(self) -> None:
         cond = self._cond

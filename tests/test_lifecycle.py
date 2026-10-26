@@ -32,6 +32,43 @@ def test_deadline_retains_lifecycle_resources_while_handler_remains_active() -> 
     assert events == ["enter", "exit"]
 
 
+def test_deferred_cleanup_failure_does_not_strand_earlier_resources() -> None:
+    events: list[str] = []
+    app = Dex()
+    acquisitions = 0
+
+    @contextlib.contextmanager
+    def resource():
+        nonlocal acquisitions
+        acquisitions += 1
+        generation = acquisitions
+        events.append(f"enter-{generation}")
+        try:
+            yield
+        finally:
+            events.append(f"exit-{generation}")
+            if generation == 2:
+                raise RuntimeError("second cleanup failed")
+
+    app.lifespan(resource)
+    marker = object()
+    with app._cond:
+        app._active_connections.add(marker)  # type: ignore[arg-type]
+    for _ in range(2):
+        with app._acquire_lifecycle():
+            pass
+    assert events == ["enter-1", "enter-2"]
+    assert len(app._deferred_lifecycle_stacks) == 2
+    with app._cond:
+        app._active_connections.remove(marker)  # type: ignore[arg-type]
+    with pytest.raises(RuntimeError, match="second cleanup failed"):
+        app._release_deferred_lifecycle()
+    assert events == ["enter-1", "enter-2", "exit-2", "exit-1"]
+    assert app._deferred_lifecycle_stacks == []
+    app._release_deferred_lifecycle()
+    assert events == ["enter-1", "enter-2", "exit-2", "exit-1"]
+
+
 def test_lifecycle_factories_are_frozen_and_cleanup_in_reverse_order() -> None:
     events: list[str] = []
     app = Dex()

@@ -19,7 +19,9 @@ def test_recorded_baseline_is_complete_and_matches_the_frozen_harness():
     for key, name in {
         "application": "application.py",
         "validator": "validate.lua",
-        "runner": "run.py",
+        # The historical measurement keeps its original input, not a rewritten
+        # fingerprint claiming it was collected with today's teardown repair.
+        "runner": "baseline-macos-v071-runner.py.txt",
         "evaluator": "evaluate.py",
         "plan": "plan.json",
     }.items():

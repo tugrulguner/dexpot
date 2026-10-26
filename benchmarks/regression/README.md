@@ -11,7 +11,11 @@ screen.
 v0.7.1 matrix: **12/12 valid trials and 3,709,985 exact successful replies**, with zero bad
 bodies or transport errors. Both modes passed connection churn, overload and owned-listener
 cleanup checks. Source/client/wheel hashes, per-trial record hashes, resource observations
-and all repeat ranges are included.
+and all repeat ranges are included. Its exact runner is retained in
+[`baseline-macos-v071-runner.py.txt`](baseline-macos-v071-runner.py.txt); the recorded
+fingerprint and measurements are unchanged. Current `run.py` additionally fails closed
+on denied process-group liveness probes. Historical records do not acquire that repair
+retroactively: new comparisons still require matching recorded harness fingerprints.
 
 The earlier pool-eight generation remains invalid: two GIL mixed trials did not execute
 all required route cohorts. Its failures are retained in the summary, not replaced by
