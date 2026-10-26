@@ -17,6 +17,9 @@ class Worker:
     def join(self, timeout: float | None = None) -> None:
         pass
 
+    def is_alive(self) -> bool:
+        return False
+
 
 class Channel:
     def __init__(self) -> None:

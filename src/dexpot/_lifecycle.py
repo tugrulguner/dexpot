@@ -300,9 +300,19 @@ class LifecycleRunner:
                 return proc
             if status == "ready":
                 return proc
-            proc.join(timeout=0.2)
             if status != "bind_error":
+                proc.join(timeout=0.2)
                 raise RuntimeError(f"dexpot worker initialization failed: {detail}")
+            # A readiness message does not prove native process exit. Retain
+            # the old slot until it is reaped, including slow queue shutdown.
+            while proc.is_alive():
+                if owner._stopping.is_set():
+                    return proc
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise RuntimeError("dexpot worker did not exit after listener bind failure")
+                proc.join(timeout=min(0.05, remaining))
+            proc.join(timeout=0)
             if time.monotonic() >= deadline:
                 raise RuntimeError(f"dexpot worker listener bind failed: {detail}")
             if owner._stopping.wait(0.05):
@@ -353,15 +363,20 @@ class LifecycleRunner:
         """Child entrypoint: acquire resources, acknowledge readiness, then drain."""
         try:
             stopped_before_listening = False
+            startup_result = None
             with self._lifecycle_signals(), self._acquire_lifecycle():
                 if self._stopping.is_set():
                     stopped_before_listening = True
                 else:
-                    self._worker_process_serving(host, port, ready)
+                    startup_result = self._worker_process_serving(host, port, ready)
             if stopped_before_listening and ready is not None:
                 # Report cancellation only after acquisition has unwound. It is
                 # neither successful readiness nor a retryable bind failure.
                 ready.put(("stopped", ""))
+            elif startup_result is not None and ready is not None:
+                # A failed bind is retryable only after listener and resource
+                # cleanup succeeds. Cleanup exceptions instead report fatal.
+                ready.put(startup_result)
         except BaseException as exc:
             if ready is not None:
                 with contextlib.suppress(Exception):
@@ -373,7 +388,9 @@ class LifecycleRunner:
             if worker is not None:
                 worker.join()
 
-    def _worker_process_serving(self, host: str, port: int, ready: Any = None) -> None:
+    def _worker_process_serving(
+        self, host: str, port: int, ready: Any = None
+    ) -> tuple[str, str] | None:
         self._bind_runtime()
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
@@ -383,9 +400,7 @@ class LifecycleRunner:
                 listener.bind((host, port))
                 listener.listen(SOCKET_BACKLOG)
             except OSError as exc:
-                if ready is not None:
-                    ready.put(("bind_error", str(exc)))
-                return
+                return "bind_error", str(exc)
             listener.settimeout(0.5)
 
             def stop(*_args: object) -> None:
