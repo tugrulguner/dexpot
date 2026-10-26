@@ -133,6 +133,21 @@ class Dex:
         self._max_queue = MAX_QUEUE
         self._runtime_mode_warning_logged = False
 
+    def lifespan(self, factory: Callable[[], Any]) -> Callable[[], Any]:
+        """Register a synchronous, process-local serving resource factory."""
+        if not callable(factory):
+            raise TypeError("lifespan factory must be callable")
+        with self._declaration_lock:
+            state = getattr(self, "_lifecycle", None)
+            if self._plan is not None or (state is not None and state._lifecycle_frozen):
+                raise RuntimeError("lifespan factories are frozen after application compilation")
+            if state is None:
+                from ._lifecycle import LifecycleRunner
+
+                state = self._lifecycle = LifecycleRunner(self)
+            state._lifecycle_factories.append(factory)
+        return factory
+
     def _bind_runtime(self) -> None:
         """Bind the scheduler once after application imports, before route compilation."""
         global _FT_CONNECTION_SLOTS
@@ -750,6 +765,10 @@ class Dex:
         return srv
 
     def serve(self, host: str = "127.0.0.1", port: int = 8000) -> None:
+        state = getattr(self, "_lifecycle", None)
+        if state is not None:
+            state.serve(host, port)
+            return
         self._bind_runtime()
         self._compile()
         workers_env = os.environ.get("DEXPOT_WORKERS", "")

@@ -122,3 +122,75 @@ def proc_pids(parent_pid: int) -> set[str]:
         ["pgrep", "-P", str(parent_pid)], capture_output=True, text=True, check=False
     )
     return {line for line in out.stdout.split() if line}
+
+
+@pytest.mark.skipif(not _GIL_ENABLED, reason="free-threaded mode intentionally uses one process")
+def test_worker_replacement_reacquires_process_lifecycle(tmp_path):
+    port = _free_port()
+    trace = tmp_path / "resources.log"
+    app = tmp_path / "application.py"
+    app.write_text(
+        "import contextlib, os, pathlib\n"
+        "from dexpot import Dex\n"
+        f"trace = pathlib.Path({str(trace)!r})\n"
+        "app = Dex()\n"
+        "@contextlib.contextmanager\n"
+        "def resource():\n"
+        "    with trace.open('a') as stream: stream.write(f'{os.getpid()} enter\\n')\n"
+        "    try: yield\n"
+        "    finally:\n"
+        "        with trace.open('a') as stream: stream.write(f'{os.getpid()} exit\\n')\n"
+        "app.lifespan(resource)\n"
+        "@app.get('/health')\n"
+        "def health(): return {'ok': True}\n"
+        "app.serve('127.0.0.1', int(os.environ['LIFECYCLE_TEST_PORT']))\n"
+    )
+    env = os.environ.copy()
+    env["DEXPOT_WORKERS"] = "2"
+    env["LIFECYCLE_TEST_PORT"] = str(port)
+    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1] / "src")
+    supervisor = subprocess.Popen(
+        [sys.executable, str(app)], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    try:
+        pids: set[int] = set()
+        entered: set[int] = set()
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            if supervisor.poll() is not None:
+                pytest.fail("supervisor exited before workers became ready")
+            try:
+                healthy = (
+                    httpx.get(f"http://127.0.0.1:{port}/health", timeout=0.5).status_code == 200
+                )
+            except httpx.HTTPError:
+                healthy = False
+            if healthy:
+                pids = {int(pid) for pid in proc_pids(supervisor.pid)}
+                lines = trace.read_text().splitlines() if trace.exists() else []
+                entered = {int(line.split()[0]) for line in lines if line.endswith(" enter")}
+                if len(pids) >= 2 and len(entered) >= 2:
+                    break
+            time.sleep(0.1)
+        assert len(pids) >= 2 and len(entered) >= 2
+        killed = next(iter(pids))
+        os.kill(killed, signal.SIGTERM)
+        current: set[int] = set()
+        entered: set[int] = set()
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            current = {int(pid) for pid in proc_pids(supervisor.pid)}
+            lines = trace.read_text().splitlines()
+            entered = {int(line.split()[0]) for line in lines if line.endswith(" enter")}
+            if len(current) >= 2 and killed not in current and len(entered) >= 3:
+                break
+            time.sleep(0.1)
+        assert len(current) >= 2 and killed not in current and len(entered) >= 3
+    finally:
+        if supervisor.poll() is None:
+            supervisor.send_signal(signal.SIGTERM)
+            supervisor.wait(timeout=12)
+    lines = trace.read_text().splitlines()
+    enters = [line.split()[0] for line in lines if line.endswith(" enter")]
+    exits = [line.split()[0] for line in lines if line.endswith(" exit")]
+    assert len(enters) == len(exits)

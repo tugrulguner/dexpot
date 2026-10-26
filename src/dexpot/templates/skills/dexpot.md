@@ -250,3 +250,19 @@ Before calling a dexpot application change complete:
 - real HTTP success and failure paths pass; and
 - scheduler or concurrency claims include the Python version and
   `getattr(sys, "_is_gil_enabled", lambda: True)()` evidence.
+
+
+## Application lifecycle
+
+Runnable example inventory: `minimal.py`, `typed_crud.py`, `bounded_api.py`, `response_policy.py`, and `lifecycle.py` (run from the repository with `uv run python examples/<name>.py`).
+
+Register process-scoped synchronous resource managers with `app.lifespan(factory)`. Factories
+are not called during registration or compilation; each serving process enters them before
+accepting traffic and exits in reverse order. GIL worker processes acquire independently;
+free-threaded connection threads share the process-local resources, which must be thread-safe.
+Partial startup unwinds resources already entered. Shutdown has a bounded drain and Python
+handler threads cannot safely be forcibly cancelled. When a handler outlives that deadline,
+resources remain acquired until the last handler finishes; deferred cleanup runs on a temporary
+lifecycle finalizer thread, not a connection owner or necessarily the acquisition thread. Deferred
+cleanup errors are logged while every registered exit is attempted. Managers requiring enter/exit thread affinity
+are unsupported. Forced process termination may skip Python cleanup.
