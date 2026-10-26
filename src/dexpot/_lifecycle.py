@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import queue
 import signal
 import socket
 import threading
@@ -274,13 +275,29 @@ class LifecycleRunner:
         """
         deadline = time.monotonic() + 3.0
         while True:
+            if owner._stopping.is_set():
+                return proc
             proc.start()
             if on_started is not None:
                 on_started(proc)
-            try:
-                status, detail = channel.get(timeout=max(0.0, deadline - time.monotonic()))
-            except Exception as exc:
-                raise RuntimeError("dexpot worker did not acknowledge readiness") from exc
+            while True:
+                if owner._stopping.is_set():
+                    return proc
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise RuntimeError("dexpot worker did not acknowledge readiness")
+                try:
+                    status, detail = channel.get(timeout=min(0.05, remaining))
+                    break
+                except queue.Empty:
+                    continue
+                except Exception as exc:
+                    if owner._stopping.is_set():
+                        return proc
+                    raise RuntimeError("dexpot worker did not acknowledge readiness") from exc
+            if status == "stopped":
+                owner._stopping.set()
+                return proc
             if status == "ready":
                 return proc
             proc.join(timeout=0.2)
@@ -288,7 +305,8 @@ class LifecycleRunner:
                 raise RuntimeError(f"dexpot worker initialization failed: {detail}")
             if time.monotonic() >= deadline:
                 raise RuntimeError(f"dexpot worker listener bind failed: {detail}")
-            time.sleep(0.05)
+            if owner._stopping.wait(0.05):
+                return proc
             proc = owner._new_worker(host, port, channel)
 
     @staticmethod
@@ -296,6 +314,8 @@ class LifecycleRunner:
         owner: LifecycleRunner, host: str, port: int, procs: list[Any], channels: list[Any]
     ) -> None:
         for i, proc in enumerate(procs):
+            if owner._stopping.is_set():
+                return
             if not proc.is_alive():
                 print(f"dexpot worker {i} exited; restarting", flush=True)
                 channel = _multiprocessing.Queue()
@@ -332,9 +352,16 @@ class LifecycleRunner:
     def _worker_process(self, host: str, port: int, ready: Any = None) -> None:
         """Child entrypoint: acquire resources, acknowledge readiness, then drain."""
         try:
+            stopped_before_listening = False
             with self._lifecycle_signals(), self._acquire_lifecycle():
-                if not self._stopping.is_set():
+                if self._stopping.is_set():
+                    stopped_before_listening = True
+                else:
                     self._worker_process_serving(host, port, ready)
+            if stopped_before_listening and ready is not None:
+                # Report cancellation only after acquisition has unwound. It is
+                # neither successful readiness nor a retryable bind failure.
+                ready.put(("stopped", ""))
         except BaseException as exc:
             if ready is not None:
                 with contextlib.suppress(Exception):
