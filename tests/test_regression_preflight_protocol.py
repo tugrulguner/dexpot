@@ -48,13 +48,17 @@ def test_preflight_reports_successful_cleanup_after_an_overload_error(monkeypatc
     assert result["cleanup_pass"], "cleanup succeeded even though the overload check failed"
 
 
-@pytest.mark.parametrize("mode", ["gil", "ft"])
-def test_preflight_waits_for_churn_quiescence_before_filling_capacity(monkeypatch, tmp_path, mode):
+@pytest.mark.parametrize(
+    ("mode", "worker_start_delayed"), [("gil", False), ("gil", True), ("ft", False)]
+)
+def test_preflight_waits_for_churn_quiescence_before_filling_capacity(
+    monkeypatch, tmp_path, mode, worker_start_delayed
+):
     api = runpy.run_path(str(ROOT / "scripts/lifecycle_preflight_harness/run.py"))
     preflight = api["preflight"]
     scope = preflight.__globals__
     state = {"runtime": {}, "cleanup_pass": False}
-    world = {"prior": True, "barrier": False, "snapshots": 0}
+    world = {"prior": True, "barrier": False, "snapshots": 0, "claimed": False}
     peers = []
 
     def occupancy():
@@ -69,7 +73,8 @@ def test_preflight_waits_for_churn_quiescence_before_filling_capacity(monkeypatc
 
     class Peer:
         def __init__(self):
-            self.accepted = occupancy() < 4
+            queued = sum(peer.accepted for peer in peers) - int(world["claimed"])
+            self.accepted = queued < 2 if worker_start_delayed else occupancy() < 4
             self.rejected = not self.accepted
             peers.append(self)
 
@@ -81,10 +86,15 @@ def test_preflight_waits_for_churn_quiescence_before_filling_capacity(monkeypatc
 
         def read(self):
             total = occupancy()
+            active = (
+                int(world["prior"]) + int(world["barrier"]) + int(world["claimed"])
+                if worker_start_delayed
+                else min(2, total)
+            )
             return json.dumps(
                 {
-                    "active": total if mode == "ft" else min(2, total),
-                    "queued": 0 if mode == "ft" else max(0, total - 2),
+                    "active": total if mode == "ft" else active,
+                    "queued": 0 if mode == "ft" else total - active,
                     "available_ft": 4 - total if mode == "ft" else None,
                     "live_ft_owners": total if mode == "ft" else None,
                 }
@@ -100,6 +110,8 @@ def test_preflight_waits_for_churn_quiescence_before_filling_capacity(monkeypatc
             world["snapshots"] += 1
             if world["snapshots"] >= 2:
                 world["prior"] = False
+            if worker_start_delayed and any(peer.accepted for peer in peers):
+                world["claimed"] = True
 
         def getresponse(self):
             return Response()
@@ -128,6 +140,9 @@ def test_preflight_waits_for_churn_quiescence_before_filling_capacity(monkeypatc
     monkeypatch.setattr(scope["http"].client, "HTTPConnection", Barrier)
     monkeypatch.setattr(scope["socket"], "create_connection", lambda *args, **kwargs: Peer())
     monkeypatch.setattr(scope["time"], "sleep", lambda _: None)
+    if worker_start_delayed:
+        clock = iter(range(10000))
+        monkeypatch.setattr(scope["time"], "monotonic", lambda: next(clock))
     result = preflight("python", {}, tmp_path / "preflight.log", {}, mode, {})
     assert result["overload_pass"], result
     assert "error" not in result
