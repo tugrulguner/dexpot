@@ -169,7 +169,10 @@ def server(python: str, env: dict, log: Path):
                 )
 
 
-def _wait_preflight_state(connection, mode: str, *, full: bool) -> dict:
+def _wait_preflight_state(
+    connection, mode: str, *, full: bool = False, occupied: int | None = None
+) -> dict:
+    positions = occupied if occupied is not None else (4 if full else 1)
     deadline = time.monotonic() + 2
     while True:
         connection.request("GET", "/_preflight")
@@ -179,9 +182,9 @@ def _wait_preflight_state(connection, mode: str, *, full: bool) -> dict:
             raise RuntimeError("preflight admission observer did not succeed")
         observed = json.loads(body)
         if mode == "ft":
-            desired = {"active": 4 if full else 1, "queued": 0, "live_ft_owners": 4 if full else 1}
+            desired = {"active": positions, "queued": 0, "live_ft_owners": positions}
         else:
-            desired = {"active": 2 if full else 1, "queued": 2 if full else 0}
+            desired = {"active": min(2, positions), "queued": max(0, positions - 2)}
         if all(observed.get(key) == value for key, value in desired.items()):
             return observed
         if time.monotonic() >= deadline:
@@ -205,9 +208,15 @@ def preflight(python: str, env: dict, log: Path, expected: dict, mode: str, froz
             held = []
             try:
                 result["quiescent_state"] = _wait_preflight_state(barrier, mode, full=False)
-                for _ in range(3):
+                result["admitted_states"] = []
+                for positions in range(2, 5):
                     held.append(socket.create_connection(("127.0.0.1", port), timeout=2))
-                result["saturated_state"] = _wait_preflight_state(barrier, mode, full=True)
+                    # Let an idle GIL worker claim the first peer before its
+                    # bounded queue can reject a burst of later held peers.
+                    result["admitted_states"].append(
+                        _wait_preflight_state(barrier, mode, occupied=positions)
+                    )
+                result["saturated_state"] = result["admitted_states"][-1]
                 result["overload_pass"] = request(port, "/flat")[0] == 503
             finally:
                 for connection in held:
