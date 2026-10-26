@@ -697,7 +697,8 @@ class Dex:
             with self._cond:
                 self._active_connections.discard(conn)
                 self._cond.notify_all()
-            self._release_deferred_lifecycle()
+            if self._lifecycle_factories:
+                self._release_deferred_lifecycle()
 
     def _own_connection_ft(self, conn: socket.socket, buf: bytes) -> None:
         # The admitting thread reaps/join()s this owner before returning its

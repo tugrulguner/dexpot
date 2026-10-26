@@ -143,6 +143,24 @@ def test_real_held_handler_keeps_resource_until_completion(
             conn.close()
 
 
+def test_unused_lifecycle_never_enters_completion_bookkeeping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = Dex()
+    left, right = socket.socketpair()
+
+    def forbidden() -> None:
+        pytest.fail("unused lifecycle entered completion bookkeeping")
+
+    monkeypatch.setattr(app, "_release_deferred_lifecycle", forbidden)
+    monkeypatch.setattr(app, "_process", lambda conn, buf: (False, b""))
+    try:
+        app._own_connection(left, b"")
+    finally:
+        left.close()
+        right.close()
+
+
 def test_gil_worker_completion_releases_deferred_resources() -> None:
     app = Dex()
     events: list[str] = []
