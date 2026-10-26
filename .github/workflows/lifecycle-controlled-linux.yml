@@ -39,6 +39,7 @@ jobs:
         run: >-
           "$RUNNER_TEMP/lifecycle-driver/bin/python" -m pytest
           tests/test_regression_preflight_protocol.py tests/test_controlled_runner_platform.py
+          tests/test_regression_client_collection.py tests/test_controlled_runner_stages.py
           -q -o addopts='' --basetemp "$RUNNER_TEMP/protocol-pytest"
       - name: Run frozen controls and artifact pairs
         run: '"$RUNNER_TEMP/lifecycle-driver/bin/python" scripts/controlled_lifecycle_qualification.py'
