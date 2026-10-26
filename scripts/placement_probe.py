@@ -1,0 +1,235 @@
+"""Control-only CPU-overlap probe. Never qualifies a candidate or changes runtime code."""
+
+import hashlib
+import io
+import json
+import os
+import runpy
+import shutil
+import subprocess
+import sys
+import tarfile
+from pathlib import Path
+
+BASE = "ca4979a6339e533f11ad135bc760aa081f3f60ab"
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def placements(allowed):
+    if len(set(allowed)) < 4:
+        raise ValueError("four distinct allowed CPUs required")
+    ids = sorted(set(allowed))[:4]
+    return {
+        "overlap": {"server": ids[:2], "client": ids[:2]},
+        "disjoint": {"server": ids[:2], "client": ids[2:4]},
+    }
+
+
+def schedule():
+    return [
+        {"id": f"{mode}-{index}-{placement}", "runtime": mode, "placement": placement}
+        for mode in ("gil", "ft")
+        for index, placement in enumerate(("overlap", "disjoint", "disjoint", "overlap"))
+    ]
+
+
+def diagnostic_verdict(rows):
+    status = "diagnostic-complete"
+    if len(rows) != 8:
+        status = "diagnostic-incomplete"
+    elif not all(row["valid"] for row in rows):
+        status = "diagnostic-invalid"
+    return {"status": status, "candidate_qualified": False}
+
+
+def save(path, data):
+    with path.open("x") as stream:
+        json.dump(data, stream, indent=2, allow_nan=False)
+        stream.write("\n")
+
+
+def execute(args, **kwargs):
+    print("EXEC", args, flush=True)
+    return subprocess.run(args, check=True, **kwargs)
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def launcher(path, executable, cpus):
+    # Every exec records its actual process-local mask, including native client.
+    text = (
+        "#!/usr/bin/python3\nimport os,sys,json\n"
+        f"os.sched_setaffinity(0, {set(cpus)!r})\n"
+        f"with open({str(path) + '.launches.jsonl'!r}, 'a') as f:\n"
+        " f.write(json.dumps(dict(pid=os.getpid(),affinity=sorted(os.sched_getaffinity(0)),argv=sys.argv[1:]))+'\\n')\n"
+        f"os.execv({str(executable)!r}, [{str(executable)!r}, *sys.argv[1:]])\n"
+    )
+    path.write_text(text)
+    path.chmod(0o755)
+
+
+def main():
+    if sys.platform != "linux":
+        raise RuntimeError("Linux-only diagnostic; no machine-wide setting changes")
+    allowed = sorted(os.sched_getaffinity(0))
+    masks = placements(allowed)
+    evidence = Path(os.environ["RUNNER_TEMP"]) / "dexpot-placement-evidence"
+    evidence.mkdir(exist_ok=False)
+    harness = ROOT / "scripts/lifecycle_preflight_harness"
+    work = evidence / "build"
+    work.mkdir()
+    source = work / "main-source"
+    source.mkdir()
+    raw = subprocess.check_output(["git", "archive", BASE], cwd=ROOT)
+    with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
+        archive.extractall(source, filter="data")
+    execute(["uv", "build", str(source), "--out-dir", str(work / "dist")])
+    wheel = next((work / "dist").glob("*.whl"))
+    interpreters = {}
+    for mode, version in (("gil", "3.14.7"), ("ft", "3.14.7t")):
+        env = work / mode
+        execute(["uv", "venv", "--python", version, str(env)])
+        python = env / "bin/python"
+        execute(["uv", "pip", "install", "--python", str(python), str(wheel), "msgspec==0.22.0"])
+        command = [str(python), str(ROOT / "scripts/verify_runtime_mode.py"), "--expect", mode]
+        if mode == "ft":
+            command.append("--negative-extension")
+        with (evidence / f"{mode}-runtime.log").open("x") as log:
+            execute(command, cwd=evidence, stdout=log, stderr=subprocess.STDOUT)
+        interpreters[mode] = python
+    wrk = Path(shutil.which("wrk"))
+    original = json.loads((harness / "plan.json").read_text())
+    manifest = {
+        "kind": "CPU-overlap-control-diagnostic-not-qualification",
+        "base_sha": BASE,
+        "diagnostic_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+        "hypothesis": "Separating client and server CPUs at equal two-CPU process budgets reduces competition; retain both adverse and invalid results.",
+        "schedule": schedule(),
+        "allowed_controller_cpus": allowed,
+        "placements": masks,
+        "duration_s": 15,
+        "no_retries": True,
+        "candidate_qualified": False,
+        "original_plan": original,
+        "wheel_sha256": sha(wheel),
+        "native_wrk_sha256": sha(wrk),
+        "validator_sha256": sha(harness / "validate.lua"),
+        "runner_sha256": sha(harness / "run.py"),
+        "evaluator_sha256": sha(harness / "evaluate.py"),
+        "governor": Path("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
+        .read_text()
+        .strip()
+        if Path("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor").exists()
+        else None,
+    }
+    save(evidence / "predeclared.json", manifest)
+    rows = []
+    for item in schedule():
+        trial_root = evidence / item["id"]
+        trial_root.mkdir()
+        mask = masks[item["placement"]]
+        python_wrapper = trial_root / "python-wrapper"
+        client_wrapper = trial_root / "wrk-wrapper"
+        launcher(python_wrapper, interpreters[item["runtime"]], mask["server"])
+        launcher(client_wrapper, wrk, mask["client"])
+        cell = {
+            "id": f"{item['runtime']}-flat-0",
+            "runtime": item["runtime"],
+            "profile": "flat",
+            "repeat": 0,
+        }
+        plan = dict(original, duration_s=15, matrix=[cell])
+        save(trial_root / "plan.json", plan)
+        output = trial_root / "recording"
+        command = [
+            sys.executable,
+            str(harness / "run.py"),
+            "record",
+            "--plan",
+            str(trial_root / "plan.json"),
+            "--python-" + item["runtime"],
+            str(python_wrapper),
+            "--wheel",
+            str(wheel),
+            "--wrk",
+            str(client_wrapper),
+            "--output",
+            str(output),
+        ]
+        result = subprocess.run(command, capture_output=True, text=True, cwd=evidence)
+        save(
+            trial_root / "command.json",
+            {
+                "command": command,
+                "returncode": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+            },
+        )
+        report_path = output / "report.json"
+        report = json.loads(report_path.read_text()) if report_path.exists() else None
+        observed_masks = {}
+        masks_ok = True
+        for label, wrapper in (("server", python_wrapper), ("client", client_wrapper)):
+            path = Path(str(wrapper) + ".launches.jsonl")
+            launches = (
+                [json.loads(line) for line in path.read_text().splitlines()]
+                if path.exists()
+                else []
+            )
+            observed_masks[label] = launches
+            masks_ok = (
+                masks_ok and bool(launches) and all(x["affinity"] == mask[label] for x in launches)
+            )
+        trial_path = output / (cell["id"] + ".json")
+        trial = json.loads(trial_path.read_text()) if trial_path.exists() else None
+        row = dict(
+            item,
+            valid=result.returncode == 0
+            and report is not None
+            and report["status"] == "baseline-recorded"
+            and masks_ok,
+            effective_masks=observed_masks,
+            report=report,
+            trial=trial,
+        )
+        save(trial_root / "result.json", row)
+        rows.append(row)
+        print("OBSERVED", item["id"], row["valid"], flush=True)
+    evaluator = runpy.run_path(str(harness / "evaluate.py"))
+    pairs = []
+    for mode in ("gil", "ft"):
+        group = [row for row in rows if row["runtime"] == mode]
+        for left, right in ((0, 1), (3, 2)):
+            control, diagnostic = group[left], group[right]
+            comparison = None
+            if control["valid"] and diagnostic["valid"]:
+                cell = control["trial"]["cell"]
+                comparison = evaluator["compare"](
+                    dict(original, duration_s=15, matrix=[cell]),
+                    [control["trial"]],
+                    [diagnostic["trial"]],
+                )
+            pairs.append(
+                {
+                    "overlap": control["id"],
+                    "disjoint": diagnostic["id"],
+                    "ratio_direction": "disjoint/overlap",
+                    "comparison": comparison,
+                }
+            )
+    final = dict(
+        diagnostic_verdict(rows),
+        rows=rows,
+        pairs=pairs,
+        scope="Two order-reversed pairs per runtime, flat workload only; not a complete calibration cohort, lifecycle or candidate qualification.",
+    )
+    save(evidence / "results.json", final)
+    print(json.dumps({k: v for k, v in final.items() if k != "rows"}, indent=2), flush=True)
+    return 0 if final["status"] == "diagnostic-complete" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
