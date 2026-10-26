@@ -1,4 +1,4 @@
-name: Lifecycle disjoint full calibration
+name: Lifecycle disjoint staged qualification
 
 on:
   push:
@@ -13,9 +13,9 @@ concurrency:
 
 jobs:
   placement:
-    name: Complete disjoint controls only
+    name: Full controls then candidate and enabled cohorts
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -37,13 +37,15 @@ jobs:
         run: >-
           "$RUNNER_TEMP/placement-driver/bin/python" -m pytest
           tests/test_placement_probe.py -q -o addopts=''
-      - name: Collect all 24 predeclared control records without retries
-        run: '"$RUNNER_TEMP/placement-driver/bin/python" scripts/placement_probe.py --calibration'
+      - name: Collect predeclared cohorts without retries
+        env:
+          DEXPOT_DISJOINT_CONTROL: "1"
+        run: '"$RUNNER_TEMP/placement-driver/bin/python" scripts/controlled_lifecycle_qualification.py'
       - name: Preserve invalid and adverse results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: lifecycle-placement-calibration-evidence
-          path: ${{ runner.temp }}/dexpot-placement-calibration-evidence
+          name: lifecycle-disjoint-staged-evidence
+          path: ${{ runner.temp }}/dexpot-lifecycle-qualification/evidence
           retention-days: 14
           if-no-files-found: warn

@@ -26,6 +26,44 @@ def test_complete_calibration_schedule_preserves_cells_and_reverses_order():
     assert api["calibration_verdict"]([{"valid": True}] * 24, good)["status"] == "invalid-control"
 
 
+def test_qualification_wrappers_keep_equal_disjoint_budgets(tmp_path, monkeypatch):
+    api = runpy.run_path(str(SCRIPT))
+    prepare = api["prepare_disjoint"]
+    calls = []
+    monkeypatch.setitem(
+        prepare.__globals__,
+        "launcher",
+        lambda path, binary, cpus: calls.append((path, binary, cpus)),
+    )
+    binary = tmp_path / "wrk"
+    binary.write_bytes(b"test-fixture-not-native-client")
+    pythons = {("main", "gil"): tmp_path / "python-gil", ("pr", "ft"): tmp_path / "python-ft"}
+    wrapped, client, metadata = prepare(pythons, binary, tmp_path, [0, 1, 2, 3])
+    assert set(wrapped) == set(pythons)
+    assert client != binary
+    assert [c[2] for c in calls] == [[0, 1], [0, 1], [2, 3]]
+    assert metadata["server_cpus"] == [0, 1] and metadata["client_cpus"] == [2, 3]
+    assert metadata["candidate_qualified"] is False
+
+
+def test_affinity_attestation_rejects_wrong_masks_or_unattested_serving_pid(tmp_path):
+    import json
+
+    api = runpy.run_path(str(SCRIPT))
+    validate = api["validate_placement"]
+    launchers = tmp_path / "placement-launchers"
+    launchers.mkdir()
+    server = launchers / "main-ft.launches.jsonl"
+    client = launchers / "native-client.launches.jsonl"
+    server.write_text(json.dumps({"pid": 11, "affinity": [0, 1]}) + "\n")
+    client.write_text(json.dumps({"pid": 12, "affinity": [2, 3]}) + "\n")
+    metadata = {"server_cpus": [0, 1], "client_cpus": [2, 3]}
+    assert validate(tmp_path, metadata, {11})["passed"] is True
+    assert validate(tmp_path, metadata, {99})["passed"] is False
+    client.write_text(json.dumps({"pid": 12, "affinity": [0, 1]}) + "\n")
+    assert validate(tmp_path, metadata, {11})["passed"] is False
+
+
 def test_equal_cpu_budgets_change_overlap_only():
     select = runpy.run_path(str(SCRIPT))["placements"]
     selected = select([2, 4, 6, 8])

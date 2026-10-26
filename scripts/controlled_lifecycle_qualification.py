@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 BASE = "ca4979a6339e533f11ad135bc760aa081f3f60ab"
-HEAD = "9753cb95ab2e66b8cdc7920032c570551ee4e7d4"
+HEAD = "bfebdd64305460631d493b4f2006753cb67db4bf"
 
 
 def save(path, value):
@@ -146,11 +146,20 @@ def main():
     assert original["comparison"] == {"min_goodput_ratio": 0.9, "max_adjusted_p99_ratio": 1.25}
     wrk = shutil.which("wrk")
     assert wrk
+    placement = None
+    if os.environ.get("DEXPOT_DISJOINT_CONTROL") == "1":
+        from placement_probe import prepare_disjoint
+
+        pythons, wrapped_client, placement = prepare_disjoint(
+            pythons, Path(wrk), root, sorted(os.sched_getaffinity(0))
+        )
+        wrk = str(wrapped_client)
     save(
         evidence / "predeclared.json",
         {
             "base_sha": BASE,
             "head_sha": HEAD,
+            "placement": placement,
             "duration_s": 15,
             "original_plan": original,
             "cells": expected,
@@ -332,6 +341,19 @@ if _supports_lifespan:
 
     aa, ab, enabled = collect_cohorts(original["matrix"], pair, harness, enabled_harness)
     verdict = decide(aa, ab, enabled, expected)
+    if placement is not None:
+        from placement_probe import validate_placement
+
+        serving_pids = set()
+        for path in evidence.glob("*/*.json"):
+            observed_record = json.loads(path.read_text())
+            runtime = observed_record.get("runtime")
+            if isinstance(runtime, dict) and isinstance(runtime.get("pid"), int):
+                serving_pids.add(runtime["pid"])
+        attestation = validate_placement(root, placement, serving_pids)
+        save(evidence / "affinity-validation.json", attestation)
+        if not attestation["passed"]:
+            verdict = "invalid-placement"
     save(
         evidence / "results.json",
         {

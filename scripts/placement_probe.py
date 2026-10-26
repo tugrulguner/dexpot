@@ -97,6 +97,51 @@ def launcher(path, executable, cpus):
     path.chmod(0o755)
 
 
+def prepare_disjoint(pythons, wrk, root, allowed):
+    mask = placements(allowed)["disjoint"]
+    folder = root / "placement-launchers"
+    folder.mkdir()
+    wrapped = {}
+    for (artifact, mode), binary in pythons.items():
+        path = folder / (artifact + "-" + mode)
+        launcher(path, binary, mask["server"])
+        wrapped[artifact, mode] = path
+    client = folder / "native-client"
+    launcher(client, wrk, mask["client"])
+    metadata = {
+        "server_cpus": mask["server"],
+        "client_cpus": mask["client"],
+        "controller_allowed_cpus": allowed,
+        "native_wrk_sha256": sha(wrk),
+        "candidate_qualified": False,
+        "scope": "process-local masks; no global settings",
+    }
+    return wrapped, client, metadata
+
+
+def validate_placement(root, metadata, serving_pids):
+    errors, observed, server_pids = [], {}, set()
+    for path in (root / "placement-launchers").glob("*.launches.jsonl"):
+        client = path.name == "native-client.launches.jsonl"
+        expected = metadata["client_cpus" if client else "server_cpus"]
+        launches = [json.loads(line) for line in path.read_text().splitlines()]
+        observed[path.name] = launches
+        if not launches or any(row["affinity"] != expected for row in launches):
+            errors.append("missing or wrong mask: " + path.name)
+        if not client:
+            server_pids.update(row["pid"] for row in launches)
+    if not observed or "native-client.launches.jsonl" not in observed:
+        errors.append("missing launch attestations")
+    if not serving_pids or not serving_pids.issubset(server_pids):
+        errors.append("serving PID missing launch attestation")
+    return {
+        "passed": not errors,
+        "errors": errors,
+        "observed": observed,
+        "serving_pids": sorted(serving_pids),
+    }
+
+
 def main():
     if sys.platform != "linux":
         raise RuntimeError("Linux-only diagnostic; no machine-wide setting changes")
