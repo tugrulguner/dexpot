@@ -1,0 +1,48 @@
+name: Lifecycle controlled qualification
+
+on:
+  push:
+    branches: [diagnostic/lifecycle-controlled-runner]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lifecycle-controlled-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  paired-artifacts:
+    name: Frozen artifacts with same-source calibration
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.14.7"
+          enable-cache: false
+      - name: Install ordinary benchmark prerequisites
+        run: |
+          set -euo pipefail
+          uv python install 3.14.7 3.14.7t
+          brew install wrk
+          uv venv --python 3.14.7 "$RUNNER_TEMP/lifecycle-driver"
+          uv pip install --python "$RUNNER_TEMP/lifecycle-driver/bin/python" psutil==7.2.2
+      - name: Exercise orchestration verdicts
+        run: python scripts/controlled_lifecycle_qualification.py --self-test
+      - name: Run frozen controls and artifact pairs
+        run: '"$RUNNER_TEMP/lifecycle-driver/bin/python" scripts/controlled_lifecycle_qualification.py'
+      - name: Preserve every result including failed or invalid trials
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lifecycle-controlled-evidence
+          path: ${{ runner.temp }}/dexpot-lifecycle-qualification/evidence
+          retention-days: 14
+          if-no-files-found: warn
