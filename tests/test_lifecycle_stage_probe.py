@@ -49,6 +49,16 @@ def test_stage_probe_is_only_two_mixed_pairs_and_never_enabled():
     assert all(item[0] == matrix[0] for item in calls)
 
 
+def test_diagnostic_sidecars_do_not_enter_flat_trial_inventory(tmp_path):
+    api = runpy.run_path(str(SCRIPT))
+    target = api["report_path"](tmp_path, 123)
+    target.parent.mkdir(exist_ok=True)
+    target.write_text("{}")
+    assert target.name == "stage-report-123.json"
+    assert target.parent == tmp_path / "stage-probes"
+    assert list(tmp_path.glob("*.json")) == []
+
+
 def test_negative_residual_is_clamped_and_labeled():
     api = runpy.run_path(str(SCRIPT))
     row = api["snapshot"]("/flat", (10, 5), {"send": (11, 6)})

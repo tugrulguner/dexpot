@@ -3,6 +3,7 @@ name: Lifecycle disjoint mixed stage diagnostic
 on:
   push:
     branches: [diagnostic/lifecycle-placement-probe]
+    paths: [benchmarks/stage-run-request.json]
 
 permissions:
   contents: read

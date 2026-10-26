@@ -30,6 +30,14 @@ Next discriminating probe: separately instrument FTmixed1 in main/pr/pr/main ord
 
 Local real-HTTP hook preflight: GIL and FT installed candidate consumers each returned512 checked replies spanning allfour routes. Allfive actual stage hooks were verified exactly once perselected request, no overlapping-span report, clean teardown. Unit/controller protocol tests20passed; Actionlint and offline pedanticZizmor clean. No production code changed.
 
+## Stage-probe result and retained reporting failure
+
+Run40339357155 at diagnostic0c58bbbd875011848df2e13568641fd0806e69eb completed four valid timed recordings but its final comparator failed: `glob('*.json')` mistook diagnostic `stage-report-PID.json` sidecars for trial records without cell identifiers. Original controller verdict remains diagnostic-invalid. No timing was rerun or replaced. An offline derived view copies only the original byte-identical manifest/trial/preflight inputs; the unchanged runner then validates and compares both pairs. Derived goodput ratios1.012653/1.032944 and p99ratios0.952954/1.031073 do not reproduce the acceptance loss under instrumentation and cannot clear it.
+
+Across four recordings:5,186,203 exactgood responses;158,755 retained sampled intervals;3,283 additional samples dropped by declared per-thread caps. All retained sampled requests prove allfive hooks executed once, with no overlapping-span flags. Of223 retained intervals at least10ms,215 were dominated by route matching, in BOTH main and candidate. Capped periodic samples do not establish a population percentile or candidate-specific cause. Parent analysis/checksums69files are retained in `~/Projects/dexpot-evidence/paired-lifecycle/stage-40339357155/`, including the original invalid verdict and interrupted analysis attempt.
+
+A TDD regression isolates sidecars under `stage-probes/`, outside the flat trial inventory. Corrected GIL/FT real-HTTP hook smoke and12 focused tests pass. Future hosted runs require an explicit `benchmarks/stage-run-request.json` change so a reporting-only repair cannot accidentally repeat timings. No production fix or performance clearance is demonstrated. Independent source/hypothesis review is pending.
+
 Ranked hypotheses:
 1. Client/server CPU overlap amplifies competition. Prediction: with the same two-CPU mask per server/client, separating masks reduces adverse FT flat tails/invalid counters in two order-reversed pairs. Smallest next test: frozen main only, GIL+FT flat, overlap/disjoint/disjoint/overlap,15s each,8 records. Controller mask remains unchanged and is recorded. This tests a placement effect, not lifecycle overhead or general stability.
 2. Tail variation remains within the server or host even with disjoint masks. Prediction: the disjoint sides remain unstable or invalid; do not run a larger candidate cohort or infer placement cured it.

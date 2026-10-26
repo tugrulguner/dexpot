@@ -41,6 +41,10 @@ def instrument_application(source):
     )
 
 
+def report_path(root, pid):
+    return root / "stage-probes" / f"stage-report-{pid}.json"
+
+
 def install(Dex, *, sample_every=32, cap_per_thread=4000):
     from dexpot._plans import EndpointPlan
 
@@ -138,7 +142,8 @@ def install(Dex, *, sample_every=32, cap_per_thread=4000):
         return measured("handler", fn)
 
     def report():
-        path = Path.cwd() / f"stage-report-{os.getpid()}.json"
+        path = report_path(Path.cwd(), os.getpid())
+        path.parent.mkdir(exist_ok=True)
         payload = {
             "pid": os.getpid(),
             "sample_every": sample_every,
