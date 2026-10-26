@@ -324,23 +324,33 @@ def trial(cell: dict, plan: dict, python: str, env: dict, out: Path, args, froze
                 while client.poll() is None and time.monotonic() < deadline:
                     samples.append(snapshot(monitor))
                     with contextlib.suppress(psutil.NoSuchProcess):
-                        client_samples.append(snapshot(client_monitor))
+                        try:
+                            client_samples.append(snapshot(client_monitor))
+                        except psutil.AccessDenied as exc:
+                            if client.poll() is None:
+                                raise
+                            row.setdefault("client_exit_sample_errors", []).append(repr(exc))
                     time.sleep(0.1)
                 if client.poll() is None:
                     client.kill()
                     row["error"] = "native client exceeded deadline"
-                stdout, stderr = client.communicate(timeout=3)
             finally:
                 if client.poll() is None:
                     client.kill()
-                    client.communicate(timeout=3)
-            row.update(
-                client_returncode=client.returncode,
-                stdout=stdout,
-                stderr=stderr,
-                resources=resources(samples),
-                client_resources=resources(client_samples),
-            )
+                # Collection must survive sampler errors, including an exiting
+                # client's /proc becoming inaccessible between samples.
+                stdout, stderr = client.communicate(timeout=3)
+                row.update(
+                    client_returncode=client.returncode,
+                    stdout=stdout,
+                    stderr=stderr,
+                    resources=resources(samples),
+                    client_resources=resources(client_samples),
+                )
+                try:
+                    row["metrics"] = parse_metrics(stdout, cell["profile"])
+                except (ValueError, TypeError, KeyError) as exc:
+                    row["client_metrics_error"] = repr(exc)
             row["metrics"] = parse_metrics(stdout, cell["profile"])
             status, body = request(port, "/runtime")
             if status != 200 or json.loads(body) != row["runtime"]:
