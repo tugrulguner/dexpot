@@ -54,6 +54,7 @@ def io() -> Item:
 
 @app.get("/runtime")
 def runtime() -> dict:
+    affinity = getattr(os, "sched_getaffinity", None)
     return {
         "gil_enabled": getattr(sys, "_is_gil_enabled", lambda: True)(),
         "ft_build": bool(sysconfig.get_config_var("Py_GIL_DISABLED")),
@@ -62,6 +63,7 @@ def runtime() -> dict:
         "version": importlib.metadata.version("dexpot"),
         "python": sys.version,
         "pid": os.getpid(),
+        "cpu_affinity": sorted(affinity(0)) if affinity is not None else None,
         "parser": PARSER_BACKEND,
     }
 

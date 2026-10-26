@@ -34,9 +34,11 @@ def passed(rows, expected):
     )
 
 
-def decide(aa, ab, enabled, expected):
+def decide(aa, ab, enabled, expected, *, calibration_only=False):
     if not passed(aa, expected):
         return "invalid-control"
+    if calibration_only:
+        return "calibration-only-passed"
     if not passed(ab, expected):
         return "screen-failed"
     if enabled is None:
@@ -69,13 +71,13 @@ def power_snapshot(governor=Path("/sys/devices/system/cpu/cpu0/cpufreq/scaling_g
     }
 
 
-def collect_cohorts(matrix, pair, harness, enabled_harness):
+def collect_cohorts(matrix, pair, harness, enabled_harness, *, calibration_only=False):
     expected = [cell["id"] for cell in matrix]
     aa = [
         pair(cell, "aa", [("left", "main", harness), ("right", "main", harness)], bool(index % 2))
         for index, cell in enumerate(matrix)
     ]
-    if not passed(aa, expected):
+    if not passed(aa, expected) or calibration_only:
         return aa, [], None
     ab = [
         pair(cell, "ab", [("main", "main", harness), ("pr", "pr", harness)], bool(index % 2))
@@ -95,7 +97,43 @@ def collect_cohorts(matrix, pair, harness, enabled_harness):
     return aa, ab, enabled
 
 
+def affinity_controls():
+    if sys.platform != "linux":
+        raise RuntimeError("CPU placement diagnostic requires Linux")
+    get_affinity = os.sched_getaffinity
+    set_affinity = os.sched_setaffinity
+    original = sorted(get_affinity(0))
+    if len(original) < 2:
+        raise RuntimeError("CPU placement would not change this runner")
+    keys = ("DEXPOT_BENCH_CALIBRATION_ONLY", "DEXPOT_BENCH_ORIGINAL_AFFINITY")
+    previous = {key: os.environ.get(key) for key in keys}
+    set_affinity(0, {original[0]})
+    try:
+        os.environ[keys[0]] = "1"
+        os.environ[keys[1]] = json.dumps(original)
+        print(
+            "CPU_PLACEMENT_DIAGNOSTIC",
+            json.dumps(
+                {
+                    "before": original,
+                    "selected": [original[0]],
+                    "scope": "own controller and children only; calibration, not candidate acceptance",
+                }
+            ),
+            flush=True,
+        )
+        return main()
+    finally:
+        set_affinity(0, set(original))
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 def main():
+    calibration_only = os.environ.get("DEXPOT_BENCH_CALIBRATION_ONLY") == "1"
     repo = Path(__file__).resolve().parents[1]
     root = Path(os.environ["RUNNER_TEMP"]) / "dexpot-lifecycle-qualification"
     root.mkdir()
@@ -155,6 +193,11 @@ def main():
             "original_plan": original,
             "cells": expected,
             "no_retries": True,
+            "calibration_only": calibration_only,
+            "controller_cpu_affinity": sorted(os.sched_getaffinity(0))
+            if hasattr(os, "sched_getaffinity")
+            else None,
+            "original_cpu_affinity": os.environ.get("DEXPOT_BENCH_ORIGINAL_AFFINITY"),
             "schedule": "all12 AA first; only if passing all12 AB; reverse side order on odd cell indices",
             "enabled_condition": "all 12 AA and all 12 AB pass; otherwise not qualified",
             "enabled_schedule": "all 12 enabled/main pairs, same reversed order",
@@ -330,8 +373,10 @@ if _supports_lifespan:
         save(evidence / (cell["id"] + "-" + cohort + ".result.json"), row)
         return row
 
-    aa, ab, enabled = collect_cohorts(original["matrix"], pair, harness, enabled_harness)
-    verdict = decide(aa, ab, enabled, expected)
+    aa, ab, enabled = collect_cohorts(
+        original["matrix"], pair, harness, enabled_harness, calibration_only=calibration_only
+    )
+    verdict = decide(aa, ab, enabled, expected, calibration_only=calibration_only)
     save(
         evidence / "results.json",
         {
@@ -346,14 +391,18 @@ if _supports_lifespan:
             "ab": ab,
             "enabled": enabled,
             "passed": verdict == "screen-passed",
+            "calibration_only": calibration_only,
+            "calibration_passed": passed(aa, expected),
         },
     )
     print("FINAL", verdict, flush=True)
-    return 0 if verdict == "screen-passed" else 1
+    return 0 if verdict in ("screen-passed", "calibration-only-passed") else 1
 
 
 if __name__ == "__main__":
     if sys.argv[1:] == ["--self-test"]:
         self_test()
+    elif sys.argv[1:] == ["--affinity-controls"]:
+        raise SystemExit(affinity_controls())
     else:
         raise SystemExit(main())
