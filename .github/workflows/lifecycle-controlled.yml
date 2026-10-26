@@ -33,9 +33,14 @@ jobs:
           uv python install 3.14.7 3.14.7t
           brew install wrk
           uv venv --python 3.14.7 "$RUNNER_TEMP/lifecycle-driver"
-          uv pip install --python "$RUNNER_TEMP/lifecycle-driver/bin/python" psutil==7.2.2
+          uv pip install --python "$RUNNER_TEMP/lifecycle-driver/bin/python" psutil==7.2.2 pytest==9.1.1 msgspec==0.22.0
       - name: Exercise orchestration verdicts
         run: python scripts/controlled_lifecycle_qualification.py --self-test
+      - name: Verify admission protocol regressions
+        run: >-
+          "$RUNNER_TEMP/lifecycle-driver/bin/python" -m pytest
+          tests/test_regression_preflight_protocol.py -q -o addopts=''
+          --basetemp "$RUNNER_TEMP/protocol-pytest"
       - name: Run frozen controls and artifact pairs
         run: '"$RUNNER_TEMP/lifecycle-driver/bin/python" scripts/controlled_lifecycle_qualification.py'
       - name: Preserve every result including failed or invalid trials

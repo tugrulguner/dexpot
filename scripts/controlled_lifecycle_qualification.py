@@ -101,7 +101,7 @@ def main():
             if mode == "ft":
                 runtime_command.append("--negative-extension")
             execute(runtime_command, cwd=root)
-    harness = sources["pr"] / "benchmarks/regression"
+    harness = repo / "scripts/lifecycle_preflight_harness"
     original = json.loads((harness / "plan.json").read_text())
     expected = [cell["id"] for cell in original["matrix"]]
     assert len(expected) == len(set(expected)) == 12
