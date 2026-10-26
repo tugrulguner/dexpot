@@ -69,7 +69,15 @@ def power_snapshot(governor=Path("/sys/devices/system/cpu/cpu0/cpufreq/scaling_g
     }
 
 
-def collect_cohorts(matrix, pair, harness, enabled_harness):
+def collect_cohorts(matrix, pair, harness, enabled_harness, *, stage_diagnostic=False):
+    if stage_diagnostic:
+        cell = next(c for c in matrix if c["id"] == "ft-mixed-1")
+        sides = [("main", "main", harness), ("pr", "pr", harness)]
+        return (
+            [],
+            [pair(cell, "stage-forward", sides, False), pair(cell, "stage-reverse", sides, True)],
+            None,
+        )
     expected = [cell["id"] for cell in matrix]
     aa = [
         pair(cell, "aa", [("left", "main", harness), ("right", "main", harness)], bool(index % 2))
@@ -101,6 +109,7 @@ def main():
     root.mkdir()
     evidence = root / "evidence"
     evidence.mkdir()
+    stage_diagnostic = os.environ.get("DEXPOT_STAGE_DIAGNOSTIC") == "1"
     sources, wheels, pythons = {}, {}, {}
     for name, sha in (("main", BASE), ("pr", HEAD)):
         source = root / ("source-" + name)
@@ -160,12 +169,17 @@ def main():
             "base_sha": BASE,
             "head_sha": HEAD,
             "placement": placement,
-            "duration_s": 15,
+            "duration_s": 30 if stage_diagnostic else 15,
+            "stage_diagnostic_only": stage_diagnostic,
             "original_plan": original,
-            "cells": expected,
+            "cells": ["ft-mixed-1"] if stage_diagnostic else expected,
             "no_retries": True,
-            "schedule": "all12 AA first; only if passing all12 AB; reverse side order on odd cell indices",
-            "enabled_condition": "all 12 AA and all 12 AB pass; otherwise not qualified",
+            "schedule": "instrumented FT mixed main/pr/pr/main, two pairs, not qualification"
+            if stage_diagnostic
+            else "all12 AA first; only if passing all12 AB; reverse side order on odd cell indices",
+            "enabled_condition": "disabled for diagnostic"
+            if stage_diagnostic
+            else "all 12 AA and all 12 AB pass; otherwise not qualified",
             "enabled_schedule": "all 12 enabled/main pairs, same reversed order",
             "decision": "all cells pass unchanged numerical and resource budgets",
             "wheel_sha256": {
@@ -215,10 +229,33 @@ if _supports_lifespan:
         },
     )
 
+    if stage_diagnostic:
+        from lifecycle_stage_probe import instrument_application
+
+        instrumented = root / "stage-harness"
+        shutil.copytree(harness, instrumented)
+        instrumented_app = instrumented / "application.py"
+        instrumented_app.write_text(instrument_application(instrumented_app.read_text()))
+        probe_module = repo / "scripts/lifecycle_stage_probe.py"
+        shutil.copyfile(probe_module, instrumented / probe_module.name)
+        harness = instrumented
+        save(
+            evidence / "stage-protocol.json",
+            {
+                "kind": "sampled-stage-attribution-not-acceptance",
+                "duration_s": 30,
+                "order": ["main", "pr", "pr", "main"],
+                "sample_every": 32,
+                "probe_sha256": hashlib.sha256(probe_module.read_bytes()).hexdigest(),
+                "application_sha256": hashlib.sha256(instrumented_app.read_bytes()).hexdigest(),
+                "candidate_qualified": False,
+            },
+        )
+
     def record(cell, cohort, side, artifact, selected_harness):
         plan = evidence / (cell["id"] + "-" + cohort + ".plan.json")
         if not plan.exists():
-            save(plan, dict(original, duration_s=15, matrix=[cell]))
+            save(plan, dict(original, duration_s=30 if stage_diagnostic else 15, matrix=[cell]))
         out = evidence / (cell["id"] + "-" + cohort + "-" + side)
         command = [
             sys.executable,
@@ -339,8 +376,20 @@ if _supports_lifespan:
         save(evidence / (cell["id"] + "-" + cohort + ".result.json"), row)
         return row
 
-    aa, ab, enabled = collect_cohorts(original["matrix"], pair, harness, enabled_harness)
+    aa, ab, enabled = collect_cohorts(
+        original["matrix"], pair, harness, enabled_harness, stage_diagnostic=stage_diagnostic
+    )
     verdict = decide(aa, ab, enabled, expected)
+    if stage_diagnostic:
+        verdict = (
+            "diagnostic-complete"
+            if all(
+                row.get("comparison")
+                and row["comparison"]["status"] in ("screen-passed", "regression")
+                for row in ab
+            )
+            else "diagnostic-invalid"
+        )
     if placement is not None:
         from placement_probe import validate_placement
 
@@ -360,7 +409,8 @@ if _supports_lifespan:
             "status": verdict,
             "source_base": BASE,
             "source_head": HEAD,
-            "expected_cells_each": 12,
+            "expected_cells_each": 2 if stage_diagnostic else 12,
+            "stage_diagnostic_only": stage_diagnostic,
             "completed_aa": len(aa),
             "completed_ab": len(ab),
             "completed_enabled": len(enabled) if enabled is not None else 0,
@@ -371,7 +421,7 @@ if _supports_lifespan:
         },
     )
     print("FINAL", verdict, flush=True)
-    return 0 if verdict == "screen-passed" else 1
+    return 0 if verdict in ("screen-passed", "diagnostic-complete") else 1
 
 
 if __name__ == "__main__":

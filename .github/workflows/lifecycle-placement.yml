@@ -1,4 +1,4 @@
-name: Lifecycle disjoint staged qualification
+name: Lifecycle disjoint mixed stage diagnostic
 
 on:
   push:
@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   placement:
-    name: Full controls then candidate and enabled cohorts
+    name: Sampled stage attribution on the losing FT mixed workload
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -36,16 +36,17 @@ jobs:
       - name: Test diagnostic scope and placement invariants
         run: >-
           "$RUNNER_TEMP/placement-driver/bin/python" -m pytest
-          tests/test_placement_probe.py -q -o addopts=''
+          tests/test_placement_probe.py tests/test_lifecycle_stage_probe.py tests/test_controlled_runner_stages.py -q -o addopts=''
       - name: Collect predeclared cohorts without retries
         env:
           DEXPOT_DISJOINT_CONTROL: "1"
+          DEXPOT_STAGE_DIAGNOSTIC: "1"
         run: '"$RUNNER_TEMP/placement-driver/bin/python" scripts/controlled_lifecycle_qualification.py'
       - name: Preserve invalid and adverse results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: lifecycle-disjoint-staged-evidence
+          name: lifecycle-disjoint-stage-evidence
           path: ${{ runner.temp }}/dexpot-lifecycle-qualification/evidence
           retention-days: 14
           if-no-files-found: warn
