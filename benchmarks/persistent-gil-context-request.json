@@ -1,0 +1,16 @@
+{
+  "scope": "same-server temporal stability discriminator, NOT qualification",
+  "base": "ca4979a6339e533f11ad135bc760aa081f3f60ab",
+  "runner": "macos-26",
+  "windows": 4,
+  "duration_each_s": 15,
+  "client_threads": 4,
+  "connections": 16,
+  "seed": "1",
+  "server_lifecycles": 1,
+  "prediction": "Within-PID variation rules out fresh-server startup/hash/address changes as necessary; stable windows only narrow the search.",
+  "limits": "Native client still restarts each window. One final real server cleanup; preserve raw per-window cleanup flags as false. No standalone-trial or product-pass claim.",
+  "no_retries": true,
+  "no_scheduler_changes": true,
+  "local_functional_validation": "One PID90879, four valid windows, one final cleanup; separate archive, not proof about hosted variability"
+}
