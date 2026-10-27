@@ -1,0 +1,18 @@
+{
+  "kind": "distinct hosted macOS control-first qualification after observer repair",
+  "base": "ca4979a6339e533f11ad135bc760aa081f3f60ab",
+  "candidate": "6b27600f131ca8fd1b4d2a14467a92464f3c1935",
+  "runner": "macos-26",
+  "observer_sha256": "1b48757186d823c2982923a7f844349a4ba4e7d528eb1da88c81efd8b3e9513f",
+  "hypothesis": "The repaired observer on a fresh noninteractive Mac may provide stable full controls where the active desktop does not. Earlier hosted failures used the old polling observer.",
+  "prediction": "All12 identical-main pairs must pass before any candidate/enabled timing. Failure leaves this environment unqualified; do not retry.",
+  "limits": "A usable hosted environment would not attribute the original desktop spikes or erase earlier failed controls. No scratch namespace/routing prototype is included.",
+  "duration_s_each_side": 15,
+  "cells_per_cohort": 12,
+  "client_threads": 4,
+  "connections": 16,
+  "min_goodput_ratio": 0.9,
+  "max_adjusted_p99_ratio": 1.25,
+  "no_retries": true,
+  "placement": "unrestricted; no affinity or power/QoS changes"
+}
