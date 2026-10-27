@@ -1,0 +1,62 @@
+{
+  "churn_pass": true,
+  "overload_pass": true,
+  "cleanup_pass": true,
+  "fingerprints": {
+    "application": "feecf66b7d110ce0e2759aa3489f218098537a59d3a493e73c7f1c9fee177dae",
+    "validator": "b4db9bf1a4d3ee83e71c37d9742746f5bd9c0f528deecb73bde280c37731a68d",
+    "runner": "f5c4145639f09b7661a15d74d3337818d135db60e69b3de15ff3504c09929b53",
+    "process_observer": "1b48757186d823c2982923a7f844349a4ba4e7d528eb1da88c81efd8b3e9513f",
+    "evaluator": "a3242d73315a2b4109794c2f6ab9034134c520b6355a9c196ae8f96c4f414f29",
+    "plan": "b2a855daa6421466381d91e69a78caca32cfa814f3eee4a957f676e93e8270d8",
+    "client": "3dde9a2186ec70f63f3ebfafb76d9665aba5db18824e1b40660cad8c1328d29f",
+    "wheel": "d49d77422bc34ce94b40d603a4f9c3b49030310bbbc3308b84ea8f4bf5a29cc2"
+  },
+  "limits": {
+    "DEXPOT_POOL": "2",
+    "DEXPOT_MAX_QUEUE": "2",
+    "DEXPOT_MAX_CONNECTIONS": "4"
+  },
+  "runtime": {
+    "gil_enabled": true,
+    "ft_build": false,
+    "selected_ft": false,
+    "module": "/Users/runner/work/_temp/seed-main-gil/lib/python3.14/site-packages/dexpot/__init__.py",
+    "version": "0.7.1",
+    "python": "3.14.7 (main, Sep 29 2026, 14:50:11) [Clang 22.1.3 ]",
+    "pid": 1807,
+    "parser": "python"
+  },
+  "quiescent_state": {
+    "active": 1,
+    "queued": 0,
+    "available_ft": null,
+    "live_ft_owners": null
+  },
+  "admitted_states": [
+    {
+      "active": 2,
+      "queued": 0,
+      "available_ft": null,
+      "live_ft_owners": null
+    },
+    {
+      "active": 2,
+      "queued": 1,
+      "available_ft": null,
+      "live_ft_owners": null
+    },
+    {
+      "active": 2,
+      "queued": 2,
+      "available_ft": null,
+      "live_ft_owners": null
+    }
+  ],
+  "saturated_state": {
+    "active": 2,
+    "queued": 2,
+    "available_ft": null,
+    "live_ft_owners": null
+  }
+}

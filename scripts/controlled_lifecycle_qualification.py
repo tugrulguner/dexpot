@@ -323,6 +323,21 @@ if _supports_lifespan:
             if errors:
                 return {"status": "invalid", "errors": errors, "pairs": []}
             comparison = evaluator["compare"](manifests[0]["plan"], *observations)
+            reverse = evaluator["compare"](manifests[0]["plan"], *observations[::-1])
+            # Identical-source controls must be repeatable, not merely avoid a
+            # loss in one arbitrary direction. Product comparisons stay directional.
+            comparison["reverse_comparison"] = reverse
+            comparison["calibration_directionality"] = "both"
+            reverse_pairs = {pair["id"]: pair for pair in reverse["pairs"]}
+            for pair in comparison["pairs"]:
+                pair["forward_passed"] = pair["passed"]
+                pair["reverse_passed"] = reverse_pairs.get(pair["id"], {}).get("passed", False)
+                pair["passed"] = pair["forward_passed"] and pair["reverse_passed"]
+            if "invalid" in (comparison["status"], reverse["status"]):
+                comparison["status"] = "invalid"
+                comparison["errors"].extend("reverse: " + error for error in reverse["errors"])
+            elif reverse["status"] != "screen-passed":
+                comparison["status"] = "regression"
             comparison["comparison_kind"] = "identical-artifact-calibration-not-candidate-proof"
             return comparison
         except (OSError, ValueError, KeyError, TypeError) as exc:

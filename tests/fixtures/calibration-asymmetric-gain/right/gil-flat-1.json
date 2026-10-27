@@ -1,0 +1,85 @@
+{
+  "cell": {
+    "id": "gil-flat-1",
+    "runtime": "gil",
+    "profile": "flat",
+    "repeat": 1
+  },
+  "fingerprints": {
+    "application": "feecf66b7d110ce0e2759aa3489f218098537a59d3a493e73c7f1c9fee177dae",
+    "validator": "b4db9bf1a4d3ee83e71c37d9742746f5bd9c0f528deecb73bde280c37731a68d",
+    "runner": "f5c4145639f09b7661a15d74d3337818d135db60e69b3de15ff3504c09929b53",
+    "process_observer": "1b48757186d823c2982923a7f844349a4ba4e7d528eb1da88c81efd8b3e9513f",
+    "evaluator": "a3242d73315a2b4109794c2f6ab9034134c520b6355a9c196ae8f96c4f414f29",
+    "plan": "b2a855daa6421466381d91e69a78caca32cfa814f3eee4a957f676e93e8270d8",
+    "client": "3dde9a2186ec70f63f3ebfafb76d9665aba5db18824e1b40660cad8c1328d29f",
+    "wheel": "d49d77422bc34ce94b40d603a4f9c3b49030310bbbc3308b84ea8f4bf5a29cc2"
+  },
+  "metrics": {
+    "requests": 291093,
+    "good": 291093,
+    "bad": 0,
+    "duration_us": 15143386,
+    "p50_us": 700,
+    "p95_us": 4235,
+    "p99_us": 14958,
+    "connect_errors": 0,
+    "read_errors": 0,
+    "write_errors": 0,
+    "timeout_errors": 0,
+    "flat_good": 291093,
+    "nested_good": 0,
+    "cpu_good": 0,
+    "io_good": 0
+  },
+  "resources": {
+    "complete": true,
+    "cpu_cores": 1.6033572668905884,
+    "rss_bytes": 32161792,
+    "threads": 17,
+    "fds": 20,
+    "samples": 97,
+    "sampled_interval_s": 15.069928084000026,
+    "scope": "sampled single serving process; 100ms interval"
+  },
+  "error": null,
+  "cleanup_pass": true,
+  "client_returncode": 0,
+  "runtime": {
+    "gil_enabled": true,
+    "ft_build": false,
+    "selected_ft": false,
+    "module": "/Users/runner/work/_temp/seed-main-gil/lib/python3.14/site-packages/dexpot/__init__.py",
+    "version": "0.7.1",
+    "python": "3.14.7 (main, Sep 29 2026, 14:50:11) [Clang 22.1.3 ]",
+    "pid": 2342,
+    "parser": "python"
+  },
+  "command": [
+    "/opt/homebrew/bin/wrk",
+    "-t",
+    "4",
+    "-c",
+    "16",
+    "-d",
+    "15s",
+    "--latency",
+    "-s",
+    "/Users/runner/work/_temp/hash-seed-context/harness/validate.lua",
+    "http://127.0.0.1:49361",
+    "--",
+    "flat"
+  ],
+  "stdout": "Running 15s test @ http://127.0.0.1:49361\n  4 threads and 16 connections\n  Thread Stats   Avg      Stdev     Max   +/- Stdev\n    Latency     1.46ms    3.77ms  87.43ms   96.22%\n    Req/Sec     4.83k     1.91k   21.22k    75.83%\n  Latency Distribution\n     50%  700.00us\n     75%    1.33ms\n     90%    2.57ms\n     99%   14.96ms\n  291093 requests in 15.14s, 41.09MB read\nRequests/sec:  19222.45\nTransfer/sec:      2.71MB\nMETRICS {\"requests\":291093,\"good\":291093,\"bad\":0,\"duration_us\":15143386,\"p50_us\":700,\"p95_us\":4235,\"p99_us\":14958,\"connect_errors\":0,\"read_errors\":0,\"write_errors\":0,\"timeout_errors\":0,\"flat_good\":291093,\"nested_good\":0,\"cpu_good\":0,\"io_good\":0}\n",
+  "stderr": "",
+  "client_resources": {
+    "complete": true,
+    "cpu_cores": 0.35225908085529434,
+    "rss_bytes": 4046848,
+    "threads": 5,
+    "fds": 23,
+    "samples": 96,
+    "sampled_interval_s": 15.064809708000013,
+    "scope": "sampled single serving process; 100ms interval"
+  }
+}
