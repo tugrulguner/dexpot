@@ -1,0 +1,9 @@
+{
+ "scope": "Next missing boundary: own synthetic HTTP request observation at localhost packet tap, paired by authorized marker IDs",
+ "windows": ["original-client-before", "markers-and-port-scoped-capture", "original-client-after"],
+ "duration_s": 15, "sample_every": 64, "lifecycles": 1,
+ "capture_boundary": "disposable CI only, interface lo0, BPF only owned ephemeral server port and 127.0.0.1; no unrelated traffic",
+ "read_entry": "Server API entry wall/mono/thread CPU clocks, not kernel recv entry",
+ "qualification": false, "retries": 0,
+ "stop": "No attribution with packet drops, failed reconstruction or inconsistent clocks; packet observations are not syscall timestamps; report unknowns rather than name GIL/host cause"
+}

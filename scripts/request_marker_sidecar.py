@@ -18,13 +18,15 @@ _DIR: Path | None = None
 _LIMIT = 4096
 
 
-def _emit(marker, event):
+def _emit(marker, event, stamp=None):
+    if stamp is None:
+        stamp = (time.time_ns() // 1000, time.monotonic_ns(), time.thread_time_ns())
     row = {
         "id": marker,
         "event": event,
-        "wall_us": time.time_ns() // 1000,
-        "mono_ns": time.monotonic_ns(),
-        "thread_cpu_ns": time.thread_time_ns(),
+        "wall_us": stamp[0],
+        "mono_ns": stamp[1],
+        "thread_cpu_ns": stamp[2],
     }
     context = getattr(_tls, "context", None)
     if context is None:
@@ -71,11 +73,18 @@ def install(app):
 
     def read(*args, **kwargs):
         _tls.sample = None
+        started = (time.time_ns() // 1000, time.monotonic_ns(), time.thread_time_ns())
+        previous = getattr(_tls, "last_send", None)
+        if not args or previous is None or previous[0] is not args[0]:
+            previous = None
         request, rest = original_read(*args, **kwargs)
         marker = request.headers.get("x-dexpot-diag-id")
         if marker and re.fullmatch(r"[0-9]{1,12}-[0-9]{1,3}-[0-9]{1,12}", marker):
             _tls.sample = marker
             _emit(marker, "Sparsed")
+            _emit(marker, "Sread_entry", started)
+            if previous is not None:
+                _emit(marker, "Sprevious_send_return", previous[1])
         return request, rest
 
     def send(
@@ -104,8 +113,10 @@ def install(app):
                 suppress_body=suppress_body,
                 content_type=content_type,
             )
+            returned = (time.time_ns() // 1000, time.monotonic_ns(), time.thread_time_ns())
+            _tls.last_send = (conn, returned)
             if marker:
-                _emit(marker, "Ssend_return")
+                _emit(marker, "Ssend_return", returned)
             return result
         finally:
             _tls.sample = None

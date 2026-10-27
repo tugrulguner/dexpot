@@ -12,6 +12,8 @@ import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
+from port_capture import capture_port
+
 WHEEL = "d49d77422bc34ce94b40d603a4f9c3b49030310bbbc3308b84ea8f4bf5a29cc2"
 
 
@@ -25,6 +27,7 @@ def main():
     parser.add_argument("--python", required=True)
     parser.add_argument("--wheel", type=Path, required=True)
     parser.add_argument("--wrk", type=Path, required=True)
+    parser.add_argument("--capture-loopback", action="store_true")
     args = parser.parse_args()
     root = args.root
     root.mkdir(exist_ok=False)
@@ -69,6 +72,8 @@ def main():
         "windows": ["original-client-before", "sampled-markers", "original-client-after"],
         "duration_s": 15,
         "sample_every": 64,
+        "capture_loopback": args.capture_loopback,
+        "capture_scope": "only owned synthetic localhost server port; disposable CI; packet tap observations, not syscall timestamps",
         "analysis_slow_threshold_us": 10000,
         "analysis_dominant_fraction": 0.8,
         "analysis_cross_clock_tolerance_us": 2,
@@ -121,6 +126,12 @@ def main():
     state = {}
     try:
         with api["server"](args.python, env, root / "server.log") as (server, port, state):
+            if args.capture_loopback:
+                import time
+
+                with capture_port(port, root / "capture-functional"):
+                    assert api["request"](port, "/flat") == (200, api["FLAT"])
+                    time.sleep(0.05)
 
             @contextlib.contextmanager
             def persistent(python, env, log):
@@ -149,7 +160,13 @@ def main():
                         indent=2,
                     )
                 )
-                row = api["trial"](cell, plan, args.python, env, out, config, frozen)
+                capture = (
+                    capture_port(port, root / "capture")
+                    if index == 1 and args.capture_loopback
+                    else contextlib.nullcontext()
+                )
+                with capture:
+                    row = api["trial"](cell, plan, args.python, env, out, config, frozen)
                 assert row["runtime"]["pid"] == server.pid and row["cleanup_pass"] is False
                 metrics = row.get("metrics")
                 valid = (
