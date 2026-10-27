@@ -1,0 +1,9 @@
+{
+ "windows": ["untraced-before", "system-trace", "untraced-after"],
+ "duration_s": 15,
+ "lifecycles": 1,
+ "runtime": "frozen-main standard GIL",
+ "tracer_capability_verified_run": 40552751654,
+ "stop": "Attribute only with target transitions and temporal support; no retries or gate changes; profiling-bracket overlap is not proof of no perturbation",
+ "raw_all_processes_trace_uploaded": false
+}
