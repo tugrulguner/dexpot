@@ -1,0 +1,31 @@
+name: macOS supported scheduler trace capability
+on:
+  push:
+    branches: [diagnostic/lifecycle-placement-probe]
+    paths: [benchmarks/system-trace-capability-request.json]
+permissions:
+  contents: read
+concurrency:
+  group: system-trace-capability-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  capability:
+    name: Verify scheduler trace without publishing unrelated process data
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Check supported profiler and scheduling-table availability
+        run: |
+          set -euo pipefail
+          python3 scripts/system_trace_capability.py --root "$RUNNER_TEMP/system-trace-capability"
+      - name: Preserve only capability logs and schema names, never raw trace data
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: system-trace-capability-public
+          path: ${{ runner.temp }}/system-trace-capability/public
+          retention-days: 14
+          if-no-files-found: warn

@@ -1,0 +1,10 @@
+{
+  "scope": "capability prerequisite for direct client/server scheduler attribution",
+  "runner": "macos-26",
+  "template": "System Trace",
+  "capability_duration_seconds": 2,
+  "benchmark_trials": 0,
+  "permission_boundary": "supported profiler only on disposable CI runner; no security-setting changes, no raw all-processes data upload",
+  "stop": "Do not claim scheduling attribution without actual state-transition tables and adequate correlation. Do not replace missing traces with aggregate CPU inference.",
+  "runtime_pr_unchanged": "6b27600f131ca8fd1b4d2a14467a92464f3c1935"
+}
