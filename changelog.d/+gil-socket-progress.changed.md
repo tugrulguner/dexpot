@@ -1,0 +1,1 @@
+Use one shared nonblocking socket-I/O owner per GIL handler pool while retaining connection-pinned synchronous handlers, bounded admission and existing HTTP parsing/framing. Keep the interpreter's global GIL switch interval and the free-threaded connection-owner path unchanged.

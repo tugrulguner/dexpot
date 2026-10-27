@@ -23,7 +23,7 @@ import threading
 import time
 from collections import deque
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, cast
 
 import msgspec
 
@@ -572,11 +572,19 @@ class Dex:
                 conn, buf = self._work.popleft()
                 self._active_connections.add(conn)
             try:
-                while not self._stopping.is_set():
-                    keep_alive, buf = self._process(conn, buf)
-                    if not keep_alive:
-                        break
-                conn.close()
+                owner = getattr(self, "_gil_io", None)
+                transport = (
+                    cast(socket.socket, owner.connection(conn))
+                    if owner is not None and type(conn) is socket.socket
+                    else conn
+                )
+                try:
+                    while not self._stopping.is_set():
+                        keep_alive, buf = self._process(transport, buf)
+                        if not keep_alive:
+                            break
+                finally:
+                    transport.close()
             except (ConnectionError, OSError, ValueError):
                 with contextlib.suppress(OSError):
                     conn.close()
@@ -587,8 +595,16 @@ class Dex:
 
     def _start_gil_workers(self, listener: socket.socket) -> None:
         """Roll back a partially started pool before propagating startup failure."""
+        from ._gil_io import SocketIO
+
         workers: list[threading.Thread] = []
+        io_owner = None
         try:
+            previous = getattr(self, "_gil_io", None)
+            if previous is not None and previous.thread.is_alive():
+                raise RuntimeError("previous GIL I/O owner is still draining")
+            io_owner = SocketIO()
+            self._gil_io = io_owner
             pool_size = self._pool_size if self._runtime_bound else POOL_SIZE
             for _ in range(pool_size):
                 worker = threading.Thread(target=self._worker_gil, daemon=True)
@@ -603,6 +619,8 @@ class Dex:
                 deadline = time.monotonic() + 1.0
                 for worker in workers:
                     worker.join(timeout=max(0.0, deadline - time.monotonic()))
+                if io_owner is not None:
+                    io_owner.close(timeout=max(0.0, deadline - time.monotonic()))
             raise
 
     def _own_connection(self, conn: socket.socket, buf: bytes, *, registered: bool = False) -> None:
@@ -823,6 +841,10 @@ class Dex:
                 owner.join(timeout=max(0.0, deadline - time.monotonic()))
         with _FT_OWNERS_LOCK:
             _reap_ft_owners()
+
+        io_owner = getattr(self, "_gil_io", None)
+        if io_owner is not None:
+            io_owner.close(timeout=max(0.0, deadline - time.monotonic()))
 
     def _accept_loop(self, srv: socket.socket) -> None:
         while True:
