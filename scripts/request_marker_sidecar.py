@@ -6,6 +6,7 @@ import importlib
 import json
 import os
 import re
+import sys
 import threading
 import time
 from pathlib import Path
@@ -27,6 +28,7 @@ def _emit(marker, event, stamp=None):
         "wall_us": stamp[0],
         "mono_ns": stamp[1],
         "thread_cpu_ns": stamp[2],
+        "gil_switch_interval_s": sys.getswitchinterval(),
     }
     context = getattr(_tls, "context", None)
     if context is None:

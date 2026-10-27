@@ -1,0 +1,9 @@
+{
+ "hypotheses_ranked": ["GIL handoff interval sensitivity", "OS/VM scheduling", "observer perturbation"],
+ "interval_order_s": [0.005,0.0005,0.0005,0.005],
+ "server_lifecycles": 1, "duration_s": 15, "sample_every": 64,
+ "observers": "identical marked clients and port-scoped capture in all four windows",
+ "activation": "untimed runtime control, PID-bound pre/post attestations plus interval queried in sampled server events",
+ "support_rule": "Both short windows must have lower server tap-to-parsed sampled p99 than both stock windows; otherwise no established interval mechanism. Report both temporal-order native ratios against unchanged original limits separately.",
+ "scope": "Only the owned diagnostic GIL process; no PR/runtime-source/host policy changes, no qualification, no retries or promotion from this result"
+}

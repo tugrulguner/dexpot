@@ -10,9 +10,10 @@ from pathlib import Path
 from loopback_marker_packets import parse_pcap
 
 
-def analyze(root):
-    capture = json.loads((root / "capture/capture.json").read_text())
-    packet = parse_pcap(root / "capture/loopback.pcap", capture["port"])
+def analyze(root, capture_root=None):
+    capture_root = capture_root or root / "capture"
+    capture = json.loads((capture_root / "capture.json").read_text())
+    packet = parse_pcap(capture_root / "loopback.pcap", capture["port"])
     (root / "packet-observations.json").write_text(json.dumps(packet, indent=2))
     markers = defaultdict(lambda: defaultdict(list))
     for f in (root / "markers").glob("*.jsonl"):
