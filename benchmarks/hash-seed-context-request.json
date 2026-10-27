@@ -1,0 +1,24 @@
+{
+  "scope": "diagnose GIL flat1 slowdown from hosted40440671816; no feature qualification",
+  "base": "ca4979a6339e533f11ad135bc760aa081f3f60ab",
+  "runner": "macos-26",
+  "order": [
+    "0",
+    "1",
+    "1",
+    "0"
+  ],
+  "duration_s": 15,
+  "client_threads": 4,
+  "connections": 16,
+  "cell": "gil-flat-1",
+  "predictions": [
+    "If seed/layout drives the difference, matched-seed pairs should be stable and cross-seed effects consistent.",
+    "A matched-seed failure rejects seed matching as sufficient; do not retry or pick a favorable seed.",
+    "Context-switch and CPU-per-reply changes can guide a later handoff-vs-capacity discriminator, not prove the cause."
+  ],
+  "no_scheduler_or_concurrency_changes": true,
+  "no_retries": true,
+  "actual_server_seed_attested": true,
+  "context_collection": "before/after workload through existing untimed runtime probes; response identity unchanged"
+}
