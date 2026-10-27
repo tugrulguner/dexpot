@@ -1,0 +1,9 @@
+{
+ "authorization": "User approved diagnostic-only client/server request IDs and timestamp wrappers",
+ "windows": ["original-client-before", "sampled-markers", "original-client-after"],
+ "duration_s": 15, "sample_every": 64, "lifecycles": 1,
+ "native_binary_and_original_validator_unchanged": true,
+ "qualification": false, "retries": 0,
+ "prior_system_trace_failure_retained": 40554507883,
+ "stop": "Report matched boundary localization and unknown remainder; no scheduler or network cause claim from wall-minus-CPU."
+}

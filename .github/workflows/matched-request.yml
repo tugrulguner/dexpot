@@ -1,0 +1,56 @@
+name: macOS matched request-boundary diagnostic
+on:
+  push:
+    branches: [diagnostic/lifecycle-placement-probe]
+    paths: [benchmarks/matched-request-request.json]
+permissions:
+  contents: read
+concurrency:
+  group: matched-request-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  diagnostic:
+    name: Match sampled client and server request boundaries
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.14.7"
+          enable-cache: false
+      - name: Prepare frozen-main standard Python artifact and unchanged client
+        run: |
+          set -euo pipefail
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install wrk
+          git worktree add --detach "$RUNNER_TEMP/seed-base" ca4979a6339e533f11ad135bc760aa081f3f60ab
+          (cd "$RUNNER_TEMP/seed-base" && uv build --wheel --out-dir "$RUNNER_TEMP/seed-wheel")
+          uv venv --python 3.14.7 "$RUNNER_TEMP/seed-main-gil"
+          uv pip install --python "$RUNNER_TEMP/seed-main-gil/bin/python" "$RUNNER_TEMP/seed-wheel/"*.whl msgspec==0.22.0
+          uv venv --python 3.14.7 "$RUNNER_TEMP/seed-driver"
+          uv pip install --python "$RUNNER_TEMP/seed-driver/bin/python" psutil==7.2.2 pytest==9.1.1
+      - name: Verify collector and actual server seed activation without altering identity
+        run: |
+          set -euo pipefail
+          SEED_PROBE_TEST_PYTHON="$RUNNER_TEMP/seed-main-gil/bin/python" "$RUNNER_TEMP/seed-driver/bin/python" -m pytest tests/test_request_markers.py tests/test_process_observer.py -q -o addopts=''
+          "$RUNNER_TEMP/seed-main-gil/bin/python" scripts/verify_runtime_mode.py --expect gil
+      - name: Execute three fixed windows with matched request metadata
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/seed-driver/bin/python" scripts/matched_request_probe.py --root "$RUNNER_TEMP/matched-request" --python "$RUNNER_TEMP/seed-main-gil/bin/python" --wheel "$RUNNER_TEMP/seed-wheel/dexpot-0.7.1-py3-none-any.whl" --wrk "$(command -v wrk)"
+      - name: Join sampled callback boundaries without assigning scheduler causality
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/seed-driver/bin/python" scripts/analyze_request_markers.py --root "$RUNNER_TEMP/matched-request"
+      - name: Preserve every outcome and the measured wheel
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: matched-request-evidence
+          path: |
+            ${{ runner.temp }}/matched-request
+          retention-days: 14
+          if-no-files-found: warn
