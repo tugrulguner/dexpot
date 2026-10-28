@@ -49,6 +49,35 @@ def test_pipeline_response_does_not_roundtrip_through_blocking_call(monkeypatch)
         right.close()
 
 
+def test_pipeline_parse_timeout_restores_configured_error_write_budget(monkeypatch):
+    from types import SimpleNamespace
+
+    http = importlib.import_module("dexpot._http")
+    app_module = importlib.import_module("dexpot.app")
+    monkeypatch.setattr(http, "time", SimpleNamespace(monotonic=lambda: 10.0))
+
+    class ExpiringConnection:
+        timeout = 0.25
+        write_timeout = None
+        response = b""
+
+        def settimeout(self, value):
+            self.timeout = value
+
+        def recv(self, size):
+            raise TimeoutError("request deadline expired")
+
+        def sendall(self, data):
+            self.write_timeout = self.timeout
+            self.response = data
+
+    conn = ExpiringConnection()
+    app = app_module.Dex(limits=http.HttpLimits(idle_read_seconds=0.25))
+    assert app._process(conn, b"G", head_deadline=10.0001) == (False, b"")
+    assert conn.response.startswith(b"HTTP/1.1 408 ")
+    assert conn.write_timeout == 0.25, "error write inherited the exhausted read-phase budget"
+
+
 def test_idle_deadline_arms_after_a_silent_write_completion(monkeypatch):
     import threading
 

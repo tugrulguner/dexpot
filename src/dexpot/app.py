@@ -387,6 +387,10 @@ class Dex:
         except ClientDisconnected:
             return False, b""
         except HTTPParseError as exc:
+            if head_deadline is not None:
+                # The Darwin commit-gated reader spent the request budget;
+                # its queued error response uses the configured write timeout.
+                conn.settimeout(self.limits.idle_read_seconds)
             self._send(
                 conn,
                 exc.status,
