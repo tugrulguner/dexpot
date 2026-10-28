@@ -96,6 +96,11 @@ def test_failed_async_resume_releases_receiver_with_its_error(monkeypatch):
         right.sendall(b"x" * state.limit)
         with state.condition:
             assert state.condition.wait_for(lambda: len(state.data) == state.limit, timeout=1)
+        # Publishing the full buffer precedes selector removal. Complete that
+        # owner-side phase before draining, so resume must re-register READ.
+        manager.call(left, "resume", None, None)
+        with pytest.raises(KeyError):
+            manager._selector.get_key(left)
         monkeypatch.setattr(manager._selector, "register", failing_register)
         assert len(proxy.recv(state.limit)) == state.limit
         with pytest.raises(OSError, match="injected read-resume"):
