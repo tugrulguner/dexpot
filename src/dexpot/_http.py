@@ -339,11 +339,14 @@ def read_request(
     conn: socket.socket,
     buf: bytes,
     limits: HttpLimits,
+    *,
+    head_deadline: float | None = None,
 ) -> tuple[ParsedRequest, bytes]:
     """Read and parse one bounded request, preserving pipelined bytes."""
 
     delimiter = b"\r\n\r\n"
-    head_deadline = time.monotonic() + limits.head_read_seconds
+    if head_deadline is None:
+        head_deadline = time.monotonic() + limits.head_read_seconds
     head_buffer = bytearray(buf)
     try:
         while True:

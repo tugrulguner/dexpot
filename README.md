@@ -75,7 +75,11 @@ keeps the same plain synchronous handlers in both modes:
   and msgspec codecs are prepared when a handler is registered.
 - **Interpreter-adaptive scheduling.** With the GIL disabled, one process uses a real thread
   per connection, capped at 1,024 active connections by default. With the GIL enabled, a bounded
-  thread pool provides fast 503 overload shedding and can fan out through `SO_REUSEPORT` workers.
+  handler pool provides fast 503 overload shedding and can fan out through `SO_REUSEPORT` workers.
+  On macOS and Linux each pool shares one nonblocking socket-I/O owner; handlers retain their
+  connection's worker thread across keep-alive requests. Windows retains its incumbent pool
+  backend rather than imposing `select()`'s descriptor-set limit on configured pool sizes.
+  The framework does not change the interpreter's GIL interval.
   A free-threaded build with its GIL enabled uses the GIL serving model too.
 - **msgspec request bodies.** JSON decoding and validation happen together in compiled C
   codecs.
@@ -385,7 +389,7 @@ dexpot binds its scheduler when `serve()` starts, after application loading, usi
 | Runtime | Default serving model | Overload behavior |
 |---|---|---|
 | Free-threaded CPython (GIL disabled) | One process; each admitted connection owns a thread | Active connections capped at 1,024 by default; excess connections receive 503 before thread creation |
-| CPython with the GIL enabled | Bounded pool of `CPU * 2 + 2` connection-owning threads | Queue capped at `2 * pool`; excess connections receive 503 |
+| CPython with the GIL enabled | Bounded pool of `CPU * 2 + 2` connection-pinned handler threads; macOS/Linux share one socket-I/O owner per pool, Windows retains its connection-owner backend | Queue capped at `2 * pool`; excess connections receive 503 |
 | CPython with the GIL enabled and `DEXPOT_WORKERS>1` | POSIX `SO_REUSEPORT` processes, each with its own bounded pool | Each worker sheds independently |
 
 A worker owns a keep-alive connection until it closes. This avoids putting idle keep-alive
