@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "kind": "runtime-repair-qualification",
+  "base_sha": "ca4979a6339e533f11ad135bc760aa081f3f60ab",
+  "candidate_sha": "58a9730be87142e08309ad68ea101800aaf00ebe",
+  "matrix_source": "scripts/lifecycle_preflight_harness/plan.json",
+  "duration_s": 15,
+  "client_threads": 4,
+  "connections": 16,
+  "pool": 16,
+  "budgets": {
+    "rss_bytes": 536870912,
+    "threads": 128,
+    "fds": 256,
+    "cpu_cores": 10
+  },
+  "comparison": {
+    "min_goodput_ratio": 0.9,
+    "max_adjusted_p99_ratio": 1.25
+  },
+  "sequence": [
+    "all_12_AA_pairs_both_directions",
+    "only_if_all_AA_pass_all_12_AB_pairs_directional"
+  ],
+  "no_retries": true,
+  "candidate_qualified_from_controls": false,
+  "lifecycle_enabled_cohort": false,
+  "reused_driver_sha256": "f0af2b86386421a14c8f6dfef060509dd25f448f6d17d7419694cb496669943a",
+  "plan_source_sha256": "a55f5877a787ca18f7dd954e7af2dca8eb020b6f3c1dd246bdc8cd6a9f3ae99d"
+}

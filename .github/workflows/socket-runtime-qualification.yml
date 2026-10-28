@@ -1,0 +1,73 @@
+name: Socket runtime-repair qualification
+
+on:
+  push:
+    branches: [diagnostic/lifecycle-placement-probe]
+    paths: [benchmarks/socket-runtime-run-request.json]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: socket-runtime-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    name: Complete AA then baseline-repair gates (${{ matrix.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            label: linux
+          - os: macos-26
+            label: macos
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.14.7"
+          enable-cache: false
+      - name: Install unchanged qualification dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv python install 3.14.7 3.14.7t
+          if [ "$RUNNER_OS" = Linux ]; then
+            sudo apt-get update
+            sudo apt-get install --yes wrk
+          else
+            brew install wrk
+          fi
+          uv venv --python 3.14.7 "$RUNNER_TEMP/qualification-driver"
+          uv pip install --python "$RUNNER_TEMP/qualification-driver/bin/python" psutil==7.2.2 pytest==9.1.1 msgspec==0.22.0
+      - name: Verify pinned commits and orchestration invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e 'ca4979a6339e533f11ad135bc760aa081f3f60ab^{commit}'
+          git cat-file -e '58a9730be87142e08309ad68ea101800aaf00ebe^{commit}'
+          "$RUNNER_TEMP/qualification-driver/bin/python" -m pytest tests/test_socket_runtime_stages.py tests/test_calibration_repeatability.py tests/test_process_observer.py tests/test_placement_probe.py -q -o addopts=''
+          "$RUNNER_TEMP/qualification-driver/bin/python" scripts/socket_runtime_qualification.py --self-test
+      - name: Execute one complete no-retry qualification campaign
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = Linux ]; then
+            export DEXPOT_DISJOINT_CONTROL=1
+          fi
+          "$RUNNER_TEMP/qualification-driver/bin/python" scripts/socket_runtime_qualification.py --run-request benchmarks/socket-runtime-run-request.json
+      - name: Preserve all raw observations, failures and exact wheels
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: socket-runtime-${{ matrix.label }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/dexpot-socket-runtime-qualification/
+          if-no-files-found: warn
+          retention-days: 14
