@@ -23,7 +23,8 @@ def run(args):
     api = runpy.run_path(str(harness / "run.py"))
     plan = json.loads((harness / "plan.json").read_text())
     assert plan["client_threads"] == 4 and plan["connections"] == 16 and plan["pool"] == 16
-    cell = next(c for c in plan["matrix"] if c["id"] == "gil-mixed-1")
+    cell_id = {"flat": "gil-flat-0", "mixed": "gil-mixed-1"}[args.profile]
+    cell = next(c for c in plan["matrix"] if c["id"] == cell_id)
     plan.update(duration_s=15, matrix=[cell])
     pp = root / "plan.json"
     pp.write_text(json.dumps(plan, indent=2))
@@ -55,6 +56,7 @@ def run(args):
         "scope": "one artifact and serving PID, classic/shared/shared/classic for future connections; an idle shared owner remains allocated in classic mode; NOT an original-stock comparison or qualification",
         "modes": [False, True, True, False],
         "duration_s": 15,
+        "profile": cell["profile"],
         "client_threads": 4,
         "connections": 16,
         "budgets": plan["budgets"],
@@ -134,7 +136,7 @@ def run(args):
                     str(harness / "validate.lua"),
                     f"http://127.0.0.1:{port}",
                     "--",
-                    "mixed",
+                    cell["profile"],
                 ]
                 row = {
                     "cell": cell,
@@ -183,7 +185,7 @@ def run(args):
                             stdout=stdout, stderr=stderr, client_returncode=client.returncode
                         )
                         try:
-                            row["metrics"] = api["parse_metrics"](stdout, "mixed")
+                            row["metrics"] = api["parse_metrics"](stdout, cell["profile"])
                         except Exception as error:
                             row["metrics_error"] = repr(error)
                     row["resources"] = api["resources"](samples)
@@ -275,6 +277,7 @@ if __name__ == "__main__":
         action="store_true",
         help="Exercise actual backend transitions and cleanup without native timing",
     )
+    parser.add_argument("--profile", choices=["flat", "mixed"], default="mixed")
     for name in ["python", "wheel", "harness", "wrk", "collector", "output"]:
         parser.add_argument("--" + name, required=True)
     run(parser.parse_args())

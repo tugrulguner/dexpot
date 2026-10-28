@@ -1,0 +1,65 @@
+name: Same-PID Darwin flat-path crossover (not qualification)
+
+on:
+  push:
+    branches: [diagnostic/lifecycle-placement-probe]
+    paths: [.github/workflows/live-flat-crossover.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-flat-crossover-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    name: Original flat-path throughput contrast, one serving PID
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.14.7"
+          enable-cache: false
+      - name: Install unchanged diagnostic dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          uv python install 3.14.7 3.14.7t
+          brew install wrk
+          uv venv --python 3.14.7 "$RUNNER_TEMP/qualification-driver"
+          uv pip install --python "$RUNNER_TEMP/qualification-driver/bin/python" psutil==7.2.2 pytest==9.1.1 msgspec==0.22.0
+      - name: Validate controls and prepare pinned source without timing
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/qualification-driver/bin/python" -m pytest tests/test_live_io_crossover.py tests/test_socket_runtime_stages.py -q -o addopts=''
+          "$RUNNER_TEMP/qualification-driver/bin/python" scripts/live_io_crossover/prepare.py
+      - name: One serving PID, classic/shared/shared/classic, no native retries
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/dexpot-socket-runtime-qualification"
+          "$RUNNER_TEMP/qualification-driver/bin/python" scripts/live_io_crossover/run.py --profile flat \
+            --python "$root/pr-gil/bin/python" \
+            --wheel "$root/dist-pr/dexpot-0.7.1-py3-none-any.whl" \
+            --harness scripts/lifecycle_preflight_harness \
+            --wrk "$(command -v wrk)" \
+            --collector scripts/live_io_crossover/collector \
+            --output "$RUNNER_TEMP/live-flat-crossover"
+      - name: Retain pinned artifacts, all observations and failed captures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: live-flat-crossover-macos-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/dexpot-socket-runtime-qualification/
+            ${{ runner.temp }}/live-flat-crossover/
+          if-no-files-found: warn
+          retention-days: 14
