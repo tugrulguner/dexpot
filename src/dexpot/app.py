@@ -375,9 +375,15 @@ class Dex:
 
     # ---- request processing ----
 
-    def _process(self, conn: socket.socket, buf: bytes) -> tuple[bool, bytes]:
+    def _process(
+        self, conn: socket.socket, buf: bytes, *, head_deadline: float | None = None
+    ) -> tuple[bool, bytes]:
         try:
-            request, buf = read_request(conn, buf, self.limits)
+            request, buf = (
+                read_request(conn, buf, self.limits)
+                if head_deadline is None
+                else read_request(conn, buf, self.limits, head_deadline=head_deadline)
+            )
         except ClientDisconnected:
             return False, b""
         except HTTPParseError as exc:
@@ -573,14 +579,26 @@ class Dex:
                 self._active_connections.add(conn)
             try:
                 owner = getattr(self, "_gil_io", None)
-                transport = (
-                    cast(socket.socket, owner.connection(conn))
+                channel = (
+                    owner.connection(conn)
                     if owner is not None and type(conn) is socket.socket
-                    else conn
+                    else None
                 )
+                pipeline = channel is not None and sys.platform == "darwin"
+                if channel is not None:
+                    channel.pipeline = pipeline
+                transport = cast(socket.socket, channel) if channel is not None else conn
                 try:
                     while not self._stopping.is_set():
-                        keep_alive, buf = self._process(transport, buf)
+                        if pipeline and channel is not None:
+                            deadline = channel.wait_request(
+                                self.limits.head_read_seconds,
+                                self.limits.idle_read_seconds,
+                                buffered=bool(buf),
+                            )
+                            keep_alive, buf = self._process(transport, buf, head_deadline=deadline)
+                        else:
+                            keep_alive, buf = self._process(transport, buf)
                         if not keep_alive:
                             break
                 finally:

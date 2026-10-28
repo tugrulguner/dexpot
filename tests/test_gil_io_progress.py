@@ -77,6 +77,8 @@ def test_next_request_progresses_when_worker_socket_return_is_suspended(boundary
         assert second_body["handler_thread"] == first_body["handler_thread"], (
             "keep-alive handler ownership changed"
         )
+        if sys.platform == "darwin":
+            assert second_body["write_rpcs"] == 0, "Darwin serving still uses write RPC replies"
     finally:
         client.close()
         if process.poll() is None:

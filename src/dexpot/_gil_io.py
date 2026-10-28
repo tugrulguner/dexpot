@@ -25,6 +25,8 @@ class _Prefetch:
     closed: bool = False
     error: BaseException | None = None
     limit: int = 65536
+    outgoing: _Call | None = None
+    wake_on_write: bool = False
 
 
 @dataclass(slots=True)
@@ -38,6 +40,8 @@ class _Call:
     value: Any = None
     error: BaseException | None = None
     offset: int = 0
+    finished_at: float = 0
+    pipeline: bool = False
 
 
 class SocketIO:
@@ -95,6 +99,10 @@ class SocketIO:
             time.monotonic() + timeout if timeout is not None else None,
             timeout == 0,
         )
+        self._enqueue(task)
+        return task
+
+    def _enqueue(self, task: _Call) -> None:
         with self._lock:
             if self._stopping:
                 raise OSError(errno.EBADF, "I/O owner is closed")
@@ -103,7 +111,6 @@ class SocketIO:
             self._wake_pending = True
         if wake:
             self._wake()
-        return task
 
     def call(
         self, conn: socket.socket, operation: str, argument: Any, timeout: float | None
@@ -181,7 +188,26 @@ class SocketIO:
                 if error is None:
                     error = exc
         task.value, task.error = value, error
+        if task.pipeline:
+            task.finished_at = time.monotonic()
         task.done.set()
+        if not task.pipeline:
+            return
+        try:
+            state = self._state(task.conn)
+        except OSError:
+            return
+        with state.condition:
+            if state.outgoing is task and (
+                state.data
+                or state.eof
+                or state.error
+                or state.closed
+                or state.wake_on_write
+                or error is not None
+                or task.deadline is None
+            ):
+                state.condition.notify_all()
 
     def _advance(self, task: _Call) -> None:
         if task.done.is_set():
@@ -358,6 +384,8 @@ class SocketOwner:
         self._conn = state.conn
         self._timeout = timeout
         self.io_thread = owner.thread
+        self.pipeline = False
+        self._first_receive_deadline: float | None = None
 
     def settimeout(self, timeout: float | None) -> None:
         if timeout is not None and timeout < 0:
@@ -371,6 +399,13 @@ class SocketOwner:
         if size < 0:
             raise ValueError("negative buffersize in recv")
         deadline = time.monotonic() + self._timeout if self._timeout is not None else None
+        if size and self._first_receive_deadline is not None:
+            deadline = (
+                min(deadline, self._first_receive_deadline)
+                if deadline is not None
+                else self._first_receive_deadline
+            )
+            self._first_receive_deadline = None
         state = self._state
         with state.condition:
             while True:
@@ -411,8 +446,79 @@ class SocketOwner:
                     raise TimeoutError("timed out")
                 state.condition.wait(remaining)
 
+    def wait_request(
+        self, head_seconds: float, idle_seconds: float, buffered: bool = False
+    ) -> float:
+        """Wait for commit plus first bytes; carry, rather than reset, read budgets."""
+        started = time.monotonic()
+        state = self._state
+        with state.condition:
+            state.wake_on_write = buffered
+            try:
+                while True:
+                    if state.closed:
+                        raise state.error or OSError(errno.EBADF, "socket closed")
+                    pending = state.outgoing
+                    now = time.monotonic()
+                    if pending is not None and not pending.done.is_set():
+                        remaining = pending.deadline - now if pending.deadline is not None else None
+                        if remaining is not None and remaining <= 0:
+                            raise TimeoutError("response write timed out")
+                        state.condition.wait(remaining)
+                        continue
+                    if pending is not None and pending.error is not None:
+                        raise pending.error
+                    base = pending.finished_at if pending is not None else started
+                    head_deadline = base + head_seconds
+                    idle_deadline = base + idle_seconds
+                    if (
+                        buffered
+                        or state.data
+                        or state.eof
+                        or state.error is not None
+                        or now >= min(head_deadline, idle_deadline)
+                    ):
+                        self._first_receive_deadline = None if buffered else idle_deadline
+                        return head_deadline
+                    state.condition.wait(min(head_deadline, idle_deadline) - now)
+            finally:
+                state.wake_on_write = False
+
     def sendall(self, data: bytes) -> None:
-        self._owner.call(self._conn, "sendall", memoryview(data), self._timeout)
+        if not self.pipeline:
+            self._owner.call(self._conn, "sendall", memoryview(data), self._timeout)
+            return
+        task = _Call(
+            self._conn,
+            "sendall",
+            memoryview(data),
+            time.monotonic() + self._timeout if self._timeout is not None else None,
+            self._timeout == 0,
+            pipeline=True,
+        )
+        with self._state.condition:
+            if self._state.closed:
+                raise OSError(errno.EBADF, "socket closed")
+            previous = self._state.outgoing
+            if previous is not None and not previous.done.is_set():
+                raise RuntimeError("previous response has not completed")
+            self._state.outgoing = task
+        try:
+            self._owner._enqueue(task)
+        except BaseException as exc:
+            task.error = exc
+            task.finished_at = time.monotonic()
+            task.done.set()
+            with self._state.condition:
+                self._state.condition.notify_all()
+            raise
 
     def close(self) -> None:
-        self._owner.call(self._conn, "close", None, None)
+        pending = self._state.outgoing
+        try:
+            if pending is not None:
+                pending.done.wait()
+                if pending.error is not None:
+                    raise pending.error
+        finally:
+            self._owner.call(self._conn, "close", None, None)

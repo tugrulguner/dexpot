@@ -12,6 +12,21 @@ release = threading.Event()
 owners = set()
 stalled = False
 count = 0
+write_rpcs = 0
+try:
+    from dexpot._gil_io import SocketIO
+except ImportError:
+    write_rpcs = -1
+else:
+    original_call = SocketIO.call
+
+    def counted_call(self, conn, operation, argument, timeout):
+        global write_rpcs
+        if operation == "sendall":
+            write_rpcs += 1
+        return original_call(self, conn, operation, argument, timeout)
+
+    SocketIO.call = counted_call
 
 
 def control():
@@ -58,7 +73,7 @@ def root() -> dict:
     global count
     count += 1
     owners.add(threading.get_ident())
-    return {"count": count, "handler_thread": threading.get_ident()}
+    return {"count": count, "handler_thread": threading.get_ident(), "write_rpcs": write_rpcs}
 
 
 app.serve(host="127.0.0.1", port=port)
