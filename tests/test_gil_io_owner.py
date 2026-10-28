@@ -157,3 +157,31 @@ def test_stalled_write_has_total_deadline_and_does_not_block_a_peer():
         for peer in (first, unread, second, reader):
             peer.close()
         worker.join(2)
+
+
+def test_arrivals_during_a_command_turn_cannot_postpone_readiness_forever():
+    """Finite replay of producers replenishing the queue while I/O is serviced."""
+    import queue
+    from types import SimpleNamespace
+
+    module = importlib.import_module("dexpot._gil_io")
+    manager = module.SocketIO.__new__(module.SocketIO)
+    manager._lock = threading.Lock()
+    manager._commands = queue.SimpleQueue()
+    manager._pending = {}
+    manager._wake_pending = True
+    task = SimpleNamespace(conn=object(), operation="recv")
+    manager._commands.put(task)
+    serviced = []
+
+    def advance(current):
+        serviced.append(current)
+        if len(serviced) < 5:
+            with manager._lock:
+                manager._commands.put(task)
+                manager._wake_pending = True
+
+    manager._advance = advance
+    manager._drain_commands()
+    assert len(serviced) == 1, "new arrivals extended the command turn before readiness polling"
+    assert manager._commands.qsize() == 1 and manager._wake_pending

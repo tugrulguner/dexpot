@@ -147,12 +147,16 @@ class SocketIO:
         )
 
     def _drain_commands(self) -> None:
-        while True:
+        # Producers enqueue under this lock. A turn must end even when completed
+        # calls immediately enqueue more work, so readiness/deadlines get serviced.
+        with self._lock:
+            turn_size = self._commands.qsize()
+            self._wake_pending = False
+        for _ in range(turn_size):
             with self._lock:
                 try:
                     task = self._commands.get_nowait()
                 except queue.Empty:
-                    self._wake_pending = False
                     return
             # Reconcile externally closed drain survivors before a descriptor can be reused.
             for previous in list(self._pending.values()):
