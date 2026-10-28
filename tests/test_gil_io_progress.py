@@ -3,12 +3,11 @@
 import http.client
 import json
 import os
-import select
 import signal
 import socket
 import subprocess
 import sys
-import time
+import threading
 from pathlib import Path
 
 import pytest
@@ -18,6 +17,7 @@ GIL_ENABLED = getattr(sys, "_is_gil_enabled", lambda: True)()
 
 
 @pytest.mark.skipif(not GIL_ENABLED, reason="GIL-only I/O ownership repair")
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows retains its incumbent pool backend")
 @pytest.mark.parametrize("boundary", ["send", "recv"])
 def test_next_request_progresses_when_worker_socket_return_is_suspended(boundary):
     with socket.socket() as probe:
@@ -39,17 +39,23 @@ def test_next_request_progresses_when_worker_socket_return_is_suspended(boundary
         stderr=subprocess.PIPE,
     )
     assert process.stdout is not None and process.stdin is not None
+    ready = threading.Event()
+    stream = process.stdout
+
+    def observe_startup():
+        try:
+            for line in stream:
+                if b"dexpot serving on" in line:
+                    ready.set()
+                    return
+        except (OSError, ValueError):
+            return
+
+    observer = threading.Thread(target=observe_startup, daemon=True)
+    observer.start()
     client = http.client.HTTPConnection("127.0.0.1", port, timeout=1)
     try:
-        deadline = time.monotonic() + 5
-        ready = False
-        while time.monotonic() < deadline and process.poll() is None:
-            if select.select([process.stdout], [], [], 0.1)[0]:
-                line = process.stdout.readline()
-                if b"dexpot serving on" in line:
-                    ready = True
-                    break
-        assert ready, "controlled test server did not start"
+        assert ready.wait(5), "controlled test server did not start"
         client.request("GET", "/")
         first = client.getresponse()
         assert first.status == 200
@@ -77,6 +83,7 @@ def test_next_request_progresses_when_worker_socket_return_is_suspended(boundary
             process.stdin.write(b"x")
             process.stdin.flush()
             process.send_signal(signal.SIGTERM)
+        observer.join(2)
         try:
             process.communicate(timeout=8)
         except subprocess.TimeoutExpired:

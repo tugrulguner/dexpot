@@ -603,8 +603,11 @@ class Dex:
             previous = getattr(self, "_gil_io", None)
             if previous is not None and previous.thread.is_alive():
                 raise RuntimeError("previous GIL I/O owner is still draining")
-            io_owner = SocketIO()
-            self._gil_io = io_owner
+            # Windows' select backend has a descriptor-set ceiling below supported
+            # configured pool sizes; retain its incumbent connection-owner path.
+            if sys.platform != "win32":
+                io_owner = SocketIO()
+                self._gil_io = io_owner
             pool_size = self._pool_size if self._runtime_bound else POOL_SIZE
             for _ in range(pool_size):
                 worker = threading.Thread(target=self._worker_gil, daemon=True)

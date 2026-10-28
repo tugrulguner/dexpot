@@ -106,6 +106,24 @@ def test_failed_connection_close_remains_owned_until_shutdown():
         right.close()
 
 
+def test_select_limited_platform_retains_incumbent_pool(monkeypatch):
+    import dexpot.app as app_module
+
+    module = importlib.import_module("dexpot._gil_io")
+
+    def forbidden():
+        raise AssertionError("select-limited platform must not acquire the shared owner")
+
+    monkeypatch.setattr(module, "SocketIO", forbidden)
+    monkeypatch.setattr(app_module.sys, "platform", "win32")
+    # Exercise backend selection without launching unrelated worker threads.
+    monkeypatch.setattr(app_module, "POOL_SIZE", 0)
+    app = app_module.Dex()
+    with socket.socket() as listener:
+        app._start_gil_workers(listener)
+    assert getattr(app, "_gil_io", None) is None
+
+
 def test_stalled_write_has_total_deadline_and_does_not_block_a_peer():
     module = importlib.import_module("dexpot._gil_io")
     manager = module.SocketIO()
