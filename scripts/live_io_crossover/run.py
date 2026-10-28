@@ -69,6 +69,9 @@ def run(args):
         ).hexdigest(),
         "prediction": "Does shared I/O ownership itself add material end-to-end cost within one process? Stable controls required; classic path is same-artifact raw-worker mode, not original stock. No OS/GIL attribution.",
     }
+    clock_module = Path(args.collector) / "thread_clock.py"
+    if clock_module.exists():
+        protocol["clock_sha256"] = hashlib.sha256(clock_module.read_bytes()).hexdigest()
     if args.control_only:
         protocol.update(modes=[], control_only=True)
     (root / "predeclared.json").write_text(json.dumps(protocol, indent=2))
