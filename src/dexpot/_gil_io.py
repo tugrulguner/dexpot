@@ -7,6 +7,7 @@ import errno
 import queue
 import selectors
 import socket
+import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -52,6 +53,8 @@ class SocketIO:
         self._commands: queue.SimpleQueue[_Call] = queue.SimpleQueue()
         self._lock = threading.Lock()
         self._wake_pending = False
+        self._awake_coalescing = sys.platform == "darwin"
+        self._sleeping = False
         self._stopping = False
         self._connections: set[socket.socket] = set()
         self._states: dict[socket.socket, _Prefetch] = {}
@@ -108,8 +111,9 @@ class SocketIO:
             if self._stopping:
                 raise OSError(errno.EBADF, "I/O owner is closed")
             self._commands.put(task)
-            wake = not self._wake_pending
-            self._wake_pending = True
+            wake = not self._wake_pending and (not self._awake_coalescing or self._sleeping)
+            if wake:
+                self._wake_pending = True
         if wake:
             self._wake()
 
@@ -309,6 +313,20 @@ class SocketIO:
                 state.condition.notify_all()
         self._set_events(state)
 
+    def _poll(self, timeout: float) -> Any:
+        if not self._awake_coalescing:
+            return self._selector.select(timeout)
+        with self._lock:
+            if self._commands.empty():
+                self._sleeping = True
+            else:
+                timeout = 0
+        try:
+            return self._selector.select(timeout)
+        finally:
+            with self._lock:
+                self._sleeping = False
+
     def _run(self) -> None:
         try:
             while True:
@@ -332,7 +350,7 @@ class SocketIO:
                     task.deadline for task in self._pending.values() if task.deadline is not None
                 ]
                 timeout = min(0.5, max(0, min(deadlines) - time.monotonic())) if deadlines else 0.5
-                for key, events in self._selector.select(timeout):
+                for key, events in self._poll(timeout):
                     if key.data is None:
                         while True:
                             try:
