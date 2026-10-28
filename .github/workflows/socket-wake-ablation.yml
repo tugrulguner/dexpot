@@ -1,0 +1,57 @@
+name: Darwin wake-only contrast (not qualification)
+
+on:
+  push:
+    branches: [diagnostic/lifecycle-placement-probe]
+    paths: [.github/workflows/socket-wake-ablation.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: socket-wake-ablation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    name: New versus previous repair wake strategy (diagnostic only)
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.14.7"
+          enable-cache: false
+      - name: Install unchanged diagnostic dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          uv python install 3.14.7 3.14.7t
+          brew install wrk
+          uv venv --python 3.14.7 "$RUNNER_TEMP/qualification-driver"
+          uv pip install --python "$RUNNER_TEMP/qualification-driver/bin/python" psutil==7.2.2 pytest==9.1.1 msgspec==0.22.0
+      - name: Validate frozen focus controller and prepare pinned artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/qualification-driver/bin/python" -m pytest tests/test_socket_wake_ablation.py tests/test_socket_owner_diagnostic.py tests/test_socket_runtime_stages.py -q -o addopts=''
+          "$RUNNER_TEMP/qualification-driver/bin/python" scripts/socket_wake_ablation.py --prepare-only
+      - name: Execute one original-client ABBA without instrumentation or retries
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/qualification-driver/bin/python" scripts/socket_wake_ablation.py --run
+      - name: Retain pinned artifacts, all observations and failed captures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: socket-wake-ablation-macos-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/dexpot-socket-runtime-qualification/
+          if-no-files-found: warn
+          retention-days: 14
