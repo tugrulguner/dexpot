@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "kind": "balanced-socket-owner-diagnostic-not-qualification",
+  "base_sha": "ca4979a6339e533f11ad135bc760aa081f3f60ab",
+  "candidate_sha": "58a9730be87142e08309ad68ea101800aaf00ebe",
+  "failed_qualification_retained": "40607601578",
+  "duration_s": 15,
+  "client_threads": 4,
+  "connections": 16,
+  "pool": 16,
+  "budgets": {
+    "rss_bytes": 536870912,
+    "threads": 128,
+    "fds": 256,
+    "cpu_cores": 10
+  },
+  "comparison": {
+    "min_goodput_ratio": 0.9,
+    "max_adjusted_p99_ratio": 1.25
+  },
+  "sequence": "all 12 original cells once; ABBA on even indices, BAAB on odd; A=stock, B=repair",
+  "question": "Measure stock and repair repeatability plus directional differences without requiring unstable stock controls to pass; diagnostics cannot clear the original failed promotion gate.",
+  "no_retries": true,
+  "qualified": false,
+  "helper_sha256": "2df365f182b8862e90a8324bec82827e253412c1491589a14df45eb26121526d",
+  "diagnostic_sha256": "7b9952f36e412bcb10ea30c313034a88e5fa79c7547a32c707dfe84c37a7f9bb",
+  "plan_sha256": "a55f5877a787ca18f7dd954e7af2dca8eb020b6f3c1dd246bdc8cd6a9f3ae99d"
+}

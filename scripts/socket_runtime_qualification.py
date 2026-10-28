@@ -242,7 +242,7 @@ def power_snapshot(governor=Path("/sys/devices/system/cpu/cpu0/cpufreq/scaling_g
     }
 
 
-def execute_qualification():
+def execute_qualification(diagnostic=None):
     repo = Path(__file__).resolve().parents[1]
     root = Path(os.environ["RUNNER_TEMP"]) / "dexpot-socket-runtime-qualification"
     root.mkdir()
@@ -347,13 +347,16 @@ def execute_qualification():
             "original_plan": original,
             "cells": ["ft-mixed-1"] if stage_diagnostic else expected,
             "no_retries": True,
-            "schedule": "instrumented FT mixed main/pr/pr/main, two pairs, not qualification"
-            if stage_diagnostic
+            "schedule": RUN_REQUEST["sequence"]
+            if diagnostic is not None
             else "all12 AA first; only if passing all12 AB; reverse side order on odd cell indices",
+            "diagnostic_only": diagnostic is not None,
             "lifecycle_enabled_cohort": False,
             "qualification_scope": "original closed-loop numerical/resource screen, not scheduled-arrival SLO proof",
             "request": RUN_REQUEST,
-            "decision": "all cells pass unchanged numerical and resource budgets",
+            "decision": "diagnostic only; original qualification remains blocked"
+            if diagnostic is not None
+            else "all cells pass unchanged numerical and resource budgets",
             "wheel_sha256": {
                 k: hashlib.sha256(v.read_bytes()).hexdigest() for k, v in wheels.items()
             },
@@ -499,9 +502,15 @@ def execute_qualification():
             cell, cohort, [(side, roles[artifact], harness) for side, artifact in sides], reverse
         )
 
-    stages = run_stages(original["matrix"], runtime_pair)
+    stages = (
+        run_stages(original["matrix"], runtime_pair)
+        if diagnostic is None
+        else diagnostic(original["matrix"], record, calibrate, harness, evidence, root)
+    )
     aa, ab = stages["aa"], stages["ab"]
     verdict = stages["status"]
+    if diagnostic is not None and verdict == "screen-passed":
+        raise RuntimeError("a diagnostic cannot return a qualification verdict")
     if placement is not None:
         from placement_probe import validate_placement
 
@@ -522,6 +531,9 @@ def execute_qualification():
             "source_base": BASE,
             "source_head": HEAD,
             "expected_cells_each": 2 if stage_diagnostic else 12,
+            "diagnostic_only": diagnostic is not None,
+            "repeatability_pairs_per_cell": 2 if diagnostic is not None else 1,
+            "product_pairs_per_cell": 2 if diagnostic is not None else 1,
             "stage_diagnostic_only": stage_diagnostic,
             "completed_aa": len(aa),
             "completed_ab": len(ab),
