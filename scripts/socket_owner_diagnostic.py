@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
-CANDIDATE = "9b40acd985fbf3844430b789524a6ca1aff06ab3"
+CANDIDATE = "c08142aca4b9b0bb00eaf4a45cf95d1c0d79c26e"
 HELPER = REPO / "scripts/socket_runtime_qualification.py"
 SPEC = importlib.util.spec_from_file_location("socket_qualification", HELPER)
 assert SPEC and SPEC.loader
@@ -41,6 +41,7 @@ def request_spec():
         "candidate_sha": CANDIDATE,
         "failed_qualification_retained": "40607601578",
         "failed_candidate_retained": "40609444989",
+        "bounded_turn_diagnostic_retained": "40612545764",
         "duration_s": 15,
         "client_threads": plan["client_threads"],
         "connections": plan["connections"],
