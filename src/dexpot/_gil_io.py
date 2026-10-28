@@ -1,4 +1,4 @@
-"""One bounded nonblocking socket-I/O owner for a GIL handler pool."""
+"""Bounded readiness-owned socket I/O for a synchronous GIL handler pool."""
 
 from __future__ import annotations
 
@@ -14,6 +14,20 @@ from typing import Any
 
 
 @dataclass(slots=True)
+class _Prefetch:
+    conn: socket.socket
+    fd: int
+    condition: threading.Condition = field(default_factory=threading.Condition)
+    data: bytearray = field(default_factory=bytearray)
+    available_at: float = 0
+    ended_at: float = 0
+    eof: bool = False
+    closed: bool = False
+    error: BaseException | None = None
+    limit: int = 65536
+
+
+@dataclass(slots=True)
 class _Call:
     conn: socket.socket
     operation: str
@@ -24,11 +38,10 @@ class _Call:
     value: Any = None
     error: BaseException | None = None
     offset: int = 0
-    fd: int = -1
 
 
 class SocketIO:
-    """Serialize readiness-driven I/O, not handlers, on one process-local thread."""
+    """One process-local owner; persistent bounded reads and synchronous writes."""
 
     def __init__(self) -> None:
         self._commands: queue.SimpleQueue[_Call] = queue.SimpleQueue()
@@ -36,6 +49,7 @@ class SocketIO:
         self._wake_pending = False
         self._stopping = False
         self._connections: set[socket.socket] = set()
+        self._states: dict[socket.socket, _Prefetch] = {}
         self._pending: dict[socket.socket, _Call] = {}
         self._selector = selectors.DefaultSelector()
         try:
@@ -55,100 +69,176 @@ class SocketIO:
 
     def connection(self, conn: socket.socket) -> SocketOwner:
         timeout = conn.gettimeout()
+        state = _Prefetch(conn, conn.fileno())
         with self._lock:
             if self._stopping:
                 raise OSError(errno.EBADF, "I/O owner is closed")
+            if conn in self._states:
+                raise RuntimeError("connection already owned")
             conn.setblocking(False)
             self._connections.add(conn)
-        return SocketOwner(self, conn, timeout)
+            self._states[conn] = state
+        self.call(conn, "register", None, None)
+        return SocketOwner(self, state, timeout)
 
     def _wake(self) -> None:
         with contextlib.suppress(OSError):
             self._writer.send(b"\0")
 
-    def call(
+    def _submit(
         self, conn: socket.socket, operation: str, argument: Any, timeout: float | None
-    ) -> Any:
-        deadline = time.monotonic() + timeout if timeout is not None else None
-        task = _Call(conn, operation, argument, deadline, timeout == 0)
+    ) -> _Call:
+        task = _Call(
+            conn,
+            operation,
+            argument,
+            time.monotonic() + timeout if timeout is not None else None,
+            timeout == 0,
+        )
         with self._lock:
             if self._stopping:
-                if operation == "close":
-                    conn.close()
-                    return None
                 raise OSError(errno.EBADF, "I/O owner is closed")
             self._commands.put(task)
             wake = not self._wake_pending
             self._wake_pending = True
         if wake:
             self._wake()
+        return task
+
+    def call(
+        self, conn: socket.socket, operation: str, argument: Any, timeout: float | None
+    ) -> Any:
+        try:
+            task = self._submit(conn, operation, argument, timeout)
+        except OSError:
+            if operation == "close":
+                conn.close()
+                return None
+            raise
         task.done.wait()
         if task.error is not None:
             raise task.error
         return task.value
 
-    def _finish(self, task: _Call, value: Any = None, error: BaseException | None = None) -> None:
-        if task.fd >= 0:
-            with contextlib.suppress(KeyError, ValueError, OSError):
-                key = self._selector.get_key(task.fd)
-                if key.data is task:
-                    self._selector.unregister(task.fd)
-        if self._pending.get(task.conn) is task:
-            del self._pending[task.conn]
-        task.value, task.error = value, error
-        task.done.set()
+    def _state(self, conn: socket.socket) -> _Prefetch:
+        with self._lock:
+            state = self._states.get(conn)
+        if state is None:
+            raise OSError(errno.EBADF, "socket is no longer owned")
+        return state
 
-    def _watch(self, task: _Call, event: int) -> None:
-        if task.nonblocking:
-            self._finish(task, error=BlockingIOError(errno.EWOULDBLOCK, "operation would block"))
+    def _unregister(self, state: _Prefetch) -> None:
+        with contextlib.suppress(KeyError, ValueError, OSError):
+            if self._selector.get_key(state.fd).data is state:
+                self._selector.unregister(state.fd)
+
+    def _mark_closed(self, state: _Prefetch, error: BaseException) -> None:
+        self._unregister(state)
+        with state.condition:
+            state.closed = True
+            state.error = error
+            state.condition.notify_all()
+        pending = self._pending.get(state.conn)
+        if pending is not None:
+            self._finish(pending, error=error)
+
+    def _set_events(self, state: _Prefetch) -> None:
+        with state.condition:
+            readable = (
+                not (state.closed or state.eof or state.error) and len(state.data) < state.limit
+            )
+            closed = state.closed
+        events = (selectors.EVENT_READ if readable else 0) | (
+            selectors.EVENT_WRITE if state.conn in self._pending and not closed else 0
+        )
+        if state.conn.fileno() != state.fd:
+            self._mark_closed(state, OSError(errno.EBADF, "socket closed"))
             return
         try:
-            task.fd = task.conn.fileno()
-            if task.fd < 0:
-                raise OSError(errno.EBADF, "socket closed")
-            self._pending[task.conn] = task
-            self._selector.register(task.conn, event, task)
-        except BaseException as exc:
-            self._finish(task, error=exc)
+            key = self._selector.get_key(state.fd)
+        except KeyError:
+            key = None
+        if key is not None and key.data is not state:
+            previous = key.data
+            if isinstance(previous, _Prefetch) and previous.conn.fileno() != previous.fd:
+                self._mark_closed(previous, OSError(errno.EBADF, "socket closed"))
+                key = None
+            else:
+                raise OSError(errno.EBUSY, "descriptor already owned")
+        if not events:
+            self._unregister(state)
+        elif key is None:
+            self._selector.register(state.conn, events, state)
+        elif key.events != events:
+            self._selector.modify(state.fd, events, state)
+
+    def _finish(self, task: _Call, value: Any = None, error: BaseException | None = None) -> None:
+        if self._pending.get(task.conn) is task:
+            del self._pending[task.conn]
+            try:
+                self._set_events(self._state(task.conn))
+            except (OSError, ValueError) as exc:
+                if error is None:
+                    error = exc
+        task.value, task.error = value, error
+        task.done.set()
 
     def _advance(self, task: _Call) -> None:
         if task.done.is_set():
             return
-        if task.deadline is not None and not task.nonblocking and time.monotonic() >= task.deadline:
-            self._finish(task, error=TimeoutError("timed out"))
-            return
-        # A readiness registration is removed before another single bounded I/O turn.
-        if task.fd >= 0:
-            with contextlib.suppress(KeyError, ValueError, OSError):
-                self._selector.unregister(task.fd)
-            task.fd = -1
+        state = None
         try:
-            if task.operation == "recv":
-                self._finish(task, task.conn.recv(task.argument))
+            state = self._state(task.conn)
+            if task.operation == "close":
+                self._mark_closed(state, OSError(errno.EBADF, "socket closed"))
+                try:
+                    task.conn.close()
+                finally:
+                    if task.conn.fileno() < 0:
+                        with self._lock:
+                            self._connections.discard(task.conn)
+                            self._states.pop(task.conn, None)
+                self._finish(task)
                 return
+            if task.operation in ("register", "resume"):
+                self._set_events(state)
+                self._finish(task)
+                return
+            if task.operation != "sendall":
+                raise ValueError("unsupported I/O operation")
+            if (
+                task.deadline is not None
+                and not task.nonblocking
+                and time.monotonic() >= task.deadline
+            ):
+                raise TimeoutError("timed out")
+            if state.closed or task.conn.fileno() != state.fd:
+                raise OSError(errno.EBADF, "socket closed")
+            previous = self._pending.get(task.conn)
+            if previous is not None and previous is not task:
+                raise RuntimeError("overlapping writes on one connection")
             data = task.argument
+            if task.offset < len(data):
+                try:
+                    sent = task.conn.send(data[task.offset :])
+                    if sent == 0:
+                        raise ConnectionResetError("socket write returned zero")
+                    task.offset += sent
+                except BlockingIOError:
+                    pass
             if task.offset == len(data):
                 self._finish(task)
-                return
-            sent = task.conn.send(data[task.offset :])
-            if sent == 0:
-                raise ConnectionResetError("socket write returned zero")
-            task.offset += sent
-            if task.offset == len(data):
-                self._finish(task)
-                return
-        except BlockingIOError:
-            pass
+            elif task.nonblocking:
+                raise BlockingIOError(errno.EWOULDBLOCK, "operation would block")
+            else:
+                self._pending[task.conn] = task
+                self._set_events(state)
         except BaseException as exc:
+            if state is not None and task.operation in ("register", "resume"):
+                self._mark_closed(state, exc)
             self._finish(task, error=exc)
-            return
-        self._watch(
-            task, selectors.EVENT_READ if task.operation == "recv" else selectors.EVENT_WRITE
-        )
 
     def _drain_commands(self) -> None:
-        # Producers enqueue under this lock. A turn must end even when completed
-        # calls immediately enqueue more work, so readiness/deadlines get serviced.
         with self._lock:
             turn_size = self._commands.qsize()
             self._wake_pending = False
@@ -158,28 +248,35 @@ class SocketIO:
                     task = self._commands.get_nowait()
                 except queue.Empty:
                     return
-            # Reconcile externally closed drain survivors before a descriptor can be reused.
-            for previous in list(self._pending.values()):
-                if previous.conn.fileno() != previous.fd:
-                    self._finish(previous, error=OSError(errno.EBADF, "socket closed"))
-            if task.operation == "close":
-                previous = self._pending.get(task.conn)
-                if previous is not None:
-                    self._finish(previous, error=OSError(errno.EBADF, "socket closed"))
-                error = None
-                try:
-                    task.conn.close()
-                except BaseException as exc:
-                    error = exc
-                finally:
-                    if task.conn.fileno() < 0:
-                        with self._lock:
-                            self._connections.discard(task.conn)
-                    self._finish(task, error=error)
-            elif task.conn in self._pending:
-                self._finish(task, error=RuntimeError("overlapping operations on one connection"))
-            else:
-                self._advance(task)
+            self._advance(task)
+
+    def _read_ready(self, state: _Prefetch) -> None:
+        with state.condition:
+            capacity = state.limit - len(state.data)
+            if state.closed or state.eof or state.error or capacity <= 0:
+                return
+        try:
+            data = state.conn.recv(capacity)
+        except BlockingIOError:
+            return
+        except OSError as exc:
+            observed = time.monotonic()
+            with state.condition:
+                state.error = exc
+                state.ended_at = observed
+                state.condition.notify_all()
+        else:
+            observed = time.monotonic()
+            with state.condition:
+                if data:
+                    if not state.data:
+                        state.available_at = observed
+                    state.data.extend(data)
+                else:
+                    state.eof = True
+                    state.ended_at = observed
+                state.condition.notify_all()
+        self._set_events(state)
 
     def _run(self) -> None:
         try:
@@ -188,17 +285,23 @@ class SocketIO:
                 with self._lock:
                     if self._stopping:
                         return
+                    states = list(self._states.values())
+                for state in states:
+                    if state.conn.fileno() != state.fd:
+                        self._mark_closed(state, OSError(errno.EBADF, "socket closed"))
+                        if state.conn.fileno() < 0:
+                            with self._lock:
+                                self._states.pop(state.conn, None)
+                                self._connections.discard(state.conn)
                 now = time.monotonic()
                 for task in list(self._pending.values()):
-                    if task.conn.fileno() != task.fd:
-                        self._finish(task, error=OSError(errno.EBADF, "socket closed"))
-                    elif task.deadline is not None and now >= task.deadline:
+                    if task.deadline is not None and now >= task.deadline:
                         self._finish(task, error=TimeoutError("timed out"))
                 deadlines = [
                     task.deadline for task in self._pending.values() if task.deadline is not None
                 ]
                 timeout = min(0.5, max(0, min(deadlines) - time.monotonic())) if deadlines else 0.5
-                for key, _events in self._selector.select(timeout):
+                for key, events in self._selector.select(timeout):
                     if key.data is None:
                         while True:
                             try:
@@ -207,14 +310,22 @@ class SocketIO:
                             except BlockingIOError:
                                 break
                     else:
-                        self._advance(key.data)
+                        state = key.data
+                        if state.closed or state.conn.fileno() != state.fd:
+                            self._mark_closed(state, OSError(errno.EBADF, "socket closed"))
+                            continue
+                        if events & selectors.EVENT_READ:
+                            self._read_ready(state)
+                        task = self._pending.get(state.conn)
+                        if events & selectors.EVENT_WRITE and task is not None:
+                            self._advance(task)
         finally:
             with self._lock:
                 self._stopping = True
+                states = list(self._states.values())
                 connections = list(self._connections)
-                self._connections.clear()
-            for task in list(self._pending.values()):
-                self._finish(task, error=OSError(errno.EBADF, "I/O owner stopped"))
+            for state in states:
+                self._mark_closed(state, OSError(errno.EBADF, "I/O owner stopped"))
             while True:
                 try:
                     task = self._commands.get_nowait()
@@ -224,6 +335,9 @@ class SocketIO:
             for conn in connections:
                 with contextlib.suppress(OSError):
                     conn.close()
+            with self._lock:
+                self._states.clear()
+                self._connections.clear()
             self._selector.close()
             self._reader.close()
             self._writer.close()
@@ -236,11 +350,12 @@ class SocketIO:
 
 
 class SocketOwner:
-    """A connection-pinned worker's local socket facade; no extra owner thread."""
+    """Connection-pinned facade; receive waits on bounded owner-prefetched bytes."""
 
-    def __init__(self, owner: SocketIO, conn: socket.socket, timeout: float | None) -> None:
+    def __init__(self, owner: SocketIO, state: _Prefetch, timeout: float | None) -> None:
         self._owner = owner
-        self._conn = conn
+        self._state = state
+        self._conn = state.conn
         self._timeout = timeout
         self.io_thread = owner.thread
 
@@ -253,7 +368,48 @@ class SocketOwner:
         return self._timeout
 
     def recv(self, size: int) -> bytes:
-        return self._owner.call(self._conn, "recv", size, self._timeout)
+        if size < 0:
+            raise ValueError("negative buffersize in recv")
+        deadline = time.monotonic() + self._timeout if self._timeout is not None else None
+        state = self._state
+        with state.condition:
+            while True:
+                if state.closed:
+                    if state.error is not None:
+                        raise state.error
+                    raise OSError(errno.EBADF, "socket closed")
+                if size == 0:
+                    return b""
+                if state.data:
+                    if (
+                        self._timeout != 0
+                        and deadline is not None
+                        and state.available_at > deadline
+                    ):
+                        raise TimeoutError("timed out")
+                    was_full = len(state.data) == state.limit
+                    result = bytes(state.data[:size])
+                    del state.data[:size]
+                    if was_full:
+                        self._owner._submit(self._conn, "resume", None, None)
+                    return result
+                if (
+                    (state.error is not None or state.eof)
+                    and self._timeout != 0
+                    and deadline is not None
+                    and state.ended_at > deadline
+                ):
+                    raise TimeoutError("timed out")
+                if state.error is not None:
+                    raise state.error
+                if state.eof:
+                    return b""
+                if self._timeout == 0:
+                    raise BlockingIOError(errno.EWOULDBLOCK, "operation would block")
+                remaining = deadline - time.monotonic() if deadline is not None else None
+                if remaining is not None and remaining <= 0:
+                    raise TimeoutError("timed out")
+                state.condition.wait(remaining)
 
     def sendall(self, data: bytes) -> None:
         self._owner.call(self._conn, "sendall", memoryview(data), self._timeout)
