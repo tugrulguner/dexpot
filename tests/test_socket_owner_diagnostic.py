@@ -84,3 +84,4 @@ def test_cli_prepare_entrypoint_cannot_qualify(tmp_path, monkeypatch):
     assert MODULE.main() == 0
     assert calls == [MODULE.diagnostic] and MODULE.DRIVER.PREPARE_ONLY
     assert MODULE.DRIVER.RUN_REQUEST["qualified"] is False
+    assert MODULE.DRIVER.HEAD == MODULE.CANDIDATE

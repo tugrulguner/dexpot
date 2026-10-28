@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
+CANDIDATE = "9b40acd985fbf3844430b789524a6ca1aff06ab3"
 HELPER = REPO / "scripts/socket_runtime_qualification.py"
 SPEC = importlib.util.spec_from_file_location("socket_qualification", HELPER)
 assert SPEC and SPEC.loader
@@ -37,8 +38,9 @@ def request_spec():
         "schema": 1,
         "kind": "balanced-socket-owner-diagnostic-not-qualification",
         "base_sha": DRIVER.BASE,
-        "candidate_sha": DRIVER.HEAD,
+        "candidate_sha": CANDIDATE,
         "failed_qualification_retained": "40607601578",
+        "failed_candidate_retained": "40609444989",
         "duration_s": 15,
         "client_threads": plan["client_threads"],
         "connections": plan["connections"],
@@ -166,6 +168,7 @@ def main():
     ):
         raise ValueError("Linux requires unchanged attested disjoint placement")
     DRIVER.RUN_REQUEST = request
+    DRIVER.HEAD = CANDIDATE
     DRIVER.PREPARE_ONLY = args.prepare_only
     try:
         return DRIVER.execute_qualification(diagnostic=diagnostic)
