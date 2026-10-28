@@ -49,6 +49,57 @@ def test_pipeline_response_does_not_roundtrip_through_blocking_call(monkeypatch)
         right.close()
 
 
+def test_idle_deadline_arms_after_a_silent_write_completion(monkeypatch):
+    import threading
+
+    module = importlib.import_module("dexpot._gil_io")
+    owner = module.SocketIO()
+    left, right = socket.socketpair()
+    proxy = owner.connection(left)
+    proxy.pipeline = True
+    proxy.settimeout(1)
+    release = threading.Event()
+    waiting = threading.Event()
+    done = threading.Event()
+    errors = []
+    advance = owner._advance
+    condition_wait = proxy._state.condition.wait
+
+    def hold_write(task):
+        if task.operation == "sendall":
+            release.wait(1)
+        advance(task)
+
+    def observe_wait(timeout=None):
+        waiting.set()
+        return condition_wait(timeout)
+
+    def await_request():
+        try:
+            proxy.wait_request(head_seconds=0.05, idle_seconds=0.02)
+        except BaseException as exc:
+            errors.append(exc)
+        finally:
+            done.set()
+
+    monkeypatch.setattr(owner, "_advance", hold_write)
+    monkeypatch.setattr(proxy._state.condition, "wait", observe_wait)
+    worker = threading.Thread(target=await_request)
+    try:
+        proxy.sendall(b"response")
+        worker.start()
+        assert waiting.wait(1)
+        release.set()
+        assert done.wait(0.2), "write completion left the worker asleep past its read deadline"
+        assert not errors
+    finally:
+        release.set()
+        owner.close()
+        left.close()
+        right.close()
+        worker.join(1)
+
+
 def test_pipeline_idle_wait_does_not_restart_idle_budget(monkeypatch):
     module = importlib.import_module("dexpot._gil_io")
     http = importlib.import_module("dexpot._http")

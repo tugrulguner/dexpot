@@ -27,6 +27,7 @@ class _Prefetch:
     limit: int = 65536
     outgoing: _Call | None = None
     wake_on_write: bool = False
+    read_budget: float | None = None
 
 
 @dataclass(slots=True)
@@ -206,6 +207,10 @@ class SocketIO:
                 or state.wake_on_write
                 or error is not None
                 or task.deadline is None
+                or (
+                    state.read_budget is not None
+                    and task.deadline > task.finished_at + state.read_budget
+                )
             ):
                 state.condition.notify_all()
 
@@ -454,6 +459,7 @@ class SocketOwner:
         state = self._state
         with state.condition:
             state.wake_on_write = buffered
+            state.read_budget = min(head_seconds, idle_seconds)
             try:
                 while True:
                     if state.closed:
@@ -483,6 +489,7 @@ class SocketOwner:
                     state.condition.wait(min(head_deadline, idle_deadline) - now)
             finally:
                 state.wake_on_write = False
+                state.read_budget = None
 
     def sendall(self, data: bytes) -> None:
         if not self.pipeline:
