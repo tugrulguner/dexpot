@@ -1,0 +1,68 @@
+name: Handler wait diagnostic (not qualification)
+
+on:
+  push:
+    branches: [diagnostic/lifecycle-placement-probe]
+    paths: [.github/workflows/handler-wait-diagnostic.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: handler-wait-diagnostic-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    name: Observe original handler waits (diagnostic only)
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.14.7"
+          enable-cache: false
+      - name: Install unchanged diagnostic dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          uv python install 3.14.7 3.14.7t
+          brew install wrk
+          uv venv --python 3.14.7 "$RUNNER_TEMP/qualification-driver"
+          uv pip install --python "$RUNNER_TEMP/qualification-driver/bin/python" psutil==7.2.2 pytest==9.1.1 msgspec==0.22.0
+      - name: Validate collector and prepare pinned artifacts without timing
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/qualification-driver/bin/python" -m pytest tests/test_handler_wait_diagnostic.py tests/test_socket_owner_diagnostic.py tests/test_socket_runtime_stages.py -q -o addopts=''
+          "$RUNNER_TEMP/qualification-driver/bin/python" scripts/socket_owner_diagnostic.py --run-request benchmarks/socket-owner-diagnostic-request.json --prepare-only
+      - name: Observe two original mixed-workload windows with diagnostic wait capture
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/dexpot-socket-runtime-qualification"
+          "$RUNNER_TEMP/qualification-driver/bin/python" scripts/handler_wait_diagnostic/run.py \
+            --harness scripts/lifecycle_preflight_harness/run.py \
+            --collector scripts/handler_wait_diagnostic/collector \
+            --original-python "$root/main-gil/bin/python" \
+            --original-wheel "$root/dist-main/dexpot-0.7.1-py3-none-any.whl" \
+            --current-python "$root/pr-gil/bin/python" \
+            --current-wheel "$root/dist-pr/dexpot-0.7.1-py3-none-any.whl" \
+            --wrk "$(command -v wrk)" \
+            --output "$RUNNER_TEMP/handler-wait-observation"
+          "$RUNNER_TEMP/qualification-driver/bin/python" scripts/handler_wait_diagnostic/run.py --audit-only "$RUNNER_TEMP/handler-wait-observation"
+      - name: Retain pinned artifacts, all observations and failed captures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: handler-wait-macos-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/dexpot-socket-runtime-qualification/
+            ${{ runner.temp }}/handler-wait-observation/
+          if-no-files-found: warn
+          retention-days: 14
