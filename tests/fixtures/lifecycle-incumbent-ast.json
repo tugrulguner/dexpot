@@ -1,0 +1,35 @@
+{
+  "source_base": "ca4979a6339e533f11ad135bc760aa081f3f60ab",
+  "constructor_fields": [
+    "_active_connections",
+    "_cond",
+    "_declaration_lock",
+    "_endpoints",
+    "_handoff_yield",
+    "_literal",
+    "_max_queue",
+    "_parametric",
+    "_plan",
+    "_pool_size",
+    "_registration_depth",
+    "_response_owner_policy",
+    "_response_owner_policy_selected",
+    "_response_turn_cpu_budget_ns",
+    "_response_turn_handoff",
+    "_runtime_bound",
+    "_runtime_mode_warning_logged",
+    "_serving_gil_free",
+    "_stopping",
+    "_work",
+    "limits"
+  ],
+  "methods": {
+    "__init__": "99a690d4d8a7b0ed17d7727c172518796c145fe3148c14853b26390b4405000f",
+    "_process": "c92595884259c22c0580ab0cc6311d17fd4be13ac490bb024b625bd974cacb04",
+    "_match": "2819cf974077cb7100a67b5ffe27f172adf4dbadaea9dab5b451e14d15ffd2d0",
+    "_worker_gil": "35856f06e0f41fd13084fc0d911e2e35d73ad2bcc4d54a01017137b91d0d3faa",
+    "_own_connection": "2174b07aa124efa7cd95e9e4713f51e085c9be15ee59751eeb43e8c9f56dc648",
+    "_own_connection_ft": "b50c7fa391084b143b4d1dd40e354334a368de44b6a425b109427c3a1914c8cd",
+    "_handle_admission": "ca540c7917385163a71d3ef7eb8a043e565c7b6267580b1b581ff6298dd3cf66"
+  }
+}

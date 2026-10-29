@@ -15,7 +15,13 @@ import httpx
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES = ROOT / "examples"
-EXPECTED_EXAMPLES = {"bounded_api.py", "minimal.py", "typed_crud.py", "response_policy.py"}
+EXPECTED_EXAMPLES = {
+    "bounded_api.py",
+    "minimal.py",
+    "typed_crud.py",
+    "response_policy.py",
+    "lifecycle.py",
+}
 
 
 def _free_port() -> int:
@@ -150,3 +156,10 @@ def test_response_policy_example_covers_checked_and_explicit_responses() -> None
     assert "content-length" not in empty.headers
     assert legacy.status_code == 202
     assert legacy.json() == {"name": "legacy"}
+
+
+def test_lifecycle_example_serves_health() -> None:
+    with _run_example("lifecycle.py") as base:
+        response = httpx.get(f"{base}/health")
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}

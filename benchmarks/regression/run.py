@@ -146,13 +146,18 @@ def server(python: str, env: dict, log: Path):
                 process.wait(timeout=3)
 
             def group_alive():
+                if "group_probe_error" in state:
+                    return True  # Unknown is never evidence of successful cleanup.
                 try:
                     os.killpg(process.pid, 0)
                     return True
                 except ProcessLookupError:
                     return False
+                except PermissionError as exc:
+                    state["group_probe_error"] = repr(exc)
+                    return True
 
-            if group_alive():
+            if group_alive() and "group_probe_error" not in state:
                 forced = True
                 with contextlib.suppress(ProcessLookupError):
                     os.killpg(process.pid, signal.SIGKILL)

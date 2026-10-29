@@ -28,6 +28,7 @@ EXPECTED_EXAMPLES = {
     "minimal.py",
     "response_policy.py",
     "typed_crud.py",
+    "lifecycle.py",
 }
 
 
@@ -199,6 +200,11 @@ def _check_response_policy(path: Path) -> None:
         assert legacy[0] == 202 and legacy[2] == {"name": "legacy"}
 
 
+def _check_lifecycle(path: Path) -> None:
+    with _serve(path) as port:
+        assert _request(port, "GET", "/health")[2] == {"ok": True}
+
+
 def main() -> None:
     discovered = {path.name for path in EXAMPLES.glob("*.py")}
     assert discovered == EXPECTED_EXAMPLES, discovered
@@ -208,6 +214,7 @@ def main() -> None:
     _check_crud(EXAMPLES / "typed_crud.py")
     _check_bounded(EXAMPLES / "bounded_api.py")
     _check_response_policy(EXAMPLES / "response_policy.py")
+    _check_lifecycle(EXAMPLES / "lifecycle.py")
     print(
         f"installed dexpot {importlib.metadata.version('dexpot')} passed CLI and "
         f"HTTP smoke checks; examples inventory contains {len(discovered)} files"
