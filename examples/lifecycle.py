@@ -1,4 +1,4 @@
-"""Show paired setup and reverse-order cleanup for process-scoped resources."""
+"""Show paired process-scoped setup and cleanup (requires dexpot >= 0.8.0)."""
 
 from __future__ import annotations
 

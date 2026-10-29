@@ -40,6 +40,26 @@ The server listens on loopback by default. Bind publicly only behind an explicit
 
 Configure `HttpLimits` to match the application rather than assuming that parser defaults fit every workload. Defaults are documented in the [HTTP boundary](/http-boundary/); limits and deadlines are positive and immutable. Dexpot supports validated `Content-Length`, not chunked transfer encoding. Unsupported `Expect` requests receive 417 before body reads; oversized inputs and deadline failures close the connection. HEAD responses contain no body after parsing, including error paths (admission can reject before the method is read).
 
+## Pair application resources
+
+Requires dexpot 0.8.0 or newer. Register synchronous context-manager factories with
+`app.lifespan(factory)` before serving. Each serving process acquires its resources before
+accepting traffic and normally cleans them up in reverse order after handlers finish.
+Partial startup failure unwinds acquired resources; a replacement worker acquires fresh ones.
+GIL worker processes own independent resources, while FT threads share process-local resources.
+Yielded values are not automatically injected into handlers. See the
+[runnable lifecycle example](https://github.com/tugrulguner/dexpot/blob/main/examples/lifecycle.py)
+and [full lifecycle contract](https://github.com/tugrulguner/dexpot/blob/main/examples/README.md#paired-application-lifecycle).
+
+After the bounded drain deadline, surviving handlers retain their connections and resources.
+A temporary finalizer cleans up after quiescence; context managers must support cleanup on a
+different thread. Forced process termination can skip Python cleanup. This is not a guarantee
+that arbitrary application cleanup finishes within a fixed time.
+
+Lifecycle performance acceptance is scoped to the controlled Linux screen. macOS and
+unrestricted performance remain unqualified; this release does not include the experimental
+socket-I/O redesign.
+
 ## Stop and supervise
 
 SIGINT and SIGTERM stop admission and allow active connections up to five seconds to drain. The GIL-mode supervisor restarts an unexpectedly exited worker. Multiprocess serving is POSIX-only; the current Windows configuration is single-process. Exercise process shutdown and listener closure in subprocess tests; serving in a helper thread is not a valid signal test. See [`test_multiprocess.py`](https://github.com/tugrulguner/dexpot/blob/main/tests/test_multiprocess.py).

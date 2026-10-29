@@ -98,6 +98,8 @@ applies to returned payloads at every status, including tuple and Response error
 
 ## Paired application lifecycle
 
+Requires dexpot 0.8.0 or newer. The yielded context-manager value is not automatically injected into handlers.
+
 Register synchronous context-manager factories with `app.lifespan(factory)`. Registration and
 plan compilation do not call the factory. Each serving process enters factories in order before
 accepting traffic and normally exit them in reverse order after active handlers finish. Shutdown waits

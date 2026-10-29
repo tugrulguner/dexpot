@@ -10,6 +10,26 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.8.0] - 2026-10-28
+
+### Added
+
+- Add a bounded installed-wheel regression screen with exact native-response validation, GIL-mode provenance, sampled resource checks, preserved trial records and fail-closed candidate comparisons.
+- Add synchronous `app.lifespan(factory)` application resources with process-local acquisition, reverse-order cleanup, partial-startup rollback and worker-restart acquisition. Outstanding handlers retain their resources after bounded drain; deferred cleanup can run on a different thread, and forced process termination can skip cleanup. Yielded values are not automatically injected into handlers. Lifecycle performance acceptance is limited to the controlled Linux screen; macOS and unrestricted performance remain unqualified. The experimental socket-I/O redesign is not included.
+
+### Changed
+
+- Add a supporting worker-lifecycle diagram alongside the preserved execution and response-contract illustrations, and correct website explanations of serve-time scheduler selection and connection-owner capacity lifetime.
+- Checked nested Struct response contracts on GIL-enabled Python can select a registration-bound direct preparer after canonical validation. Unsupported contracts retain the canonical fallback, and FT preparation is unchanged. Historical same-host measurements showed a 4.841% median nested-throughput gain with increased registration CPU and retained metadata; this is not a universal or release-to-release speedup claim. See the retained [experiment and tradeoffs](https://github.com/tugrulguner/dexpot/blob/main/docs/gil-nested-direct-experiment.md).
+- The checked-response engines now re-export the same finite-value, length, omission, generic-substitution, type-info, and record-detection helpers; response preparation and compilation strategies remain separate.
+- Update the public author email for dexpot and dexpot-native to tugrul@modepot.io.
+
+### Fixed
+
+- Clarify that serving mode follows the active GIL state rather than the interpreter build flag, and distinguish shipped v0.7.1 scheduling changes from their bounded pre-release benchmark evidence.
+- Empty and whitespace Item IDs in the browser preview are now rejected before numeric coercion.
+
+
 ## [0.7.1] - 2026-10-21
 
 ### Changed

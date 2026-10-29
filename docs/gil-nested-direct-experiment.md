@@ -1,7 +1,7 @@
 # GIL nested response preparation: installed-wheel experiment
 
 ## Status and scope
-Unreleased candidate, measured source `45df5f1dd2c634874316c2fe977708dd8f5cb092` against public v0.7.1 whose runtime sources equal base `ed552cf80d2940df2644d9840401cf9d823c0f44`. File SHA256 in the companion JSON pins the measured legacy compiler; later report-only commits do not change it. Both wheel versions are 0.7.1; their artifact/source hashes distinguish the private candidate from PyPI.
+Implementation included in v0.8.0; the measurements below remain historical pre-release evidence, not a v0.7.1-to-v0.8.0 comparison. Measured source `45df5f1dd2c634874316c2fe977708dd8f5cb092` against public v0.7.1 whose runtime sources equal base `ed552cf80d2940df2644d9840401cf9d823c0f44`. File SHA256 in the companion JSON pins the measured legacy compiler; later report-only commits do not change it. Both wheel versions are 0.7.1; their artifact/source hashes distinguish the private candidate from PyPI.
 
 This is a same-host macOS diagnostic with native wrk adjusted closed-loop percentiles, not a general release-to-release, Linux, external-framework, fixed-load SLO or production qualification claim. Unrelated host load was not controlled. FT measurements do not establish an improvement: its serving strategy is unchanged.
 

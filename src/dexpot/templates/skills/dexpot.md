@@ -256,7 +256,7 @@ Before calling a dexpot application change complete:
 
 Runnable example inventory: `minimal.py`, `typed_crud.py`, `bounded_api.py`, `response_policy.py`, and `lifecycle.py` (run from the repository with `uv run python examples/<name>.py`).
 
-Register process-scoped synchronous resource managers with `app.lifespan(factory)`. Factories
+Requires dexpot 0.8.0 or newer. Register process-scoped synchronous resource managers with `app.lifespan(factory)`. Factories
 are not called during registration or compilation; each serving process enters them before
 accepting traffic and exits in reverse order. GIL worker processes acquire independently;
 free-threaded connection threads share the process-local resources, which must be thread-safe.
