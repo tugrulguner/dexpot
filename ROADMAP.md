@@ -53,7 +53,10 @@ or operating system; platform adapters must stay narrow, documented, and indepen
   consolidate response semantics under milestone 3.2a. Remaining compiler, ownership, and
   pass-removal proposals are experiments, not additional shipped improvements, and do not clear
   their own promotion gates.
-- **Next application capabilities:** paired lifecycle, typed input sources, and OpenAPI in 3.3,
+- **Included in v0.8.0:** paired process-local application lifecycle and registration-selected
+  direct preparation for supported nested Struct responses on GIL-enabled Python. Lifecycle
+  performance acceptance is scoped to controlled Linux; macOS performance remains unqualified.
+- **Next application capabilities:** typed input sources and OpenAPI in 3.3,
   followed by evidence-driven hooks and scoped factories in 3.4. Build on the existing plans;
   these capabilities are not contingent on first winning every external benchmark.
 - **Parallel work:** production observability and resource budgets in milestone 5. Expand the
@@ -247,7 +250,7 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
 
 #### 3.3 Paired lifecycle and typed input sources
 
-- **Implemented:** `Dex.lifespan(factory)` registers synchronous context-manager factories; serving processes acquire them before accepting traffic and unwind in reverse order on shutdown or partial startup. GIL processes acquire independently; FT serving threads share the process-local resources. See README and `examples/README.md`.
+- **Included in v0.8.0:** `Dex.lifespan(factory)` registers synchronous context-manager factories; serving processes acquire them before accepting traffic and unwind in reverse order on shutdown or partial startup. GIL processes acquire independently; FT serving threads share the process-local resources. See README and `examples/README.md`.
 - Add typed input sources and continue the remaining work below.
 - Distinguish process/application, worker/thread, connection, and request lifetimes. A leased
   database connection need not have the sharing rules of its pool; a process-local singleton

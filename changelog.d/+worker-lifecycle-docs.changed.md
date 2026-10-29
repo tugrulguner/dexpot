@@ -1,1 +1,0 @@
-Add a supporting worker-lifecycle diagram alongside the preserved execution and response-contract illustrations, and correct website explanations of serve-time scheduler selection and connection-owner capacity lifetime.
