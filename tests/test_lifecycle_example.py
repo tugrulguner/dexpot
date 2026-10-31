@@ -11,6 +11,8 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE = ROOT / "examples" / "lifecycle.py"
 
@@ -73,6 +75,7 @@ def _events(path: Path) -> list[dict[str, str]]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Windows terminate does not run SIGTERM cleanup")
 def test_http_cache_is_shared_and_cleared_on_sigterm(tmp_path: Path) -> None:
     proc, port, events = _start(tmp_path)
     try:
