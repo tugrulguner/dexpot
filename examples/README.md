@@ -185,7 +185,8 @@ DEXPOT_EXAMPLE_EVENTS=./rollback-events.jsonl DEXPOT_EXAMPLE_FAIL_STARTUP=check 
 ```
 
 Event paths are opt-in JSONL files (one event per line, with process IDs); the example
-has no import-time resource acquisition. The files are append-only, so use a fresh
+has no import-time resource acquisition. Event-file I/O errors log a warning without
+preventing cache cleanup or hiding a startup error. The files are append-only, so use a fresh
 path when comparing one run's events. Startup errors and output-validation errors
 are intentional in these failure demonstrations, not a successful server launch.
 

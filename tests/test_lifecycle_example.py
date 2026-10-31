@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import runpy
 import signal
 import socket
 import subprocess
@@ -101,6 +102,29 @@ def test_http_cache_is_shared_and_cleared_on_sigterm(tmp_path: Path) -> None:
     assert proc.returncode == 0
     lifecycle = [event["event"] for event in _events(events)]
     assert lifecycle == ["acquire:cache", "enter:check", "exit:check", "release:cache"]
+
+
+def test_event_logging_failure_does_not_leak_cache_or_mask_startup_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    namespace = runpy.run_path(str(EXAMPLE))
+    monkeypatch.setenv(
+        "DEXPOT_EXAMPLE_EVENTS", str(tmp_path)
+    )  # A directory cannot be opened for append.
+    with namespace["cache_resource"]():
+        cache = namespace["_cache"]()
+        cache.put("key", "value")
+        assert cache.get("key") == "value"
+    assert namespace["_state"] == {}
+    assert cache.get("key") is None
+    monkeypatch.setenv("DEXPOT_EXAMPLE_FAIL_STARTUP", "check")
+    with (
+        pytest.raises(RuntimeError, match="requested lifecycle startup failure at check"),
+        namespace["cache_resource"](),
+        namespace["startup_check"](),
+    ):
+        raise AssertionError("startup failure was ignored")
+    assert namespace["_state"] == {}
 
 
 def test_startup_failure_rolls_back_before_listener_starts(tmp_path: Path) -> None:

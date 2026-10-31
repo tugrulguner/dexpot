@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import os
 import threading
 from collections.abc import Iterator
@@ -27,8 +28,11 @@ app = Dex()
 def _event(name: str) -> None:
     path = os.environ.get("DEXPOT_EXAMPLE_EVENTS")
     if path:
-        with open(path, "a", encoding="utf-8") as stream:
-            stream.write(json.dumps({"event": name}) + "\n")
+        try:
+            with open(path, "a", encoding="utf-8") as stream:
+                stream.write(json.dumps({"event": name, "pid": os.getpid()}) + "\n")
+        except OSError as error:
+            logging.getLogger(__name__).warning("Could not append lifecycle event: %s", error)
 
 
 class Cache:
