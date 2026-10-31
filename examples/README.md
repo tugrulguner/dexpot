@@ -7,10 +7,29 @@ from the repository root after `uv sync --all-extras`:
 uv run python examples/minimal.py
 uv run python examples/typed_crud.py
 uv run python examples/bounded_api.py
+uv run python examples/response_policy.py
+uv run python examples/nested_responses.py
 uv run python examples/lifecycle.py
 ```
 
-Set `DEXPOT_EXAMPLE_PORT` when port 8000 is already in use.
+Set `DEXPOT_EXAMPLE_PORT` when port 8000 is already in use. Run one server at a time.
+The latest lifecycle and nested-response walkthroughs below target dexpot 0.8.0 or newer;
+none requires a database, credentials, or network service beyond the local HTTP server.
+
+## Capability map
+
+| Example | What it exercises |
+| --- | --- |
+| `minimal.py` | Synchronous handler, integer path binding, typed JSON response |
+| `typed_crud.py` | JSON body validation, GET/POST/PUT/DELETE, checked creation, explicit generic errors, raw Request metadata, thread-safe process-local state |
+| `bounded_api.py` | Configured HTTP limits, 413/422/405 errors, explicit annotation namespaces |
+| `response_policy.py` | Public-field projection, custom and duplicate headers, sanitized output failures, raw bytes, bodyless 204, status tuples |
+| `nested_responses.py` | Nested Struct projection, malformed/non-finite nested output rejection, valid recovery after failure |
+| `lifecycle.py` | Serving-time acquisition, explicit resource access, reverse cleanup, partial-startup rollback |
+
+These are the shipped contracts, not proposed typed query/header/cookie binding, dependency
+injection, OpenAPI, or the experimental socket-I/O redesign. Request query/header metadata
+is raw; application state is not shared across GIL worker processes.
 
 ## `minimal.py`
 
@@ -76,8 +95,9 @@ DEXPOT_WORKERS=4 uv run python examples/typed_crud.py
 # Tune the free-threaded active-connection cap (default: 1024).
 DEXPOT_MAX_CONNECTIONS=512 uv run python examples/typed_crud.py
 
-# A free-threaded CPython build is detected automatically and uses one process with
-# capped connection-owning threads that can execute Python in parallel.
+# When sys._is_gil_enabled() is false, capped connection-owning threads can
+# execute Python in parallel. A free-threaded build with its GIL enabled still
+# selects the bounded GIL serving model.
 ```
 
 Dexpot is still alpha software. These examples validate the current framework contract; they
@@ -96,6 +116,29 @@ In `typed_crud.py`, GET and PUT explicitly use `response=None` because their suc
 applies to returned payloads at every status, including tuple and Response error bodies.
 
 
+## Nested checked responses (0.8.0+)
+
+Run `uv run python examples/nested_responses.py`, then:
+
+```bash
+curl -i http://127.0.0.1:8000/catalog
+# {"items":[{"name":"tea","quantity":1,"price":2.5}],"note":"ready"}
+curl -i http://127.0.0.1:8000/invalid
+curl -i http://127.0.0.1:8000/nonfinite
+# Both return 500 {"detail":"internal server error"} and log validation failures.
+```
+
+`/catalog` projects a private catalog and its nested private item into public Struct
+schemas, omitting both internal catalog metadata and the item's supplier secret.
+The public schema supplies defaults when fields are absent. `/invalid` supplies
+an incorrectly typed nested field; `/nonfinite` puts NaN in a float field, so the
+failure exercises finite-number validation rather than an integer type mismatch.
+A subsequent valid request still succeeds on the same keep-alive connection.
+
+The supported nested Struct response preparation introduced in 0.8.0 preserves
+validation and projection. This example asserts the public contract, not a
+throughput improvement or a free-threaded optimization.
+
 ## Paired application lifecycle
 
 Requires dexpot 0.8.0 or newer. The yielded context-manager value is not automatically injected into handlers.
@@ -109,22 +152,42 @@ termination may skip Python cleanup. These resources are
 process-owned: GIL worker processes each acquire their own copy; free-threaded serving threads
 share the serving process's acquired resources, so those resources must be thread-safe.
 
-```python
-import contextlib
-from dexpot import Dex
+Run `uv run python examples/lifecycle.py`, then:
 
-app = Dex()
-
-@contextlib.contextmanager
-def database_pool():
-    pool = create_pool()
-    try:
-        yield
-    finally:
-        pool.close()
-
-app.lifespan(database_pool)
+```bash
+curl -i http://127.0.0.1:8000/health
+curl -i -X PUT http://127.0.0.1:8000/cache/tea \
+  -H 'Content-Type: application/json' -d '{"value":"oolong"}'
+curl -i http://127.0.0.1:8000/cache/tea
+# {"key":"tea","value":"oolong"}
+curl -i -X PUT http://127.0.0.1:8000/cache/tea \
+  -H 'Content-Type: application/json' -d '{"value":7}'
+# 422; the previously stored value is unchanged.
 ```
+
+The cache is constructed inside its context-manager factory, then published through
+an explicit process-local reference for handlers. Its lock protects reads, writes,
+and clearing across free-threaded serving threads. Missing keys return 404.
+A later startup check models dependency readiness; if it fails, the acquired cache
+is closed without starting the listener. The example does not use yielded-value
+injection, durable storage, or cross-process state sharing. With the default single
+GIL serving process, writes are visible to subsequent requests; configuring multiple
+GIL workers would give each worker an independent cache.
+
+To observe acquisition and cleanup, or demonstrate rollback before traffic:
+
+```bash
+DEXPOT_EXAMPLE_EVENTS=./lifecycle-events.jsonl uv run python examples/lifecycle.py
+# Stop normally with Ctrl-C; the cache is cleared after the startup check exits.
+DEXPOT_EXAMPLE_EVENTS=./rollback-events.jsonl DEXPOT_EXAMPLE_FAIL_STARTUP=check \
+  uv run python examples/lifecycle.py
+# Exits nonzero. Events: acquire:cache, enter:check, exit:check, release:cache.
+```
+
+Event paths are opt-in JSONL files (one event per line, with process IDs); the example
+has no import-time resource acquisition. The files are append-only, so use a fresh
+path when comparing one run's events. Startup errors and output-validation errors
+are intentional in these failure demonstrations, not a successful server launch.
 
 A disconnected client does not cancel Python handler work. Shutdown drains for a bounded period; if
 handlers remain, their connections and application resources are left untouched and cleanup runs

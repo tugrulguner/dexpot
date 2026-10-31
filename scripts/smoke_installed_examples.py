@@ -29,6 +29,7 @@ EXPECTED_EXAMPLES = {
     "response_policy.py",
     "typed_crud.py",
     "lifecycle.py",
+    "nested_responses.py",
 }
 
 
@@ -200,9 +201,39 @@ def _check_response_policy(path: Path) -> None:
         assert legacy[0] == 202 and legacy[2] == {"name": "legacy"}
 
 
+def _check_nested_responses(path: Path) -> None:
+    with _serve(path) as port:
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+        try:
+            for endpoint in ("/catalog", "/invalid", "/nonfinite", "/catalog"):
+                connection.request("GET", endpoint)
+                response = connection.getresponse()
+                payload = json.loads(response.read())
+                if endpoint == "/catalog":
+                    assert response.status == 200
+                    assert payload == {
+                        "items": [{"name": "tea", "quantity": 1, "price": 2.5}],
+                        "note": "ready",
+                    }
+                else:
+                    assert response.status == 500
+                    assert payload == {"detail": "internal server error"}
+        finally:
+            connection.close()
+
+
 def _check_lifecycle(path: Path) -> None:
     with _serve(path) as port:
         assert _request(port, "GET", "/health")[2] == {"ok": True}
+        missing = _request(port, "GET", "/cache/example")
+        assert missing[0] == 404
+        stored = _request(port, "PUT", "/cache/example", {"value": "stored"})
+        assert stored[0] == 200
+        assert stored[2] == {"key": "example", "value": "stored"}
+        assert _request(port, "GET", "/cache/example")[2] == stored[2]
+        invalid = _request(port, "PUT", "/cache/example", {"value": 7})
+        assert invalid[0] == 422
+        assert _request(port, "GET", "/cache/example")[2] == stored[2]
 
 
 def main() -> None:
@@ -214,6 +245,7 @@ def main() -> None:
     _check_crud(EXAMPLES / "typed_crud.py")
     _check_bounded(EXAMPLES / "bounded_api.py")
     _check_response_policy(EXAMPLES / "response_policy.py")
+    _check_nested_responses(EXAMPLES / "nested_responses.py")
     _check_lifecycle(EXAMPLES / "lifecycle.py")
     print(
         f"installed dexpot {importlib.metadata.version('dexpot')} passed CLI and "

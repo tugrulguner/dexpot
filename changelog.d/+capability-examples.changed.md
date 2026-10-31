@@ -1,0 +1,1 @@
+Expand runnable examples with real process-local resource use and startup rollback, plus nested checked-response projection and failure recovery; exercise every example through the installed-package smoke runner.
