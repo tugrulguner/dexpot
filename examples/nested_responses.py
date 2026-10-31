@@ -18,8 +18,6 @@ class PublicItem(msgspec.Struct):
 
 class PrivateItem(msgspec.Struct):
     name: str
-    quantity: int = 1
-    price: float = 2.5
     supplier_secret: str = "vendor-only"
 
 
