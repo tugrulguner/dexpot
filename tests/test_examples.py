@@ -21,6 +21,7 @@ EXPECTED_EXAMPLES = {
     "typed_crud.py",
     "response_policy.py",
     "lifecycle.py",
+    "nested_responses.py",
 }
 
 
