@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test';
+import { gotoProjectPage } from './project-navigation.mjs';
 
 test('rendered public runtime tables and hosted roadmap preserve precise release scope', async ({ page, request }) => {
   for (const width of [1280, 375]) {
     await page.setViewportSize({ width, height: 900 });
     for (const route of ['/', '/execution-model/', '/guides/deployment/', '/project/readme/']) {
-      await page.goto(route);
+      if (route === '/project/readme/') await gotoProjectPage(page, route);
+      else await page.goto(route);
       await expect(page.getByRole('cell', { name: 'Free-threaded CPython (GIL disabled)', exact: true })).toHaveCount(1);
       await expect(page.getByRole('cell', { name: 'CPython with the GIL enabled', exact: true })).toHaveCount(1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

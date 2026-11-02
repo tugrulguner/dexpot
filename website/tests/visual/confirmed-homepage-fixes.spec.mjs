@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { gotoProjectPage } from './project-navigation.mjs';
 
 for (const width of [1280, 390, 320]) {
   for (const theme of ['light', 'dark']) {
@@ -16,7 +17,7 @@ for (const width of [1280, 390, 320]) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({path: info.outputPath(`dexpot-home-${width}-${theme}.png`)});
 
-      await page.goto('/project/readme/');
+      await gotoProjectPage(page, '/project/readme/');
       const diagrams = page.locator('a[href*="/docs/assets/dexpot-"]');
       await expect(diagrams).toHaveCount(3);
       for (const link of await diagrams.all()) {
