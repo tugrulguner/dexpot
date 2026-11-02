@@ -230,8 +230,17 @@ def create_for_account(item: ItemIn, account_id: int) -> ItemOut:
     return ItemOut(id=account_id, name=item.name, price=item.price)
 ```
 
-The handler signature does not have to mirror URL order. dexpot binds path captures by name,
-treats the first non-path, non-Request parameter as the declared body, preserves Python signature order,
+The handler signature does not have to mirror URL order. dexpot binds path captures by name.
+
+Path annotations support only `str`, `int`, unannotated parameters, and `Any`.
+Only `int` is converted; invalid integers return 422. Other supported captures remain strings.
+`float`, `bool`, `Enum`, `Annotated`, unions, and explicit `None` are unsupported.
+Unreleased correction: unsupported path annotations raise `TypeError` during registration
+instead of silently receiving strings as they did in v0.8.0. This restriction does not apply
+to JSON body or response schemas. To migrate, annotate raw captures as `str` and explicitly
+validate/convert them in application code, or use a typed JSON body where appropriate.
+
+Dexpot treats the first non-path, non-Request parameter as the declared body, preserves Python signature order,
 and supports keyword-only parameters, callable objects, classes, and `functools.partial`. Class
 annotations use the effective constructor's namespace: metaclass `__call__` first, otherwise
 `__new__` or `__init__` in MRO order (`__new__` wins on the same class), including

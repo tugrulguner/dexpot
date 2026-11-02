@@ -338,6 +338,14 @@ class EndpointPlan:
             if name in captures_by_name:
                 if annotation is Request:
                     raise TypeError(f"path parameter '{name}' cannot also be annotated as Request")
+                if not any(
+                    annotation is supported
+                    for supported in (str, int, Any, inspect.Parameter.empty)
+                ):
+                    raise TypeError(
+                        f"unsupported annotation for path parameter '{name}'; "
+                        "supported types are str, int, Any, or no annotation"
+                    )
                 index = captures_by_name[name]
                 if annotation is int:
                     int_captures.append((index, name))
