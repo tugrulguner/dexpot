@@ -43,6 +43,13 @@ def create_item(item: ItemIn) -> tuple[int, ItemOut]:
 
 The explicit `body=ItemIn` selects and precompiles a msgspec JSON decoder; the matching handler parameter receives the decoded `ItemIn`. A path capture is converted according to the `int` annotation. `response=ItemOut` strictly validates and projects the returned value onto the public schema; invalid output produces a sanitized 500. Annotate an optional `request: Request` parameter to receive the frozen public request context; see [routes and handlers](/route-contract/#request-context).
 
+Path annotations support only `str`, `int`, unannotated parameters, and `Any`.
+`float`, `bool`, `Enum`, `Annotated`, unions, and explicit `None` are unsupported.
+Unreleased correction: unsupported path annotations raise `TypeError` during registration
+instead of silently receiving strings as in v0.8.0. This is separate from the richer
+JSON body and response schema support shown above. For raw string captures, validate and
+convert explicitly in application code before numeric comparisons or boolean decisions.
+
 ## 2. Run and exercise the public HTTP interface
 
 ```bash
