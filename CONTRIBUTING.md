@@ -70,7 +70,7 @@ than style preferences.
 
 Path annotations support only `str`, `int`, unannotated parameters, and `Any`.
 `float`, `bool`, `Enum`, `Annotated`, unions, and explicit `None` are unsupported.
-Unreleased correction: unsupported path annotations raise `TypeError` during registration.
+In dexpot 0.8.1 and newer, unsupported path annotations raise `TypeError` during registration.
 Preserve atomic rejection, including reuse of the rejected structural route, and test that
 integer conversion still rejects invalid input with 422 before invoking the handler.
 Raw supported captures remain strings; JSON body and response schemas have separate rules.

@@ -34,7 +34,7 @@ Registration fails before serving when a required parameter has no source, a pat
 Path annotations support only `str`, `int`, unannotated parameters, and `Any`.
 Only `int` is converted, with 422 for invalid integers; other supported captures stay strings.
 `float`, `bool`, `Enum`, `Annotated`, unions, and explicit `None` are unsupported.
-Unreleased correction: unsupported path annotations raise `TypeError` during registration
+In dexpot 0.8.1 and newer, unsupported path annotations raise `TypeError` during registration
 instead of silently receiving strings in v0.8.0. Rejected registrations do not reserve the
 route or invoke the handler. To migrate, use `str` and explicit application validation,
 or a typed JSON body where appropriate. JSON body and response schemas have separate rules.

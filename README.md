@@ -235,7 +235,7 @@ The handler signature does not have to mirror URL order. dexpot binds path captu
 Path annotations support only `str`, `int`, unannotated parameters, and `Any`.
 Only `int` is converted; invalid integers return 422. Other supported captures remain strings.
 `float`, `bool`, `Enum`, `Annotated`, unions, and explicit `None` are unsupported.
-Unreleased correction: unsupported path annotations raise `TypeError` during registration
+In dexpot 0.8.1 and newer, unsupported path annotations raise `TypeError` during registration
 instead of silently receiving strings as they did in v0.8.0. This restriction does not apply
 to JSON body or response schemas. To migrate, annotate raw captures as `str` and explicitly
 validate/convert them in application code, or use a typed JSON body where appropriate.

@@ -35,3 +35,25 @@ def test_nested_measurements_keep_their_original_provenance() -> None:
     assert "historical pre-release evidence" in text
     assert "Both wheel versions are 0.7.1" in text
     assert "registration CPU" in text
+
+
+def test_roadmap_names_the_path_correction_release() -> None:
+    text = (ROOT / "ROADMAP.md").read_text()
+    assert "**Included in v0.8.1:**" in text
+    assert "unsupported path annotations" in text
+    assert "integer conversion" in text
+
+
+def test_patch_changelog_covers_runtime_examples_and_tooling() -> None:
+    import re
+
+    changelog = (ROOT / "CHANGELOG.md").read_text()
+    section = re.search(r"^## \[0\.8\.1\][^\n]*\n(.*?)(?=^## \[|\Z)", changelog, re.M | re.S)
+    assert section is not None
+    text = section.group(1)
+    for phrase in (
+        "unsupported path parameter annotations",
+        "nested checked-response",
+        "Python development and website build dependencies",
+    ):
+        assert phrase in text

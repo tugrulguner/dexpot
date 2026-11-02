@@ -1,4 +1,4 @@
-"""Keep the path-annotation boundary synchronized without claiming a released fix."""
+"""Keep the path-annotation boundary and its minimum release synchronized."""
 
 from pathlib import Path
 
@@ -18,11 +18,12 @@ ROOT = Path(__file__).resolve().parent.parent
         "website/src/content/docs/guides/typed-api.md",
     ],
 )
-def test_path_annotation_contract_is_explicit_and_unreleased(relative: str) -> None:
+def test_path_annotation_contract_names_the_minimum_release(relative: str) -> None:
     text = (ROOT / relative).read_text()
     assert "Path annotations support only `str`, `int`, unannotated parameters, and `Any`." in text
     assert (
         "`float`, `bool`, `Enum`, `Annotated`, unions, and explicit `None` are unsupported." in text
     )
-    assert "Unreleased correction:" in text
+    assert "In dexpot 0.8.1 and newer," in text
+    assert "Unreleased correction:" not in text
     assert "`TypeError` during registration" in text
