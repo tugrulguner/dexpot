@@ -88,6 +88,12 @@ The runtime package is `dexpot`; the command requires `dexpot[cli]`.
   that do not share a supported schema.
 - Path captures bind by parameter name, not by handler position.
 - An `int` path annotation converts the capture and returns 422 when conversion fails.
+- Path annotations support only `str`, `int`, unannotated parameters, and `Any`.
+  `float`, `bool`, `Enum`, `Annotated`, unions, and explicit `None` are unsupported.
+  Unreleased correction: unsupported path annotations raise `TypeError` during registration
+  rather than silently receiving strings as in v0.8.0. To migrate an unsupported annotation,
+  use `str` with explicit application validation or a typed JSON body where appropriate.
+  Body/response schema support does not imply path conversion support.
 - Path parameters may appear in any valid signature order because they bind by name.
 - The first non-path, non-Request parameter is the body parameter. Put default-only parameters after it.
 - Keyword-only parameters, callable objects, classes, and `functools.partial` work. Class

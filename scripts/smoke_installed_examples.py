@@ -138,9 +138,41 @@ def _check_cli() -> None:
     assert result.stdout.strip() == f"dexpot {version}"
 
 
+def _check_path_annotations() -> None:
+    """Exercise registration against whichever distribution this interpreter imports."""
+    from enum import Enum
+    from typing import Annotated, Literal
+
+    from dexpot import Dex
+
+    class State(Enum):
+        ACTIVE = "active"
+
+    for annotation in (float, bool, State, Annotated[int, "id"], int | None, Literal["x"], None):
+        app = Dex()
+
+        def handler(value: Any) -> dict[str, str]:
+            return {"value": str(value)}
+
+        handler.__annotations__ = {"value": annotation}
+        try:
+            app.get("/values/{value}")(handler)
+        except TypeError as error:
+            assert "value" in str(error)
+            assert "str" in str(error) and "int" in str(error)
+        else:
+            raise AssertionError(f"unsupported path annotation accepted: {annotation!r}")
+        # A rejected declaration must not reserve even the same concrete route.
+        handler.__annotations__ = {"value": str}
+        app.get("/values/{value}")(handler)
+
+
 def _check_minimal(path: Path) -> None:
     with _serve(path) as port:
         status, _headers, body = _request(port, "GET", "/items/7")
+        invalid = _request(port, "GET", "/items/not-an-int")
+        assert invalid[0] == 422
+        assert _request(port, "GET", "/items/7")[2] == body
     assert status == 200
     assert body == {"id": 7, "name": "item-7", "price": 7.0}
 
@@ -210,6 +242,7 @@ def main() -> None:
     assert discovered == EXPECTED_EXAMPLES, discovered
 
     _check_cli()
+    _check_path_annotations()
     _check_minimal(EXAMPLES / "minimal.py")
     _check_crud(EXAMPLES / "typed_crud.py")
     _check_bounded(EXAMPLES / "bounded_api.py")
