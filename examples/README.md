@@ -62,6 +62,16 @@ curl -s -X POST http://127.0.0.1:8000/echo \
 The example deliberately caps bodies at 64 bytes. Oversized requests receive 413, malformed
 JSON receives 422, and calling `POST /health` receives 405 with `Allow: GET`.
 
+## Path annotation boundary
+
+Path annotations support only `str`, `int`, unannotated parameters, and `Any`.
+`float`, `bool`, `Enum`, `Annotated`, unions, and explicit `None` are unsupported.
+Unreleased correction: unsupported path annotations raise `TypeError` during registration
+instead of silently passing strings in v0.8.0. The integer route in `minimal.py` converts
+`/items/7` to an integer and rejects `/items/not-an-int` with 422. Raw string captures need
+explicit application validation before numeric comparisons or boolean decisions; the string
+`"false"` is truthy in Python. JSON body and response schemas support their own richer types.
+
 ## Execution modes
 
 The application code does not change between interpreters:
