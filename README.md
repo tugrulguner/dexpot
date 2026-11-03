@@ -240,7 +240,39 @@ instead of silently receiving strings as they did in v0.8.0. This restriction do
 to JSON body or response schemas. To migrate, annotate raw captures as `str` and explicitly
 validate/convert them in application code, or use a typed JSON body where appropriate.
 
-Dexpot treats the first non-path, non-Request parameter as the declared body, preserves Python signature order,
+### Explicit scalar input sources (unreleased)
+
+Unreleased: typed query/header/cookie inputs. Public v0.8.1 does not include these markers.
+From source containing this feature, declare an explicit `Annotated` source:
+
+```python
+from typing import Annotated
+from dexpot import Cookie, Dex, Header, Query
+
+app = Dex()
+
+@app.get("/items")
+def list_items(
+    limit: Annotated[int, Query("limit")] = 20,
+    *,
+    request_id: Annotated[str, Header("x-request-id")],
+    theme: Annotated[str, Cookie("theme")] = "light",
+):
+    return {"limit": limit, "request_id": request_id, "theme": theme}
+```
+
+Marked sources support exact `str`, `int`, finite `float`, and `bool` (ASCII true/false,
+case-insensitive). Missing values use validated defaults or return 422; empty values are
+present and never silently replaced by defaults. Repeated requested query/cookie names
+return 422. Headers retain the parser's case-insensitive lookup and comma-folded values;
+physical header duplicates cannot be distinguished after normalization. Header presence
+alone is not authentication. This does not enable `Annotated` path captures or add path converters.
+
+See [the full input contract](https://dexpot.modepot.io/route-contract/#typed-input-sources-unreleased)
+and [the runnable example](examples/typed_inputs.py) for decoding, strict lexical rules,
+cookie framing, deterministic errors, and raw Request compatibility. No DI or OpenAPI is added.
+
+Dexpot treats the first parameter remaining after path, Request and explicit source bindings as the declared body, preserves Python signature order,
 and supports keyword-only parameters, callable objects, classes, and `functools.partial`. Class
 annotations use the effective constructor's namespace: metaclass `__call__` first, otherwise
 `__new__` or `__init__` in MRO order (`__new__` wins on the same class), including

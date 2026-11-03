@@ -30,6 +30,7 @@ EXPECTED_EXAMPLES = {
     "typed_crud.py",
     "lifecycle.py",
     "nested_responses.py",
+    "typed_inputs.py",
 }
 
 
@@ -268,6 +269,44 @@ def _check_lifecycle(path: Path) -> None:
         assert _request(port, "GET", "/cache/example")[2] == stored[2]
 
 
+def _check_typed_inputs(path: Path) -> None:
+    with _serve(path) as port:
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+        try:
+
+            def get(endpoint: str, headers: dict[str, str]) -> tuple[int, Any]:
+                connection.request("GET", endpoint, headers=headers)
+                response = connection.getresponse()
+                return response.status, json.loads(response.read())
+
+            headers = {"X-Request-ID": "smoke", "Cookie": "theme=dark"}
+            status, payload = get("/items/drinks?limit=1&min_price=3", headers)
+            assert status == 200 and [item["id"] for item in payload["items"]] == [2]
+            assert payload["request_id"] == "smoke" and payload["theme"] == "dark"
+            assert payload["include_archived"] is False and payload["min_price"] == 3.0
+            active_socket = connection.sock
+            for query, detail in (
+                ("limit=", "query parameter 'limit': invalid"),
+                ("limit=1&%6cimit=2", "query parameter 'limit': repeated"),
+                ("include_archived=yes", "query parameter 'include_archived': invalid"),
+                ("min_price=NaN", "query parameter 'min_price': invalid"),
+            ):
+                assert get("/items/drinks?" + query, headers) == (422, {"detail": detail})
+            assert get("/items/drinks", {}) == (
+                422,
+                {"detail": "header parameter 'x-request-id': missing"},
+            )
+            assert get("/raw?value=%FF", {}) == (200, {"query": "value=%FF"})
+            status, payload = get(
+                "/items/drinks?offset=2&include_archived=TRUE", {"X-Request-ID": "next"}
+            )
+            assert status == 200 and [item["id"] for item in payload["items"]] == [3]
+            assert payload["request_id"] == "next" and payload["theme"] == "light"
+            assert connection.sock is active_socket
+        finally:
+            connection.close()
+
+
 def main() -> None:
     discovered = {path.name for path in EXAMPLES.glob("*.py")}
     assert discovered == EXPECTED_EXAMPLES, discovered
@@ -279,6 +318,7 @@ def main() -> None:
     _check_bounded(EXAMPLES / "bounded_api.py")
     _check_response_policy(EXAMPLES / "response_policy.py")
     _check_nested_responses(EXAMPLES / "nested_responses.py")
+    _check_typed_inputs(EXAMPLES / "typed_inputs.py")
     _check_lifecycle(EXAMPLES / "lifecycle.py")
     print(
         f"installed dexpot {importlib.metadata.version('dexpot')} passed CLI and "

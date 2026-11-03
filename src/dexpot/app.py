@@ -28,6 +28,7 @@ from typing import Any
 import msgspec
 
 from ._http import ClientDisconnected, HttpLimits, HTTPParseError, read_request
+from ._inputs import InputError, bind_inputs
 from ._plans import (
     ApplicationPlan,
     EndpointPlan,
@@ -467,6 +468,11 @@ class Dex:
                     )
                     return request.keep_alive, buf
 
+            inputs = (
+                bind_inputs(route.input_bindings, request.query, request.headers)
+                if route.input_bindings
+                else None
+            )
             if route.needs_request:
                 assert request_params is not None
                 context = Request(
@@ -478,7 +484,13 @@ class Dex:
                     request.body,
                     body_arg,
                 )
-                result = route.invoke(captures_list, body_arg, context)
+                result = (
+                    route.invoke(captures_list, body_arg, context, inputs)
+                    if route.input_bindings
+                    else route.invoke(captures_list, body_arg, context)
+                )
+            elif route.input_bindings:
+                result = route.invoke(captures_list, body_arg, inputs)
             else:
                 result = route.invoke(captures_list, body_arg)
             if isinstance(result, Response):
@@ -503,6 +515,8 @@ class Dex:
                 else:
                     status, out = 200, route.encode(result)
                 status, out = _handler_response(status, out)
+        except InputError as exc:
+            status, out = 422, _json_encode({"detail": str(exc)})
         except HTTPError as exc:
             try:
                 status, out = _handler_response(exc.status, _json_encode({"detail": exc.detail}))

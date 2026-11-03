@@ -20,7 +20,7 @@ def create_for_account(item: ItemIn, account_id: int) -> ItemOut:
 The handler signature does not have to mirror URL order. Dexpot:
 
 - binds path captures by name;
-- treats the first non-path, non-`Request` parameter as the declared body;
+- treats the first parameter remaining after path, `Request` and explicit source bindings as the declared body;
 - preserves Python signature order;
 - supports keyword-only parameters; and
 - allows default-only parameters after the body parameter.
@@ -38,6 +38,106 @@ In dexpot 0.8.1 and newer, unsupported path annotations raise `TypeError` during
 instead of silently receiving strings in v0.8.0. Rejected registrations do not reserve the
 route or invoke the handler. To migrate, use `str` and explicit application validation,
 or a typed JSON body where appropriate. JSON body and response schemas have separate rules.
+
+## Typed input sources (unreleased)
+
+Unreleased: typed query/header/cookie inputs. Public v0.8.1 does not include these markers.
+Use source containing this feature. A public-index v0.8.1 installation cannot run the new
+declarations. The existing path rules above remain unchanged, including rejection of
+`Annotated` path captures.
+
+```python
+from typing import Annotated
+from dexpot import Cookie, Dex, Header, Query
+
+app = Dex()
+
+@app.get('/items')
+def list_items(
+    limit: Annotated[int, Query('limit')] = 20,
+    *,
+    request_id: Annotated[str, Header('x-request-id')],
+    theme: Annotated[str, Cookie('theme')] = 'light',
+):
+    return {'limit': limit, 'request_id': request_id, 'theme': theme}
+```
+
+### Registration
+
+Supply an explicit wire name and exactly one Query, Header or Cookie marker inside Annotated.
+Only exact base types str/int/float/bool are supported. Reject Any, Enum, Literal, unions/Optional,
+collections, Structs, NewType and additional metadata. Immutable markers and source/name/type/default
+errors fail registration atomically; duplicate normalized (source, alias) bindings are rejected.
+Header aliases become lowercase; query/cookie names are case-sensitive. No underscore-to-hyphen
+or Unicode normalization. Query names are nonempty UTF-8-encodable strings without controls;
+header/cookie names are nonempty ASCII HTTP tokens.
+
+No Python default means required. Defaults must have the exact declared type: True is not an
+int default, 1 is not a float default, and None/non-finite floats are rejected. Do not execute
+application factories. Marked parameters are excluded before selecting the declared body.
+Existing unmarked defaults, Request, annotation namespaces and signature order are preserved.
+
+### Extraction and cardinality
+
+Missing selects a valid default or returns 422. Empty text is present: valid for str, invalid
+for numeric/bool inputs. Invalid present data never falls back to a default.
+
+- Query: split on `&` and the first `=`, preserve bare names as empty values, ignore empty
+  segments and do not split semicolons. Decode names with strict UTF-8 percent decoding and
+  plus-as-space before matching: limit and %6cimit are duplicates. Decode only requested
+  values. Unknown values (including %FF) and unknown duplicates are ignored. Undecodable names
+  fail the typed query source; repeated requested keys fail even if values agree.
+- Headers: use the existing lowercase dictionary and outer-whitespace-normalized values.
+  Physical duplicates are already comma-folded: str sees `1, 2`, while int rejects it. Do not
+  claim physical-duplicate detection or treat header presence as authentication.
+- Cookies: parse only for Cookie bindings. Absent/empty headers have no pairs. Split the
+  semicolon-joined header, remove surrounding SP/HTAB pair framing, then split the first `=`.
+  Names are ASCII tokens. Values use RFC 6265 cookie-octet syntax, optionally surrounded by
+  one balanced double-quote pair; empty values are supported. No backslash escapes, quoted
+  semicolons/commas, non-ASCII values, URL/plus decoding or trimming inside values. Empty
+  segments in a nonempty header and malformed pairs fail, including malformed unknown pairs.
+  Well-formed unknown names/duplicates are ignored; repeated requested names fail.
+
+`Header('cookie')` str reads raw normalized text without activating cookie parsing. Malformed
+escape syntax such as %GG remains parser-level 400 on every route. Valid escape syntax %FF
+stays raw on an unmarked Request route; selected typed query values reject invalid UTF-8 with
+422. Raw Request.query and Request.headers are never replaced with converted views.
+
+### Conversion
+
+Convert extracted text without further trimming. Strings are unchanged (query UTF-8, existing
+header Latin-1, cookie ASCII). Integers match signed ASCII decimal digits only, then convert
+under Python's unchanged safety limit; no whitespace, Unicode digits, underscores or points.
+Floats use the following full-match grammar and must convert to a finite value:
+
+```text
+[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?
+```
+
+Reject NaN/Infinity, hex and overflow; finite underflow to signed zero is accepted. Booleans
+accept ASCII true/false case-insensitively, never 0/1, yes/no, on/off or Python truthiness.
+Query `+7` becomes a leading space and fails int conversion; use %2B7 for a plus sign.
+Literal null is text, not None. These rules do not tighten the legacy path converter or
+replace the richer JSON body/response schemas.
+
+### Errors and lifetime
+
+The detail-only JSON envelope uses messages such as `query parameter 'limit': invalid`.
+Reasons are missing, repeated, invalid or selected-value encoding. Source-wide errors are
+`invalid query encoding` and `invalid cookie header`. These are 422 responses; aliases are
+declared names (headers lowercase), never supplied values. New input errors/logs do not echo
+values, authorization/cookie contents or conversion exceptions.
+
+Error precedence remains protocol/framing, routing, path conversion and JSON body decoding;
+marked inputs then validate in handler declaration order. Parse a source lazily at its first
+binding; its structural errors precede per-binding checks there. Return only the first error
+before the handler runs. Keep-alive/pipelining recovery, HEAD body suppression and method
+matching are unchanged. Decoded state belongs to one request, not a route or reused connection.
+Typed-only handlers need no public Request allocation; unmarked routes do not parse query/cookie
+data. No DI, OpenAPI, lists/repeated-value binding, public lazy views or proxy trust is added.
+
+The [typed-input example](https://github.com/tugrulguner/dexpot/blob/main/examples/typed_inputs.py)
+requires source containing this unreleased feature.
 
 ## Responses
 

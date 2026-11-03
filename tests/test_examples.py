@@ -22,6 +22,7 @@ EXPECTED_EXAMPLES = {
     "response_policy.py",
     "lifecycle.py",
     "nested_responses.py",
+    "typed_inputs.py",
 }
 
 

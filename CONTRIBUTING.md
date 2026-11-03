@@ -75,6 +75,24 @@ Preserve atomic rejection, including reuse of the rejected structural route, and
 integer conversion still rejects invalid input with 422 before invoking the handler.
 Raw supported captures remain strings; JSON body and response schemas have separate rules.
 
+### Typed scalar input sources
+
+Unreleased: typed query/header/cookie inputs. Public v0.8.1 does not include these markers.
+`Annotated[T, Query("name")]`, `Header("name")`, and `Cookie("name")` use exact
+`str`/`int`/finite `float`/`bool` source bindings compiled in EndpointPlan. Preserve explicit
+names, immutable descriptors, exact-type defaults, atomic failures and existing invocation.
+Reject unsupported types/metadata and conflicting sources at registration. Typed-only routes
+must not allocate Request; unmarked routes must not parse queries/cookies. Measure the absent
+feature's costs rather than asserting zero overhead.
+
+Test real handler argument types, normalized and repeated inputs, malformed encodings,
+strict cookies, source isolation, no side effects on 422, and keep-alive recovery. Keep the
+existing protocol/routing/path/body error precedence, then marked inputs in declaration order.
+Never echo supplied values or conversion exceptions in new input errors. Query `%GG` remains
+parser-level 400 for every route; `%FF` decoding is opt-in. Preserve the parser's comma-folded
+ordinary headers and semicolon-joined Cookie fields; do not claim physical-header multiplicity.
+New input binding must not steal body= or extend path converters, DI, OpenAPI or proxy trust.
+
 Run the complete gate:
 
 ```bash

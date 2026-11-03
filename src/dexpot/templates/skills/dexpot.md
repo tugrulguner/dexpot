@@ -95,7 +95,7 @@ The runtime package is `dexpot`; the command requires `dexpot[cli]`.
   use `str` with explicit application validation or a typed JSON body where appropriate.
   Body/response schema support does not imply path conversion support.
 - Path parameters may appear in any valid signature order because they bind by name.
-- The first non-path, non-Request parameter is the body parameter. Put default-only parameters after it.
+- The first parameter remaining after path, Request and explicit source bindings is the body parameter. Put default-only parameters after it.
 - Keyword-only parameters, callable objects, classes, and `functools.partial` work. Class
   annotation namespaces follow the effective metaclass `__call__` or MRO-selected constructor
   (`__new__` before `__init__` on the same class), including `functools.partialmethod`
@@ -111,6 +111,28 @@ The runtime package is `dexpot`; the command requires `dexpot[cli]`.
   `/users/{name}` cannot coexist.
 - Late route registration fails after application compilation. Declare every route before
   calling `serve()`; do not mutate the application while traffic is running.
+
+### Typed input sources (unreleased)
+
+Unreleased: typed query/header/cookie inputs. Public v0.8.1 does not include these markers.
+Use source containing the feature, not the published 0.8.1 package. Declare explicit aliases
+with `Annotated[int, Query("limit")]`, `Annotated[str, Header("x-request-id")]`, or
+`Annotated[str, Cookie("theme")]`. Base types are exact str/int/finite float/bool; booleans
+accept only true/false in ASCII case-insensitive form. Defaults must have the exact declared
+type; missing selects a valid default, while empty/invalid present values do not.
+
+Required missing, repeated requested query/cookie names, invalid conversions and selected-value
+UTF-8 errors return 422 before the handler. New errors contain only source/declared alias/fixed
+reason, never supplied values. Header names are case-insensitive and values already normalized;
+repeated physical headers are comma-folded, not independently recoverable. Query names/values
+decode UTF-8 and plus-as-space only on marked routes; unknown values are ignored, but malformed
+name encodings fail lookup. `%GG` still fails at the HTTP parser with 400 on every route.
+Cookies use strict ASCII cookie pairs, optional balanced quotes, no URL decoding, and reject
+malformed headers when needed. Do not treat a header's presence as authentication.
+
+Raw Request query/header views and the existing path/body rules remain separate. No DI,
+OpenAPI, lists/Optional/Enum/extra Annotated metadata, new path conversions or proxy trust are
+provided by this feature. Follow the full route contract for cookie framing and error ordering.
 
 Inject parsed request context by annotating a parameter with `Request`; the parameter name and
 position are unrestricted:

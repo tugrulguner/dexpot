@@ -61,7 +61,12 @@ def test_skill_documents_current_boundaries() -> None:
 def test_skill_documents_current_body_binding_order() -> None:
     body = skill_body()
     normalized = " ".join(body.split())
-    assert "first non-path, non-Request parameter is the body parameter" in body
+    assert (
+        "first parameter remaining after path, Request and explicit source bindings is the body parameter"
+        in normalized
+    )
+    assert "Unreleased: typed query/header/cookie inputs." in body
+    assert "Public v0.8.1 does not include these markers." in body
     assert body.index("### Explicit annotation namespaces") < body.index("## HTTP boundary")
     assert "Dexpot always rejects a directly returned Request" in normalized
     assert (

@@ -254,7 +254,12 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
 #### 3.3 Paired lifecycle and typed input sources
 
 - **Included in v0.8.0:** `Dex.lifespan(factory)` registers synchronous context-manager factories; serving processes acquire them before accepting traffic and unwind in reverse order on shutdown or partial startup. GIL processes acquire independently; FT serving threads share the process-local resources. See README and `examples/README.md`.
-- Add typed input sources and continue the remaining work below.
+- **Unreleased: typed query/header/cookie inputs.** Public v0.8.1 does not include these markers.
+  The first source increment uses explicit `Annotated[T, Query("name")]`, `Header("name")`,
+  and `Cookie("name")` scalar bindings in EndpointPlan, with strict conversions, validated
+  defaults and deterministic sanitized 422 errors. It does not add repeated-value/list binding,
+  lazy public Request views, proxy trust, dependency injection or OpenAPI; this milestone is
+  not complete. Source-only code and examples must not be advertised as published behavior.
 - Distinguish process/application, worker/thread, connection, and request lifetimes. A leased
   database connection need not have the sharing rules of its pool; a process-local singleton
   is not shared state across workers.
