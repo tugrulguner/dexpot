@@ -90,7 +90,7 @@ The runtime package is `dexpot`; the command requires `dexpot[cli]`.
 - An `int` path annotation converts the capture and returns 422 when conversion fails.
 - Path annotations support only `str`, `int`, unannotated parameters, and `Any`.
   `float`, `bool`, `Enum`, `Annotated`, unions, and explicit `None` are unsupported.
-  Unreleased correction: unsupported path annotations raise `TypeError` during registration
+  In dexpot 0.8.1 and newer, unsupported path annotations raise `TypeError` during registration
   rather than silently receiving strings as in v0.8.0. To migrate an unsupported annotation,
   use `str` with explicit application validation or a typed JSON body where appropriate.
   Body/response schema support does not imply path conversion support.

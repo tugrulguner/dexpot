@@ -10,6 +10,18 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.8.1] - 2026-11-02
+
+### Changed
+
+- Expand runnable examples with real process-local resource use and startup rollback, plus nested checked-response projection and failure recovery; exercise every example through the installed-package smoke runner.
+- Refresh vulnerable Python development and website build dependencies without changing Python runtime requirements.
+
+### Fixed
+
+- Reject unsupported path parameter annotations at registration instead of silently passing strings; preserve integer conversion and raw string captures.
+
+
 ## [0.8.0] - 2026-10-28
 
 ### Added

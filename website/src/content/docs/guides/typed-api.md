@@ -45,7 +45,7 @@ The explicit `body=ItemIn` selects and precompiles a msgspec JSON decoder; the m
 
 Path annotations support only `str`, `int`, unannotated parameters, and `Any`.
 `float`, `bool`, `Enum`, `Annotated`, unions, and explicit `None` are unsupported.
-Unreleased correction: unsupported path annotations raise `TypeError` during registration
+In dexpot 0.8.1 and newer, unsupported path annotations raise `TypeError` during registration
 instead of silently receiving strings as in v0.8.0. This is separate from the richer
 JSON body and response schema support shown above. For raw string captures, validate and
 convert explicitly in application code before numeric comparisons or boolean decisions.

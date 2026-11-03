@@ -56,6 +56,9 @@ or operating system; platform adapters must stay narrow, documented, and indepen
 - **Included in v0.8.0:** paired process-local application lifecycle and registration-selected
   direct preparation for supported nested Struct responses on GIL-enabled Python. Lifecycle
   performance acceptance is scoped to controlled Linux; macOS performance remains unqualified.
+- **Included in v0.8.1:** registration-time rejection of unsupported path annotations,
+  preserving integer conversion and raw string captures, plus expanded runnable lifecycle
+  and nested-response examples. This patch adds no new path converters or performance claims.
 - **Next application capabilities:** typed input sources and OpenAPI in 3.3,
   followed by evidence-driven hooks and scoped factories in 3.4. Build on the existing plans;
   these capabilities are not contingent on first winning every external benchmark.
