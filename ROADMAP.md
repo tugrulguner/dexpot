@@ -59,7 +59,7 @@ or operating system; platform adapters must stay narrow, documented, and indepen
 - **Included in v0.8.1:** registration-time rejection of unsupported path annotations,
   preserving integer conversion and raw string captures, plus expanded runnable lifecycle
   and nested-response examples. This patch adds no new path converters or performance claims.
-- **Next application capabilities:** typed input sources and OpenAPI in 3.3,
+- **Next application capabilities:** finish the remaining 3.3 contracts around the source-only typed inputs and OpenAPI export,
   followed by evidence-driven hooks and scoped factories in 3.4. Build on the existing plans;
   these capabilities are not contingent on first winning every external benchmark.
 - **Parallel work:** production observability and resource budgets in milestone 5. Expand the
@@ -260,6 +260,11 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
   defaults and deterministic sanitized 422 errors. It does not add repeated-value/list binding,
   lazy public Request views, proxy trust, dependency injection or OpenAPI; this milestone is
   not complete. Source-only code and examples must not be advertised as published behavior.
+- **Unreleased: OpenAPI export.** Public v0.8.1 does not include Dex.openapi().
+  `Dex(openapi=True)` captures registration-time schemas and exports a detached OpenAPI 3.1
+  document through `app.openapi()`. It adds no automatic endpoint/UI or inferred security;
+  dynamic response statuses remain explicit unknowns rather than invented 200 contracts.
+  This bounded source-only export does not complete the whole milestone.
 - Distinguish process/application, worker/thread, connection, and request lifetimes. A leased
   database connection need not have the sharing rules of its pool; a process-local singleton
   is not shared state across workers.
@@ -270,8 +275,9 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
   metadata. Define repeated values, missing versus null, and trusted-proxy behavior.
 - Add typed query/header/cookie binding with explicit ambiguity resolution and registration-time
   validation, keeping ordinary Python functions and annotations central.
-- Generate OpenAPI from the same normalized endpoint metadata and msgspec schemas used by
-  traffic, not a second introspection pipeline.
+- **Implemented from source:** opt-in OpenAPI export captures the same normalized endpoint
+  metadata and msgspec schemas used by traffic, not a second handler-introspection pipeline.
+  Automatic documentation UI and security inference remain outside this bounded increment.
 
 Exit evidence: runnable examples under `examples/` for typed CRUD, pagination/repeated values,
 header authentication, transaction failure, outbound blocking I/O, custom response headers,

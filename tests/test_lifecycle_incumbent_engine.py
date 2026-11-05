@@ -94,6 +94,31 @@ def without_typed_input_seam(node: ast.FunctionDef) -> ast.FunctionDef:
     return result
 
 
+def without_openapi_constructor_seam(node: ast.FunctionDef) -> ast.FunctionDef:
+    """Permit only the explicit opt-in flag/setup, retaining all incumbent state checks."""
+    expected = ast.parse("def f(*, openapi: bool = False): pass").body[0]
+    assert isinstance(expected, ast.FunctionDef)
+    assert ast.dump(node.args.kwonlyargs[-1]) == ast.dump(expected.args.kwonlyargs[0])
+    assert canonical_ast(node.args.kw_defaults[-1]) == canonical_ast(expected.args.kw_defaults[0])
+    node.args.kwonlyargs.pop()
+    node.args.kw_defaults.pop()
+    splices = [
+        ast.parse('if type(openapi) is not bool:\n raise TypeError("openapi must be a bool")').body[
+            0
+        ],
+        ast.parse(
+            "if openapi:\n from ._openapi import Registry\n self._openapi_registry = Registry()"
+        ).body[0],
+    ]
+    for splice in splices:
+        matches = [
+            index for index, child in enumerate(node.body) if ast.dump(child) == ast.dump(splice)
+        ]
+        assert len(matches) == 1, "OpenAPI constructor seam changed; inspect its exact scope"
+        del node.body[matches[0]]
+    return node
+
+
 def test_incumbent_constructor_and_connection_engine_are_unchanged() -> None:
     source_file = inspect.getsourcefile(Dex)
     assert source_file is not None
@@ -104,6 +129,8 @@ def test_incumbent_constructor_and_connection_engine_are_unchanged() -> None:
     functions = {node.name: node for node in cls.body if isinstance(node, ast.FunctionDef)}
     for name, expected in FIXTURE["methods"].items():
         method = functions[name]
+        if name == "__init__":
+            method = without_openapi_constructor_seam(method)
         if name == "_process":
             method = without_typed_input_seam(method)
         actual = hashlib.sha256(json.dumps(canonical_ast(method)).encode()).hexdigest()

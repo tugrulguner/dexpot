@@ -88,7 +88,8 @@ keeps the same plain synchronous handlers in both modes:
 dexpot is alpha software and is not yet recommended for untrusted production traffic. Its
 socket core now fails closed on malformed framing and enforces request limits, but production
 operations such as access logging, metrics, trusted-proxy policy, TLS guidance, middleware,
-OpenAPI, streaming, and authentication remain on the [roadmap](ROADMAP.md).
+Automatic documentation UI, streaming, and authentication remain on the [roadmap](ROADMAP.md).
+A bounded, source-only OpenAPI export is described below.
 
 ## Quick start
 
@@ -270,7 +271,33 @@ alone is not authentication. This does not enable `Annotated` path captures or a
 
 See [the full input contract](https://dexpot.modepot.io/route-contract/#typed-input-sources-unreleased)
 and [the runnable example](examples/typed_inputs.py) for decoding, strict lexical rules,
-cookie framing, deterministic errors, and raw Request compatibility. No DI or OpenAPI is added.
+cookie framing, deterministic errors, and raw Request compatibility. Typed binding alone does not add DI or OpenAPI; opt-in export is a separate feature below.
+
+### Opt-in OpenAPI export (unreleased)
+
+Unreleased: OpenAPI export. Public v0.8.1 does not include Dex.openapi().
+Create `Dex(openapi=True)` before declaring routes to capture OpenAPI 3.1 metadata at
+registration. `app.openapi(title="Example API", version="development")` returns a detached
+JSON-compatible document and freezes further registration after successful export. API
+`info.version` is caller metadata, not the package version. Ordinary applications do not
+load the exporter or capture schemas.
+
+The export uses existing endpoint bindings and msgspec wire schemas, not fresh handler
+introspection. It describes path/query/header/cookie aliases, required values, scalar defaults,
+JSON bodies and declared response schemas. Runtime-selected statuses are not guessed: checked
+responses include the declared payload or a detail error envelope; unchecked/raw response media
+and shapes remain unspecified. Statuses 204/205/304 have no content. Query lexical rules,
+normalized headers and strict cookies still govern requests; JSON Schema does not implement
+those transport parsers.
+
+There is no automatic endpoint, documentation UI, authentication/security inference or DI.
+The caller chooses whether to save or serve the document. Exported defaults and docstrings are
+public metadata: review them before serving the document. Unsupported schema/component names,
+external/unresolved references, ignored OpenAPI headers (Accept, Content-Type, Authorization),
+and contradictory templated paths fail instead of producing a misleading document.
+Postponed Struct field annotations containing calls are excluded because re-evaluation can
+disagree with an existing decoder. Construct constrained aliases eagerly (for example,
+`Name = Annotated[str, msgspec.Meta(min_length=1)]`) and use `name: Name` in the Struct.
 
 Dexpot treats the first parameter remaining after path, Request and explicit source bindings as the declared body, preserves Python signature order,
 and supports keyword-only parameters, callable objects, classes, and `functools.partial`. Class
@@ -509,7 +536,7 @@ The current alpha release has these boundaries:
   UTF-8 paths safely, and treats duplicate or trailing slashes as distinct paths.
 - Query strings and headers are parsed internally but are not yet injectable handler
   parameters.
-- There is no middleware, OpenAPI generation, authentication, TLS termination, streaming,
+- There is no middleware, automatic documentation UI or inferred security, authentication, TLS termination, streaming,
   WebSocket support, or proxy-header policy.
 - Checked `response=T` validates output; `response=None` retains generic JSON encoding.
 - Uncaught handler exceptions produce a stable public 500 body while the traceback is logged

@@ -93,6 +93,36 @@ parser-level 400 for every route; `%FF` decoding is opt-in. Preserve the parser'
 ordinary headers and semicolon-joined Cookie fields; do not claim physical-header multiplicity.
 New input binding must not steal body= or extend path converters, DI, OpenAPI or proxy trust.
 
+### OpenAPI snapshot contract
+
+Unreleased: OpenAPI export. Public v0.8.1 does not include Dex.openapi().
+Create `Dex(openapi=True)` before declaring routes to capture OpenAPI 3.1 metadata at
+registration. `app.openapi(title="Example API", version="development")` returns a detached
+JSON-compatible document and freezes further registration after successful export. API
+`info.version` is caller metadata, not the package version. Ordinary applications do not
+load the exporter or capture schemas.
+
+The export uses existing endpoint bindings and msgspec wire schemas, not fresh handler
+introspection. It describes path/query/header/cookie aliases, required values, scalar defaults,
+JSON bodies and declared response schemas. Runtime-selected statuses are not guessed: checked
+responses include the declared payload or a detail error envelope; unchecked/raw response media
+and shapes remain unspecified. Statuses 204/205/304 have no content. Query lexical rules,
+normalized headers and strict cookies still govern requests; JSON Schema does not implement
+those transport parsers.
+
+There is no automatic endpoint, documentation UI, authentication/security inference or DI.
+The caller chooses whether to save or serve the document. Exported defaults and docstrings are
+public metadata: review them before serving the document. Unsupported schema/component names,
+external/unresolved references, ignored OpenAPI headers (Accept, Content-Type, Authorization),
+and contradictory templated paths fail instead of producing a misleading document.
+Postponed Struct field annotations containing calls are excluded because re-evaluation can
+disagree with an existing decoder. Construct constrained aliases eagerly (for example,
+`Name = Annotated[str, msgspec.Meta(min_length=1)]`) and use `name: Name` in the Struct.
+
+Preserve registration rollback, lazy disabled-state bypass, detached documents, factory deferral,
+class-metadata mutation isolation and schema/HTTP agreement. Validate complete documents with
+the development-only OpenAPI validator. Do not re-inspect annotations on export or requests.
+
 Run the complete gate:
 
 ```bash

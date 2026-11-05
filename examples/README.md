@@ -10,6 +10,7 @@ uv run python examples/bounded_api.py
 uv run python examples/response_policy.py
 uv run python examples/nested_responses.py
 uv run python examples/typed_inputs.py
+uv run python examples/openapi.py
 uv run python examples/lifecycle.py
 ```
 
@@ -28,10 +29,11 @@ none requires a database, credentials, or network service beyond the local HTTP 
 | `nested_responses.py` | Nested Struct projection, malformed/non-finite nested output rejection, valid recovery after failure |
 | `lifecycle.py` | Serving-time acquisition, explicit resource access, reverse cleanup, partial-startup rollback |
 | `typed_inputs.py` | Unreleased explicit scalar Query/Header/Cookie sources, pagination/filtering, defaults, strict failures and raw Request compatibility |
+| `openapi.py` | Unreleased opt-in OpenAPI snapshots, explicit JSON document serving/file export, checked 201 responses and input validation |
 
-All examples except `typed_inputs.py` exercise shipped contracts. The typed-input example
-requires source containing that unreleased feature; none introduces dependency injection,
-OpenAPI or the experimental socket-I/O redesign. Public Request query/header metadata stays
+`typed_inputs.py` and `openapi.py` require source containing their unreleased features; the
+other examples exercise shipped contracts. No example introduces dependency injection or
+the experimental socket-I/O redesign. Public Request query/header metadata stays
 raw; application state is not shared across GIL worker processes.
 
 ## Typed scalar inputs (unreleased)
@@ -56,6 +58,44 @@ text without enabling UTF-8 query-value decoding. Headers are normalized/case-in
 physical duplicates have already been comma-folded. Cookie parsing uses strict ASCII pairs,
 optional balanced quotes and no URL decoding; requested duplicate cookies fail. Unknown
 well-formed values are ignored. See the route reference for framing and error ordering.
+
+## OpenAPI snapshot example (unreleased)
+
+Unreleased: OpenAPI export. Public v0.8.1 does not include Dex.openapi().
+Create `Dex(openapi=True)` before declaring routes to capture OpenAPI 3.1 metadata at
+registration. `app.openapi(title="Example API", version="development")` returns a detached
+JSON-compatible document and freezes further registration after successful export. API
+`info.version` is caller metadata, not the package version. Ordinary applications do not
+load the exporter or capture schemas.
+
+The export uses existing endpoint bindings and msgspec wire schemas, not fresh handler
+introspection. It describes path/query/header/cookie aliases, required values, scalar defaults,
+JSON bodies and declared response schemas. Runtime-selected statuses are not guessed: checked
+responses include the declared payload or a detail error envelope; unchecked/raw response media
+and shapes remain unspecified. Statuses 204/205/304 have no content. Query lexical rules,
+normalized headers and strict cookies still govern requests; JSON Schema does not implement
+those transport parsers.
+
+There is no automatic endpoint, documentation UI, authentication/security inference or DI.
+The caller chooses whether to save or serve the document. Exported defaults and docstrings are
+public metadata: review them before serving the document. Unsupported schema/component names,
+external/unresolved references, ignored OpenAPI headers (Accept, Content-Type, Authorization),
+and contradictory templated paths fail instead of producing a misleading document.
+Postponed Struct field annotations containing calls are excluded because re-evaluation can
+disagree with an existing decoder. Construct constrained aliases eagerly (for example,
+`Name = Annotated[str, msgspec.Meta(min_length=1)]`) and use `name: Name` in the Struct.
+
+```bash
+uv run python examples/openapi.py
+curl -s http://127.0.0.1:8000/openapi.json
+curl -i -X POST 'http://127.0.0.1:8000/items/7?limit=2' \
+  -H 'Content-Type: application/json' -H 'X-Request-ID: example' \
+  -d '{"name":"tea","price":3.5}'
+```
+
+The source example explicitly serves a precomputed document alongside a checked 201 response,
+body/path/query/header/cookie bindings and a validation failure. `--export openapi.json` writes
+the document without starting a server; an existing file is not overwritten.
 
 ## `minimal.py`
 

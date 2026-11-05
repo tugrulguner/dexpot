@@ -111,8 +111,14 @@ def _path_segments(path: str) -> list[str]:
 class Dex:
     """The application. ``@dex.get(...)`` / ``@dex.post(...)`` register routes."""
 
-    def __init__(self, *, limits: HttpLimits | None = None) -> None:
+    def __init__(self, *, limits: HttpLimits | None = None, openapi: bool = False) -> None:
+        if type(openapi) is not bool:
+            raise TypeError("openapi must be a bool")
         self.limits = limits or HttpLimits()
+        if openapi:
+            from ._openapi import Registry
+
+            self._openapi_registry = Registry()
         self._literal: dict[tuple[str, str], EndpointPlan] = {}
         self._parametric: list[tuple[str, list[str], EndpointPlan]] = []
         self._endpoints: list[EndpointPlan] = []
@@ -263,6 +269,9 @@ class Dex:
             path_names,
             annotation_locals,
         )
+        openapi_record = (
+            self._openapi_registry.capture(route) if hasattr(self, "_openapi_registry") else None
+        )
         key = (method, path)
         if "{" in path:
             # structural shape: literal segments kept, params normalized to {},
@@ -283,7 +292,26 @@ class Dex:
                 raise ValueError(f"duplicate route: {method} {path}")
             self._literal[key] = route
         self._endpoints.append(route)
+        if openapi_record is not None:
+            self._openapi_registry.operations.append(openapi_record)
         return fn
+
+    def openapi(self, *, title: str = "Dexpot API", version: str = "0.0.0") -> dict[str, Any]:
+        """Return a detached OpenAPI 3.1 document from registration snapshots."""
+        if not hasattr(self, "_openapi_registry"):
+            raise RuntimeError("OpenAPI export requires Dex(openapi=True)")
+        if type(title) is not str or not title:
+            raise TypeError("title must be a nonempty string")
+        if type(version) is not str or not version:
+            raise TypeError("version must be a nonempty string")
+        with self._declaration_lock:
+            if self._registration_depth:
+                raise _ApplicationCompilationDuringRegistration(
+                    "OpenAPI export is unavailable while route registration is in progress"
+                )
+            document = self._openapi_registry.document(title, version)
+            self._compile()
+            return document
 
     def get(
         self, path: str, response: Any = None, *, annotation_locals: Mapping[str, Any] | None = None
