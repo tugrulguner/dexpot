@@ -9,6 +9,7 @@ uv run python examples/typed_crud.py
 uv run python examples/bounded_api.py
 uv run python examples/response_policy.py
 uv run python examples/nested_responses.py
+uv run python examples/typed_inputs.py
 uv run python examples/lifecycle.py
 ```
 
@@ -26,10 +27,35 @@ none requires a database, credentials, or network service beyond the local HTTP 
 | `response_policy.py` | Public-field projection, custom and duplicate headers, sanitized output failures, raw bytes, bodyless 204, status tuples |
 | `nested_responses.py` | Nested Struct projection, malformed/non-finite nested output rejection, valid recovery after failure |
 | `lifecycle.py` | Serving-time acquisition, explicit resource access, reverse cleanup, partial-startup rollback |
+| `typed_inputs.py` | Unreleased explicit scalar Query/Header/Cookie sources, pagination/filtering, defaults, strict failures and raw Request compatibility |
 
-These are the shipped contracts, not proposed typed query/header/cookie binding, dependency
-injection, OpenAPI, or the experimental socket-I/O redesign. Request query/header metadata
-is raw; application state is not shared across GIL worker processes.
+All examples except `typed_inputs.py` exercise shipped contracts. The typed-input example
+requires source containing that unreleased feature; none introduces dependency injection,
+OpenAPI or the experimental socket-I/O redesign. Public Request query/header metadata stays
+raw; application state is not shared across GIL worker processes.
+
+## Typed scalar inputs (unreleased)
+
+Unreleased: typed query/header/cookie inputs. Public v0.8.1 does not include these markers.
+`typed_inputs.py` uses `Annotated` with explicit `Query`, `Header` and `Cookie` aliases and exact
+str/int/finite float/bool types. It does not add path converters or authentication.
+
+```bash
+uv run python examples/typed_inputs.py
+curl -i 'http://127.0.0.1:8000/items/drinks?limit=1&min_price=3&include_archived=false' \
+  -H 'X-Request-ID: example-1' -H 'Cookie: theme=dark'
+curl -i 'http://127.0.0.1:8000/items/drinks?limit=' -H 'X-Request-ID: example-2'
+curl -i 'http://127.0.0.1:8000/items/drinks?limit=1&%6cimit=2' -H 'X-Request-ID: example-3'
+curl -i 'http://127.0.0.1:8000/raw?value=%FF'
+```
+
+The first call filters and paginates fixture items. Empty numeric input and duplicate decoded
+requested keys return 422 before the handler; defaults apply only when absent. Booleans accept
+only true/false, case-insensitive. The raw Request route deliberately returns the original query
+text without enabling UTF-8 query-value decoding. Headers are normalized/case-insensitive;
+physical duplicates have already been comma-folded. Cookie parsing uses strict ASCII pairs,
+optional balanced quotes and no URL decoding; requested duplicate cookies fail. Unknown
+well-formed values are ignored. See the route reference for framing and error ordering.
 
 ## `minimal.py`
 

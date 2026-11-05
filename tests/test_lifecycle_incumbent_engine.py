@@ -41,6 +41,59 @@ def canonical_ast(node: object) -> object:
     return [type(node).__name__, repr(node)]
 
 
+def without_typed_input_seam(node: ast.FunctionDef) -> ast.FunctionDef:
+    """Remove only the four exact authorized splices, retaining the original fingerprint.
+
+    Real HTTP tests separately enforce input ordering and the unused-source bypass.
+    Constructor, scheduler, parsing, framing and all other dispatch AST stay frozen.
+    """
+
+    def statement(source: str) -> ast.stmt:
+        return ast.parse(source).body[0]
+
+    error_try = statement(
+        "try: pass\nexcept InputError as exc:\n status, out = 422, _json_encode({'detail': str(exc)})"
+    )
+    assert isinstance(error_try, ast.Try)
+    replacements = [
+        (
+            statement(
+                "inputs = bind_inputs(route.input_bindings, request.query, request.headers) if route.input_bindings else None"
+            ),
+            None,
+        ),
+        (
+            statement(
+                "result = route.invoke(captures_list, body_arg, context, inputs) if route.input_bindings else route.invoke(captures_list, body_arg, context)"
+            ),
+            statement("result = route.invoke(captures_list, body_arg, context)"),
+        ),
+        (
+            statement(
+                "if route.input_bindings:\n result = route.invoke(captures_list, body_arg, inputs)\nelse:\n result = route.invoke(captures_list, body_arg)"
+            ),
+            statement("result = route.invoke(captures_list, body_arg)"),
+        ),
+        (error_try.handlers[0], None),
+    ]
+    patterns = [ast.dump(before) for before, _after in replacements]
+    counts = [0] * len(patterns)
+
+    class RemoveSeam(ast.NodeTransformer):
+        def visit(self, node):
+            key = ast.dump(node)
+            if key in patterns:
+                index = patterns.index(key)
+                counts[index] += 1
+                return replacements[index][1]
+            return super().visit(node)
+
+    result = RemoveSeam().visit(node)
+    assert counts == [1, 1, 1, 1], "typed-input dispatch seam changed; review its exact scope"
+    assert isinstance(result, ast.FunctionDef)
+    return result
+
+
 def test_incumbent_constructor_and_connection_engine_are_unchanged() -> None:
     source_file = inspect.getsourcefile(Dex)
     assert source_file is not None
@@ -50,7 +103,10 @@ def test_incumbent_constructor_and_connection_engine_are_unchanged() -> None:
     )
     functions = {node.name: node for node in cls.body if isinstance(node, ast.FunctionDef)}
     for name, expected in FIXTURE["methods"].items():
-        actual = hashlib.sha256(json.dumps(canonical_ast(functions[name])).encode()).hexdigest()
+        method = functions[name]
+        if name == "_process":
+            method = without_typed_input_seam(method)
+        actual = hashlib.sha256(json.dumps(canonical_ast(method)).encode()).hexdigest()
         assert actual == expected, (
             f"incumbent {name} changed; lifecycle must stay outside this path"
         )

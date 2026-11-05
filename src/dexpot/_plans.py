@@ -17,6 +17,8 @@ from typing import Any
 
 import msgspec
 
+from ._inputs import _MISSING, InputBinding, get_marker
+
 # Keep the established compiler outside the measured free-threaded Darwin path.
 if sys.platform == "darwin" and not getattr(sys, "_is_gil_enabled", lambda: True)():
     from ._response import compile_preparer
@@ -196,6 +198,8 @@ def _compile_invoker(handler: Callable[..., Any], sources: list[_Source]) -> Cal
             expression = "body"
         elif source == "request":
             expression = "request"
+        elif source == "input":
+            expression = f"inputs[{payload}]"
         else:
             expression = f"_default_{index}"
             bound_names.append(expression)
@@ -223,7 +227,10 @@ def _compile_invoker(handler: Callable[..., Any], sources: list[_Source]) -> Cal
     # Values and non-NFKC-stable names become function defaults, never source.
     arguments = ", ".join((*positional, *keyword))
     request_parameters = ("request",) if any(source[2] == "request" for source in sources) else ()
-    parameters = ", ".join(("captures", "body", *request_parameters, *bound_names))
+    input_parameters = ("inputs",) if any(source[2] == "input" for source in sources) else ()
+    parameters = ", ".join(
+        ("captures", "body", *request_parameters, *input_parameters, *bound_names)
+    )
     return FunctionType(
         _shared_invoker_code(parameters, arguments),
         _INVOKER_GLOBALS,
@@ -240,6 +247,7 @@ class EndpointPlan:
     body_type: Any
     handler: Callable[..., Any]
     int_captures: tuple[tuple[int, str], ...]
+    input_bindings: tuple[InputBinding, ...]
     invoke: Callable[..., Any]
     method: str
     needs_request: bool
@@ -312,6 +320,8 @@ class EndpointPlan:
         hints = _type_hints(handler, signature, annotation_locals)
         captures_by_name = {name: index for index, name in enumerate(path_names)}
         sources: list[_Source] = []
+        input_bindings: list[InputBinding] = []
+        input_aliases: set[tuple[str, str]] = set()
         int_captures: list[tuple[int, str]] = []
         used_captures: set[int] = set()
         body_param_seen = False
@@ -328,6 +338,21 @@ class EndpointPlan:
                 )
 
             annotation = hints.get(name)
+            marker = None
+            if typing.get_origin(annotation) is typing.Annotated:
+                base, *metadata = typing.get_args(annotation)
+                markers = [found for value in metadata if (found := get_marker(value)) is not None]
+                if markers:
+                    if len(metadata) != 1:
+                        raise TypeError(
+                            f"input parameter '{name}' requires exactly one source marker"
+                        )
+                    if name in captures_by_name:
+                        raise TypeError(
+                            f"path parameter '{name}' cannot also declare an input source"
+                        )
+                    marker = markers[0]
+                    annotation = base
             if isinstance(annotation, str) and not (
                 body_type is not None and not body_param_seen and name not in captures_by_name
             ):
@@ -351,6 +376,18 @@ class EndpointPlan:
                     int_captures.append((index, name))
                 sources.append((parameter.kind, name, "capture", index))
                 used_captures.add(index)
+            elif marker is not None:
+                source, alias = marker
+                if marker in input_aliases:
+                    raise TypeError(f"duplicate {source} input binding for '{alias}'")
+                input_aliases.add(marker)
+                default = (
+                    parameter.default
+                    if parameter.default is not inspect.Parameter.empty
+                    else _MISSING
+                )
+                sources.append((parameter.kind, name, "input", len(input_bindings)))
+                input_bindings.append(InputBinding(source, alias, annotation, default))
             elif annotation is Request:
                 needs_request = True
                 sources.append((parameter.kind, name, "request", None))
@@ -366,6 +403,7 @@ class EndpointPlan:
                 )
 
         object.__setattr__(self, "int_captures", tuple(int_captures))
+        object.__setattr__(self, "input_bindings", tuple(input_bindings))
         object.__setattr__(self, "needs_request", needs_request)
         unconsumed = [
             path_names[index] for index in range(len(path_names)) if index not in used_captures
