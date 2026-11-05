@@ -29,27 +29,22 @@ def _finite(value: Any) -> None:
             _finite(item)
 
 
-def _declarative(tp: Any, seen: set[int]) -> None:
-    """Reject callable postponed field expressions without evaluating them again."""
-    if id(tp) in seen:
-        return
-    seen.add(id(tp))
-    origin = typing.get_origin(tp)
-    if origin is not None:
-        _declarative(origin, seen)
-        for child in typing.get_args(tp):
-            _declarative(child, seen)
-    if not isinstance(tp, type) or not issubclass(tp, msgspec.Struct):
-        return
-    for base in tp.__mro__:
-        module = sys.modules.get(base.__module__)
-        namespace = {
-            **(vars(module) if module is not None else {}),
-            **vars(base),
-            base.__name__: base,
-        }
+def _declarative(tp: Any, seen: set[Any], namespace: dict[str, Any] | None = None) -> None:
+    """Reject calls in type-position forward references, not Literal/metadata strings."""
+    namespace = namespace or {}
+    if isinstance(tp, typing.ForwardRef):
+        module = sys.modules.get(tp.__forward_module__ or "")
+        if module is not None:
+            namespace = vars(module)
+        tp = tp.__forward_arg__
+    if isinstance(tp, str):
+        tree = ast.parse(tp, mode="eval")
+        if any(isinstance(node, ast.Call) for node in ast.walk(tree)):
+            raise TypeError(
+                "OpenAPI requires declarative Struct annotations; construct constrained aliases eagerly"
+            )
 
-        def lookup(node: ast.AST, namespace: dict[str, Any] = namespace) -> Any:
+        def lookup(node: ast.AST) -> Any:
             if isinstance(node, ast.Name):
                 return namespace.get(node.id)
             if isinstance(node, ast.Attribute):
@@ -58,18 +53,56 @@ def _declarative(tp: Any, seen: set[int]) -> None:
                     return vars(owner).get(node.attr)
             return None
 
+        def visit(node: ast.AST) -> None:
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                _declarative(node.value, seen, namespace)
+            elif isinstance(node, ast.Subscript):
+                root = lookup(node.value)
+                if root is typing.Literal:
+                    return
+                _declarative(root, seen, namespace)
+                if root is typing.Annotated and isinstance(node.slice, ast.Tuple):
+                    visit(node.slice.elts[0])
+                else:
+                    visit(node.slice)
+            elif isinstance(node, (ast.Name, ast.Attribute)):
+                _declarative(lookup(node), seen, namespace)
+            else:
+                for child in ast.iter_child_nodes(node):
+                    visit(child)
+
+        visit(tree.body)
+        return
+    if id(tp) in seen:
+        return
+    seen.add(id(tp))
+    if isinstance(tp, typing.TypeAliasType):
+        module = sys.modules.get(tp.__module__ or "")
+        _declarative(tp.__value__, seen, vars(module) if module is not None else namespace)
+        return
+    if isinstance(tp, typing.TypeVar):
+        _declarative(tp.__bound__, seen, namespace)
+        for child in tp.__constraints__:
+            _declarative(child, seen, namespace)
+        return
+    origin = typing.get_origin(tp)
+    if origin is typing.Literal:
+        return
+    args = typing.get_args(tp)
+    if origin is typing.Annotated:
+        _declarative(args[0], seen, namespace)
+        return
+    if origin is not None:
+        _declarative(origin, seen, namespace)
+        for child in args:
+            _declarative(child, seen, namespace)
+    if not isinstance(tp, type) or not issubclass(tp, msgspec.Struct):
+        return
+    for base in tp.__mro__:
+        module = sys.modules.get(base.__module__)
+        scope = {**(vars(module) if module is not None else {}), **vars(base), base.__name__: base}
         for annotation in vars(base).get("__annotations__", {}).values():
-            if not isinstance(annotation, str):
-                _declarative(annotation, seen)
-                continue
-            tree = ast.parse(annotation, mode="eval")
-            if any(isinstance(node, ast.Call) for node in ast.walk(tree)):
-                raise TypeError(
-                    "OpenAPI requires declarative Struct annotations; construct constrained aliases eagerly"
-                )
-            for node in ast.walk(tree):
-                if isinstance(node, (ast.Name, ast.Attribute)):
-                    _declarative(lookup(node), seen)
+            _declarative(annotation, seen, scope)
 
 
 def _schema(tp: Any, prefix: str) -> tuple[dict[str, Any], dict[str, Any]]:

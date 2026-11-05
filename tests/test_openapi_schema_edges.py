@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 import msgspec
 import pytest
 
@@ -46,3 +48,37 @@ def test_dynamic_postponed_annotation_is_rejected_without_schema_re_evaluation()
         app.post("/dynamic", body=DynamicBody)(lambda body: body)
     assert len(_annotation_calls) == 1  # The incumbent decoder, not schema generation.
     app.post("/dynamic")(lambda: None)
+
+
+_nested_calls = []
+
+
+def changing_nested_type():
+    _nested_calls.append(1)
+    return str if len(_nested_calls) == 1 else int
+
+
+class NestedDynamicBody(msgspec.Struct):
+    value: list[str]
+
+
+NestedDynamicBody.__annotations__["value"] = 'list["changing_nested_type()"]'
+
+
+class LiteralBody(msgspec.Struct):
+    value: Literal["changing_nested_type()"]
+
+
+def test_nested_forward_reference_calls_are_rejected_but_literal_strings_are_values():
+    app = Dex(openapi=True)
+    with pytest.raises(TypeError, match="declarative"):
+        app.post("/dynamic", body=NestedDynamicBody)(lambda body: None)
+    assert _nested_calls == [1]
+    app.post("/literal", body=LiteralBody)(lambda body: None)
+    document = app.openapi()
+    literal = next(
+        value
+        for value in document["components"]["schemas"].values()
+        if value.get("title") == "LiteralBody"
+    )
+    assert literal["properties"]["value"]["enum"] == ["changing_nested_type()"]
