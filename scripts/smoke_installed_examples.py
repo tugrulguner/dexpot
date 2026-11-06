@@ -12,6 +12,7 @@ import importlib.metadata
 import json
 import os
 import socket
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -25,6 +26,7 @@ ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES = ROOT / "examples"
 EXPECTED_EXAMPLES = {
     "bounded_api.py",
+    "database.py",
     "minimal.py",
     "response_policy.py",
     "typed_crud.py",
@@ -41,12 +43,14 @@ def _free_port() -> int:
 
 
 @contextmanager
-def _serve(example: Path) -> Iterator[int]:
+def _serve(example: Path, *, extra_env: dict[str, str] | None = None) -> Iterator[int]:
     port = _free_port()
     env = os.environ.copy()
     env.pop("PYTHONPATH", None)
     env["DEXPOT_EXAMPLE_HOST"] = "127.0.0.1"
     env["DEXPOT_EXAMPLE_PORT"] = str(port)
+    if extra_env:
+        env.update(extra_env)
     with tempfile.TemporaryDirectory(prefix="dexpot-example-") as cwd:
         process = subprocess.Popen(
             [sys.executable, str(example)],
@@ -307,6 +311,42 @@ def _check_typed_inputs(path: Path) -> None:
             connection.close()
 
 
+def _check_database(path: Path) -> None:
+    with tempfile.TemporaryDirectory(prefix="dexpot-database-") as directory:
+        database = Path(directory) / "items.sqlite3"
+        events = Path(directory) / "events.jsonl"
+        env = {
+            "DEXPOT_EXAMPLE_DB": str(database),
+            "DEXPOT_EXAMPLE_POOL_SIZE": "1",
+            "DEXPOT_EXAMPLE_EVENTS": str(events),
+        }
+        with _serve(path, extra_env=env) as port:
+            created = _request(port, "POST", "/items", {"name": "kept", "price": 2.0})
+            assert created[0] == 201
+            item_id = created[2]["id"]
+            assert _request(port, "GET", f"/items/{item_id}")[2] == created[2]
+            before = events.read_text().count('"acquire"')
+            assert _request(port, "POST", "/items", {"name": 2, "price": 1.0})[0] == 422
+            assert events.read_text().count('"acquire"') == before
+            assert _request(port, "POST", "/rollback", {"name": "discard", "price": 1.0})[0] == 409
+            assert (
+                _request(port, "POST", "/encoding-failure", {"name": "committed", "price": 3.0})[0]
+                == 500
+            )
+            assert _request(port, "GET", f"/items/{item_id}")[0] == 200
+        from contextlib import closing
+
+        with closing(sqlite3.connect(database)) as connection:
+            assert connection.execute("SELECT name FROM items ORDER BY id").fetchall() == [
+                ("kept",),
+                ("committed",),
+            ]
+        trace = [json.loads(line)["event"] for line in events.read_text().splitlines()]
+        assert trace[0] == "open" and trace[-1] == "close"
+        assert trace.count("acquire") == trace.count("release")
+        assert trace.count("commit") == 2 and trace.count("rollback") == 1
+
+
 def main() -> None:
     discovered = {path.name for path in EXAMPLES.glob("*.py")}
     assert discovered == EXPECTED_EXAMPLES, discovered
@@ -320,6 +360,7 @@ def main() -> None:
     _check_nested_responses(EXAMPLES / "nested_responses.py")
     _check_typed_inputs(EXAMPLES / "typed_inputs.py")
     _check_lifecycle(EXAMPLES / "lifecycle.py")
+    _check_database(EXAMPLES / "database.py")
     print(
         f"installed dexpot {importlib.metadata.version('dexpot')} passed CLI and "
         f"HTTP smoke checks; examples inventory contains {len(discovered)} files"
