@@ -134,10 +134,78 @@ binding; its structural errors precede per-binding checks there. Return only the
 before the handler runs. Keep-alive/pipelining recovery, HEAD body suppression and method
 matching are unchanged. Decoded state belongs to one request, not a route or reused connection.
 Typed-only handlers need no public Request allocation; unmarked routes do not parse query/cookie
-data. No DI, OpenAPI, lists/repeated-value binding, public lazy views or proxy trust is added.
+data. Typed binding does not implicitly enable OpenAPI, DI, lists/repeated-value binding, public lazy views or proxy trust.
 
 The [typed-input example](https://github.com/tugrulguner/dexpot/blob/main/examples/typed_inputs.py)
 requires source containing this unreleased feature.
+
+## OpenAPI export (unreleased)
+
+Unreleased: OpenAPI export. Public v0.8.1 does not include Dex.openapi().
+Create `Dex(openapi=True)` before declaring routes to capture OpenAPI 3.1 metadata at
+registration. `app.openapi(title="Example API", version="development")` returns a detached
+JSON-compatible document and freezes further registration after successful export. API
+`info.version` is caller metadata, not the package version. Ordinary applications do not
+load the exporter or capture schemas.
+
+The export uses existing endpoint bindings and msgspec wire schemas, not fresh handler
+introspection. It describes path/query/header/cookie aliases, required values, scalar defaults,
+JSON bodies and declared response schemas. Runtime-selected statuses are not guessed: checked
+responses include the declared payload or a detail error envelope; unchecked/raw response media
+and shapes remain unspecified. Statuses 204/205/304 have no content. Query lexical rules,
+normalized headers and strict cookies still govern requests; JSON Schema does not implement
+those transport parsers.
+
+There is no automatic endpoint, documentation UI, authentication/security inference or DI.
+The caller chooses whether to save or serve the document. Exported defaults and docstrings are
+public metadata: review them before serving the document. Unsupported schema/component names,
+external/unresolved references, ignored OpenAPI headers (Accept, Content-Type, Authorization),
+and contradictory templated paths fail instead of producing a misleading document.
+Postponed schema field annotations containing calls are excluded for Struct, dataclass, attrs,
+TypedDict and NamedTuple owners, including NewType wrappers, because re-evaluation can
+disagree with an existing decoder. Construct constrained aliases eagerly (for example,
+`Name = Annotated[str, msgspec.Meta(min_length=1)]`) and use `name: Name` in the Struct.
+References must be statically resolvable: inherited class aliases and literal lookups in
+built-in dictionaries/lists/tuples are supported. Opaque attribute getters/descriptors, custom subscriptions or
+union operators, conditional type expressions and unresolved references reject rather than
+silently skipping a schema. Literal payloads and literal Annotated metadata remain values.
+Postponed model annotations follow native module-before-class lookup, including
+PEP 695 type parameters; class-local aliases remain fallbacks when unshadowed.
+Generic-model availability still follows native interpreter/msgspec support.
+Opaque module namespace getters, including replacement `__dict__` descriptors,
+are rejected before the exporter reads their namespace.
+Model metaclasses may not replace structural metadata readers (such as `__dict__`
+or `__annotations__`) or native field/default metadata with opaque descriptors;
+ordinary/native descriptors remain supported.
+Custom fallback attribute getters cannot fabricate schema metadata; standard enum
+attribute lookup remains supported.
+Model annotations, referenced aliases, defaults and schema metadata must stay unchanged
+from their first native/msgspec use. Captured models have weak, identity-based process-wide
+fingerprints: later conflicting captures reject across routes and applications, while existing
+snapshots remain intact. Declare a new model type for a new contract. The exporter cannot
+reconstruct bindings from an external native cache created before its first capture; changing
+a model in that unobserved interval is unsupported.
+
+```python
+from dexpot import Dex
+
+app = Dex(openapi=True)
+
+@app.get("/items/{item_id}", response=int)
+def item(item_id: int):
+    return item_id
+
+schema = app.openapi(title="Example API", version="development")
+```
+
+Registration snapshots remain authoritative even if annotations later change. Schema generation
+never calls application default factories; factory-derived defaults are not fabricated. Non-finite
+schema defaults and unrepresentable declarations are rejected atomically on opt-in registration.
+A failed export does not freeze an otherwise mutable application. Callers may mutate the returned
+document without changing runtime plans or subsequent exports. Components are namespaced per
+operation/role to avoid cross-route name collisions; generated component names are not a stable API.
+
+See [the complete runnable example](https://github.com/tugrulguner/dexpot/blob/main/examples/openapi.py).
 
 ## Responses
 
