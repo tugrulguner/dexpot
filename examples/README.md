@@ -89,6 +89,12 @@ References must be statically resolvable: inherited class aliases and literal lo
 built-in dictionaries/lists/tuples are supported. Opaque attribute getters/descriptors, custom subscriptions or
 union operators, conditional type expressions and unresolved references reject rather than
 silently skipping a schema. Literal payloads and literal Annotated metadata remain values.
+Model annotations, referenced aliases, defaults and schema metadata must stay unchanged
+from their first native/msgspec use. Captured models have weak, identity-based process-wide
+fingerprints: later conflicting captures reject across routes and applications, while existing
+snapshots remain intact. Declare a new model type for a new contract. The exporter cannot
+reconstruct bindings from an external native cache created before its first capture; changing
+a model in that unobserved interval is unsupported.
 
 ```bash
 uv run python examples/openapi.py

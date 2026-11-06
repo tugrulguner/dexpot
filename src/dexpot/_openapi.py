@@ -9,8 +9,10 @@ import math
 import re
 import sys
 import typing
+import weakref
 from collections import abc
 from dataclasses import is_dataclass
+from threading import RLock
 from types import ModuleType
 from typing import Any
 
@@ -20,6 +22,44 @@ from ._inputs import _MISSING
 from ._plans import _ApplicationCompilationDuringRegistration
 
 _COMPONENT = re.compile(r"^[A-Za-z0-9._-]+$")
+_MODEL_LOCK = RLock()
+_MODEL_SCHEMAS: dict[int, tuple[weakref.ReferenceType[Any], bytes]] = {}
+
+
+def _model(tp: Any) -> bool:
+    return isinstance(tp, type) and (
+        issubclass(tp, msgspec.Struct)
+        or is_dataclass(tp)
+        or hasattr(tp, "__attrs_attrs__")
+        or (issubclass(tp, dict) and hasattr(tp, "__total__"))
+        or (issubclass(tp, tuple) and hasattr(tp, "_fields"))
+    )
+
+
+def _forget_model(key: int, reference: weakref.ReferenceType[Any]) -> None:
+    with _MODEL_LOCK:
+        entry = _MODEL_SCHEMAS.get(key)
+        if entry is not None and entry[0] is reference:
+            del _MODEL_SCHEMAS[key]
+
+
+def _remember_models(seen: dict[int, Any]) -> None:
+    # Native decoders retain their first model bindings process-wide. Compare
+    # resolved schema graphs, not raw strings, so alias rebinding is visible too.
+    candidates = []
+    for tp in seen.values():
+        if _model(tp):
+            schemas, components = msgspec.json.schema_components([tp])
+            candidates.append((tp, msgspec.json.encode((schemas, components))))
+    with _MODEL_LOCK:
+        for tp, encoded in candidates:
+            previous = _MODEL_SCHEMAS.get(id(tp))
+            if previous is not None and previous[0]() is tp and previous[1] != encoded:
+                raise TypeError("OpenAPI model metadata changed after its first captured binding")
+        for tp, encoded in candidates:
+            key = id(tp)
+            reference = weakref.ref(tp, lambda ref, key=key: _forget_model(key, ref))
+            _MODEL_SCHEMAS[key] = (reference, encoded)
 
 
 def _finite(value: Any) -> None:
@@ -41,7 +81,7 @@ def _ordinary_attribute_access(owner: Any) -> None:
         raise TypeError("OpenAPI requires declarative schema annotations; opaque attribute access")
 
 
-def _declarative(tp: Any, seen: set[Any], namespace: dict[str, Any] | None = None) -> None:
+def _declarative(tp: Any, seen: dict[int, Any], namespace: dict[str, Any] | None = None) -> None:
     """Reject calls in type-position forward references, not Literal/metadata strings."""
     namespace = namespace or {}
     if isinstance(tp, typing.ForwardRef):
@@ -192,7 +232,7 @@ def _declarative(tp: Any, seen: set[Any], namespace: dict[str, Any] | None = Non
         return
     if id(tp) in seen:
         return
-    seen.add(id(tp))
+    seen[id(tp)] = tp
     if isinstance(tp, type):
         _ordinary_attribute_access(tp)
     if isinstance(tp, typing.NewType):
@@ -220,15 +260,7 @@ def _declarative(tp: Any, seen: set[Any], namespace: dict[str, Any] | None = Non
             _declarative(child, seen, namespace)
     if not isinstance(tp, type):
         return
-    if not (
-        issubclass(tp, msgspec.Struct)
-        or is_dataclass(tp)
-        or hasattr(tp, "__attrs_attrs__")
-        # TypedDict providers use distinct metaclasses, but all are dict types
-        # with __total__. This guard must cover backports without importing them.
-        or (issubclass(tp, dict) and hasattr(tp, "__total__"))
-        or (issubclass(tp, tuple) and hasattr(tp, "_fields"))
-    ):
+    if not _model(tp):
         return
     for base in tp.__mro__:
         module = sys.modules.get(base.__module__)
@@ -239,12 +271,14 @@ def _declarative(tp: Any, seen: set[Any], namespace: dict[str, Any] | None = Non
 
 
 def _schema(tp: Any, prefix: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    _declarative(tp, set())
+    seen: dict[int, Any] = {}
+    _declarative(tp, seen)
     try:
         schemas, components = msgspec.json.schema_components(
             [tp], ref_template="#/components/schemas/{name}"
         )
         root = schemas[0]
+        _remember_models(seen)
     except _ApplicationCompilationDuringRegistration:
         raise
     except Exception as exc:
