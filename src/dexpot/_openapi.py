@@ -12,6 +12,7 @@ import typing
 import weakref
 from collections import abc
 from dataclasses import is_dataclass
+from enum import EnumType
 from threading import RLock
 from types import ModuleType
 from typing import Any
@@ -75,6 +76,12 @@ def _finite(value: Any) -> None:
 
 def _ordinary_attribute_access(owner: Any) -> None:
     base = type if isinstance(owner, type) else ModuleType
+    fallback = inspect.getattr_static(type(owner), "__getattr__", None)
+    native_fallback = inspect.getattr_static(EnumType, "__getattr__", None)
+    if fallback is not None and not (isinstance(owner, EnumType) and fallback is native_fallback):
+        raise TypeError(
+            "OpenAPI requires declarative schema annotations; opaque attribute fallback"
+        )
     if inspect.getattr_static(type(owner), "__getattribute__") is not inspect.getattr_static(
         base, "__getattribute__"
     ):

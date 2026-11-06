@@ -155,3 +155,43 @@ def test_normal_dataclass_defaults_remain_optional_on_wire_and_in_schema():
     assert component["properties"]["value"]["default"] == 7
     assert exchange(app, {}) == (200, {"value": 7})
     assert exchange(app, {"value": "bad"})[0] == 422
+
+
+def test_fallback_attribute_getter_cannot_fabricate_native_field_metadata(monkeypatch):
+    module = ModuleType("_openapi_fallback_fields")
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    exec(
+        compile(
+            "import copy\nfrom dataclasses import dataclass,fields,MISSING\n"
+            "@dataclass\nclass Base:\n value:int=7\n"
+            "optional={'value':fields(Base)[0]}\nfield=copy.copy(optional['value'])\n"
+            "field.default=MISSING\nrequired={'value':field}\nreads=[]\n"
+            "class Meta(type):\n def __getattr__(cls,name):\n"
+            "  if name!='__dataclass_fields__':raise AttributeError(name)\n"
+            "  reads.append(1)\n  return optional if len(reads)==1 else required\n"
+            "class Body(metaclass=Meta):\n value:int=7\n",
+            module.__name__,
+            "exec",
+            dont_inherit=True,
+        ),
+        vars(module),
+    )
+    app = Dex(openapi=True)
+    with pytest.raises(TypeError, match="opaque"):
+        app.post("/value", body=module.Body)(lambda body: {"value": body.value})
+    assert app._endpoints == []
+    assert app._openapi_registry.operations == []
+    app.post("/value")(lambda: None)
+
+
+def test_native_enum_attribute_access_remains_supported():
+    from enum import IntEnum
+
+    class Value(IntEnum):
+        ONE = 1
+
+    app = Dex(openapi=True)
+    app.post("/value", body=Value)(lambda body: {"value": body.value})
+    validate(app.openapi())
+    assert exchange(app, 1) == (200, {"value": 1})
+    assert exchange(app, 2)[0] == 422
