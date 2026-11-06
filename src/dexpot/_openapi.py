@@ -87,7 +87,8 @@ def _declarative(tp: Any, seen: dict[int, Any], namespace: dict[str, Any] | None
     if isinstance(tp, typing.ForwardRef):
         module = sys.modules.get(tp.__forward_module__ or "")
         if module is not None:
-            namespace = vars(module)
+            parameters = namespace.get("__type_params__", ())
+            namespace = {**{p.__name__: p for p in parameters}, **vars(module)}
         tp = tp.__forward_arg__
     if isinstance(tp, str):
         tree = ast.parse(tp, mode="eval")
@@ -265,6 +266,12 @@ def _declarative(tp: Any, seen: dict[int, Any], namespace: dict[str, Any] | None
     for base in tp.__mro__:
         module = sys.modules.get(base.__module__)
         scope = {**(vars(module) if module is not None else {}), **vars(base), base.__name__: base}
+        # Match msgspec's annotation evaluator: module bindings take precedence
+        # over class-local type parameters when the names collide.
+        globals_ = vars(module) if module is not None else {}
+        scope.update(
+            {p.__name__: globals_.get(p.__name__, p) for p in getattr(base, "__type_params__", ())}
+        )
         # TypedDict/NamedTuple expose annotations through descriptors on Python 3.14.
         for annotation in getattr(base, "__annotations__", {}).values():
             _declarative(annotation, seen, scope)
