@@ -7,6 +7,7 @@ import math
 import re
 import sys
 import typing
+from dataclasses import is_dataclass
 from types import ModuleType
 from typing import Any
 
@@ -41,7 +42,7 @@ def _declarative(tp: Any, seen: set[Any], namespace: dict[str, Any] | None = Non
         tree = ast.parse(tp, mode="eval")
         if any(isinstance(node, ast.Call) for node in ast.walk(tree)):
             raise TypeError(
-                "OpenAPI requires declarative Struct annotations; construct constrained aliases eagerly"
+                "OpenAPI requires declarative schema annotations; construct constrained aliases eagerly"
             )
 
         def lookup(node: ast.AST) -> Any:
@@ -76,6 +77,9 @@ def _declarative(tp: Any, seen: set[Any], namespace: dict[str, Any] | None = Non
     if id(tp) in seen:
         return
     seen.add(id(tp))
+    if isinstance(tp, typing.NewType):
+        _declarative(tp.__supertype__, seen, namespace)
+        return
     if isinstance(tp, typing.TypeAliasType):
         module = sys.modules.get(tp.__module__ or "")
         _declarative(tp.__value__, seen, vars(module) if module is not None else namespace)
@@ -96,12 +100,20 @@ def _declarative(tp: Any, seen: set[Any], namespace: dict[str, Any] | None = Non
         _declarative(origin, seen, namespace)
         for child in args:
             _declarative(child, seen, namespace)
-    if not isinstance(tp, type) or not issubclass(tp, msgspec.Struct):
+    if not isinstance(tp, type):
+        return
+    if not (
+        issubclass(tp, msgspec.Struct)
+        or is_dataclass(tp)
+        or typing.is_typeddict(tp)
+        or (issubclass(tp, tuple) and hasattr(tp, "_fields"))
+    ):
         return
     for base in tp.__mro__:
         module = sys.modules.get(base.__module__)
         scope = {**(vars(module) if module is not None else {}), **vars(base), base.__name__: base}
-        for annotation in vars(base).get("__annotations__", {}).values():
+        # TypedDict/NamedTuple expose annotations through descriptors on Python 3.14.
+        for annotation in getattr(base, "__annotations__", {}).values():
             _declarative(annotation, seen, scope)
 
 
