@@ -79,6 +79,20 @@ def _ordinary_attribute_access(owner: Any) -> None:
         base, "__getattribute__"
     ):
         raise TypeError("OpenAPI requires declarative schema annotations; opaque attribute access")
+    if isinstance(owner, type):
+        structural = ("__dict__", "__annotations__", "__type_params__", "__mro__", "__bases__")
+        for name in (*structural, "__module__", "__name__", "__qualname__"):
+            actual = inspect.getattr_static(type(owner), name, None)
+            expected = inspect.getattr_static(type, name, None)
+            # Metaclasses normally have literal module/qualname entries, which
+            # do not intercept class metadata. Replacement descriptors do.
+            if actual is not expected and (
+                name in structural
+                or inspect.getattr_static(type(actual), "__get__", None) is not None
+            ):
+                raise TypeError(
+                    "OpenAPI requires declarative schema annotations; opaque class metadata"
+                )
 
 
 def _module_namespace(module: ModuleType | None) -> dict[str, Any]:
