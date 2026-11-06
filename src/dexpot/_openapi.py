@@ -81,6 +81,17 @@ def _ordinary_attribute_access(owner: Any) -> None:
         raise TypeError("OpenAPI requires declarative schema annotations; opaque attribute access")
 
 
+def _module_namespace(module: ModuleType | None) -> dict[str, Any]:
+    if module is None:
+        return {}
+    _ordinary_attribute_access(module)
+    if inspect.getattr_static(type(module), "__dict__") is not inspect.getattr_static(
+        ModuleType, "__dict__"
+    ):
+        raise TypeError("OpenAPI requires declarative schema annotations; opaque module namespace")
+    return vars(module)
+
+
 def _declarative(tp: Any, seen: dict[int, Any], namespace: dict[str, Any] | None = None) -> None:
     """Reject calls in type-position forward references, not Literal/metadata strings."""
     namespace = namespace or {}
@@ -88,7 +99,7 @@ def _declarative(tp: Any, seen: dict[int, Any], namespace: dict[str, Any] | None
         module = sys.modules.get(tp.__forward_module__ or "")
         if module is not None:
             parameters = namespace.get("__type_params__", ())
-            namespace = {**{p.__name__: p for p in parameters}, **vars(module)}
+            namespace = {**{p.__name__: p for p in parameters}, **_module_namespace(module)}
         tp = tp.__forward_arg__
     if isinstance(tp, str):
         tree = ast.parse(tp, mode="eval")
@@ -241,7 +252,9 @@ def _declarative(tp: Any, seen: dict[int, Any], namespace: dict[str, Any] | None
         return
     if isinstance(tp, typing.TypeAliasType):
         module = sys.modules.get(tp.__module__ or "")
-        _declarative(tp.__value__, seen, vars(module) if module is not None else namespace)
+        _declarative(
+            tp.__value__, seen, _module_namespace(module) if module is not None else namespace
+        )
         return
     if isinstance(tp, typing.TypeVar):
         _declarative(tp.__bound__, seen, namespace)
@@ -269,7 +282,7 @@ def _declarative(tp: Any, seen: dict[int, Any], namespace: dict[str, Any] | None
         # over class locals (including type parameters) when names collide.
         scope = dict(vars(base))
         scope.update({p.__name__: p for p in getattr(base, "__type_params__", ())})
-        scope.update(vars(module) if module is not None else {})
+        scope.update(_module_namespace(module))
         # TypedDict/NamedTuple expose annotations through descriptors on Python 3.14.
         for annotation in getattr(base, "__annotations__", {}).values():
             _declarative(annotation, seen, scope)

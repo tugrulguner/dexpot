@@ -144,6 +144,8 @@ silently skipping a schema. Literal payloads and literal Annotated metadata rema
 Postponed model annotations follow native module-before-class lookup, including
 PEP 695 type parameters; class-local aliases remain fallbacks when unshadowed.
 Generic-model availability still follows native interpreter/msgspec support.
+Opaque module namespace getters, including replacement `__dict__` descriptors,
+are rejected before the exporter reads their namespace.
 Model annotations, referenced aliases, defaults and schema metadata must stay unchanged
 from their first native/msgspec use. Captured models have weak, identity-based process-wide
 fingerprints: later conflicting captures reject across routes and applications, while existing
