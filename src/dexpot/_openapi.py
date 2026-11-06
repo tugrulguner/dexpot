@@ -265,13 +265,11 @@ def _declarative(tp: Any, seen: dict[int, Any], namespace: dict[str, Any] | None
         return
     for base in tp.__mro__:
         module = sys.modules.get(base.__module__)
-        scope = {**(vars(module) if module is not None else {}), **vars(base), base.__name__: base}
         # Match msgspec's annotation evaluator: module bindings take precedence
-        # over class-local type parameters when the names collide.
-        globals_ = vars(module) if module is not None else {}
-        scope.update(
-            {p.__name__: globals_.get(p.__name__, p) for p in getattr(base, "__type_params__", ())}
-        )
+        # over class locals (including type parameters) when names collide.
+        scope = dict(vars(base))
+        scope.update({p.__name__: p for p in getattr(base, "__type_params__", ())})
+        scope.update(vars(module) if module is not None else {})
         # TypedDict/NamedTuple expose annotations through descriptors on Python 3.14.
         for annotation in getattr(base, "__annotations__", {}).values():
             _declarative(annotation, seen, scope)

@@ -169,8 +169,9 @@ References must be statically resolvable: inherited class aliases and literal lo
 built-in dictionaries/lists/tuples are supported. Opaque attribute getters/descriptors, custom subscriptions or
 union operators, conditional type expressions and unresolved references reject rather than
 silently skipping a schema. Literal payloads and literal Annotated metadata remain values.
-PEP 695 class type parameters are resolved in postponed annotations using native scope
-precedence. Generic-model availability still follows the installed msgspec version.
+Postponed model annotations follow native module-before-class lookup, including
+PEP 695 type parameters; class-local aliases remain fallbacks when unshadowed.
+Generic-model availability still follows native interpreter/msgspec support.
 Model annotations, referenced aliases, defaults and schema metadata must stay unchanged
 from their first native/msgspec use. Captured models have weak, identity-based process-wide
 fingerprints: later conflicting captures reject across routes and applications, while existing
