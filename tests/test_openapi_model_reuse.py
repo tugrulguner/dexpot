@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import gc
 import sys
+import typing
 import weakref
 from types import ModuleType
 
@@ -94,6 +95,10 @@ def test_fingerprints_do_not_retain_temporary_model_classes():
         return weakref.ref(Temporary), id(Temporary)
 
     reference, key = capture()
+    # Python 3.12's typing LRU retains Tuple[Temporary] made by native schema
+    # inspection. Clear that independent cache before testing our weak ownership.
+    for cleanup in getattr(typing, "_cleanups", ()):
+        cleanup()
     gc.collect()
     assert reference() is None
     assert key not in _MODEL_SCHEMAS
