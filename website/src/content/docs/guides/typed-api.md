@@ -133,7 +133,7 @@ The caller chooses whether to save or serve the document. Exported defaults and 
 public metadata: review them before serving the document. Unsupported schema/component names,
 external/unresolved references, ignored OpenAPI headers (Accept, Content-Type, Authorization),
 and contradictory templated paths fail instead of producing a misleading document.
-Postponed schema field annotations containing calls are excluded for Struct, dataclass,
+Postponed schema field annotations containing calls are excluded for Struct, dataclass, attrs,
 TypedDict and NamedTuple owners, including NewType wrappers, because re-evaluation can
 disagree with an existing decoder. Construct constrained aliases eagerly (for example,
 `Name = Annotated[str, msgspec.Meta(min_length=1)]`) and use `name: Name` in the Struct.

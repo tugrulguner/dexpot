@@ -18,6 +18,7 @@ def fixture_type(monkeypatch, family, wrapped, dynamic):
     declaration = {
         "struct": "class Owner(msgspec.Struct):",
         "dataclass": "@dataclass\nclass Owner:",
+        "attrs": "@attrs.define\nclass Owner:",
         "typeddict": "class Owner(TypedDict):",
         "extensions": "class Owner(ExtensionsTypedDict):",
         "namedtuple": "class Owner(NamedTuple):",
@@ -29,6 +30,7 @@ from dataclasses import dataclass
 from typing import Annotated, Literal, NamedTuple, NewType, TypedDict
 from typing_extensions import TypedDict as ExtensionsTypedDict
 import msgspec
+import attrs
 calls = []
 def choose():
     calls.append(1)
@@ -44,7 +46,9 @@ class Wrapper(msgspec.Struct):
     return module, module.Wrapper if wrapped else module.Owner
 
 
-@pytest.mark.parametrize("family", ["struct", "dataclass", "typeddict", "namedtuple", "extensions"])
+@pytest.mark.parametrize(
+    "family", ["struct", "dataclass", "attrs", "typeddict", "namedtuple", "extensions"]
+)
 @pytest.mark.parametrize("wrapped", [False, True])
 def test_dynamic_native_annotation_owners_reject_atomically(monkeypatch, family, wrapped):
     module, schema = fixture_type(monkeypatch, family, wrapped, True)
@@ -59,7 +63,9 @@ def test_dynamic_native_annotation_owners_reject_atomically(monkeypatch, family,
     validate(app.openapi())
 
 
-@pytest.mark.parametrize("family", ["struct", "dataclass", "typeddict", "namedtuple", "extensions"])
+@pytest.mark.parametrize(
+    "family", ["struct", "dataclass", "attrs", "typeddict", "namedtuple", "extensions"]
+)
 @pytest.mark.parametrize("wrapped", [False, True])
 def test_static_native_annotation_owners_preserve_constraints(monkeypatch, family, wrapped):
     module, schema = fixture_type(monkeypatch, family, wrapped, False)

@@ -223,6 +223,7 @@ def _declarative(tp: Any, seen: set[Any], namespace: dict[str, Any] | None = Non
     if not (
         issubclass(tp, msgspec.Struct)
         or is_dataclass(tp)
+        or hasattr(tp, "__attrs_attrs__")
         # TypedDict providers use distinct metaclasses, but all are dict types
         # with __total__. This guard must cover backports without importing them.
         or (issubclass(tp, dict) and hasattr(tp, "__total__"))
