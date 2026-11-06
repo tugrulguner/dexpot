@@ -93,6 +93,34 @@ def _ordinary_attribute_access(owner: Any) -> None:
                 raise TypeError(
                     "OpenAPI requires declarative schema annotations; opaque class metadata"
                 )
+        family_metadata = (
+            "__dataclass_fields__",
+            "__dataclass_params__",
+            "__attrs_attrs__",
+            "__struct_fields__",
+            "__struct_encode_fields__",
+            "__struct_defaults__",
+            "__struct_config__",
+            "__required_keys__",
+            "__optional_keys__",
+            "__readonly_keys__",
+            "__total__",
+            "_fields",
+            "_field_defaults",
+            "__post_init__",
+            "__attrs_pre_init__",
+            "__attrs_post_init__",
+        )
+        for name in family_metadata:
+            actual = inspect.getattr_static(type(owner), name, None)
+            native = inspect.getattr_static(type(msgspec.Struct), name, None)
+            if (
+                actual is not native
+                and inspect.getattr_static(type(actual), "__get__", None) is not None
+            ):
+                raise TypeError(
+                    "OpenAPI requires declarative schema annotations; opaque native model metadata"
+                )
 
 
 def _module_namespace(module: ModuleType | None) -> dict[str, Any]:

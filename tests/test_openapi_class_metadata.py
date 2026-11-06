@@ -80,3 +80,78 @@ def test_other_opaque_metadata_descriptors_reject_without_getter_execution(name)
     with pytest.raises(TypeError, match="opaque"):
         _ordinary_attribute_access(owner)
     assert reads == []
+
+
+def test_dataclass_field_descriptor_cannot_change_requiredness(monkeypatch):
+    module = ModuleType("_openapi_dataclass_fields")
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    exec(
+        compile(
+            "import copy\nfrom dataclasses import dataclass,fields,MISSING\n"
+            "@dataclass\nclass Base:\n value:int=7\n"
+            "optional={'value':fields(Base)[0]}\nfield=copy.copy(optional['value'])\n"
+            "field.default=MISSING\nrequired={'value':field}\nreads=[]\n"
+            "class Meta(type):\n @property\n def __dataclass_fields__(cls):\n"
+            "  reads.append(1)\n  return optional if len(reads)==1 else required\n"
+            "class Body(Base,metaclass=Meta):\n pass\n",
+            module.__name__,
+            "exec",
+            dont_inherit=True,
+        ),
+        vars(module),
+    )
+    app = Dex(openapi=True)
+    with pytest.raises(TypeError, match="opaque"):
+        app.post("/value", body=module.Body)(lambda body: None)
+    assert app._endpoints == []
+    assert app._openapi_registry.operations == []
+    app.post("/value")(lambda: None)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "__dataclass_fields__",
+        "__attrs_attrs__",
+        "__struct_fields__",
+        "__struct_defaults__",
+        "__required_keys__",
+        "__optional_keys__",
+        "__total__",
+        "_fields",
+        "_field_defaults",
+    ],
+)
+def test_opaque_native_family_metadata_rejects_without_executing_descriptor(name):
+    reads = []
+
+    def getter(owner):
+        reads.append(1)
+        raise AssertionError("opaque native metadata getter executed")
+
+    meta = type("Meta", (type,), {name: property(getter)})
+    owner = meta("Owner", (), {})
+    with pytest.raises(TypeError, match="opaque"):
+        _ordinary_attribute_access(owner)
+    assert reads == []
+
+
+def test_normal_dataclass_defaults_remain_optional_on_wire_and_in_schema():
+    from dataclasses import dataclass
+
+    class Meta(type):
+        pass
+
+    @dataclass
+    class Body(metaclass=Meta):
+        value: int = 7
+
+    app = Dex(openapi=True)
+    app.post("/value", body=Body)(lambda body: {"value": body.value})
+    doc = app.openapi()
+    validate(doc)
+    component = next(s for s in doc["components"]["schemas"].values() if s.get("title") == "Body")
+    assert "value" not in component.get("required", [])
+    assert component["properties"]["value"]["default"] == 7
+    assert exchange(app, {}) == (200, {"value": 7})
+    assert exchange(app, {"value": "bad"})[0] == 422

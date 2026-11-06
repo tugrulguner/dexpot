@@ -309,7 +309,8 @@ Generic-model availability still follows native interpreter/msgspec support.
 Opaque module namespace getters, including replacement `__dict__` descriptors,
 are rejected before the exporter reads their namespace.
 Model metaclasses may not replace structural metadata readers (such as `__dict__`
-or `__annotations__`) with opaque descriptors; ordinary/native descriptors remain supported.
+or `__annotations__`) or native field/default metadata with opaque descriptors;
+ordinary/native descriptors remain supported.
 Model annotations, referenced aliases, defaults and schema metadata must stay unchanged
 from their first native/msgspec use. Captured models have weak, identity-based process-wide
 fingerprints: later conflicting captures reject across routes and applications, while existing
