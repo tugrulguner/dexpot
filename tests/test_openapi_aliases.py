@@ -124,7 +124,7 @@ def test_opaque_schema_owner_attribute_access_rejects(monkeypatch):
     module = aliases(monkeypatch, "str", False)
     exec(
         compile(
-            "class ModelMeta(type(msgspec.Struct)):\n def __getattribute__(cls, name):\n  return super().__getattribute__(name)\nclass Model(msgspec.Struct, metaclass=ModelMeta):\n value: str\n",
+            "from dataclasses import dataclass\nclass ModelMeta(type):\n def __getattribute__(cls, name):\n  return super().__getattribute__(name)\n@dataclass\nclass Model(metaclass=ModelMeta):\n value: str\n",
             module.__name__,
             "exec",
             dont_inherit=True,
