@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import ast
+import builtins
+import inspect
 import math
 import re
 import sys
 import typing
+from collections import abc
 from dataclasses import is_dataclass
 from types import ModuleType
 from typing import Any
@@ -45,32 +48,136 @@ def _declarative(tp: Any, seen: set[Any], namespace: dict[str, Any] | None = Non
                 "OpenAPI requires declarative schema annotations; construct constrained aliases eagerly"
             )
 
+        missing = object()
+
+        def unsupported() -> typing.NoReturn:
+            raise TypeError(
+                "OpenAPI requires declarative schema annotations; unsupported type expression"
+            )
+
         def lookup(node: ast.AST) -> Any:
             if isinstance(node, ast.Name):
-                return namespace.get(node.id)
+                if node.id in namespace:
+                    return namespace[node.id]
+                return vars(builtins).get(node.id, missing)
             if isinstance(node, ast.Attribute):
                 owner = lookup(node.value)
                 if isinstance(owner, (ModuleType, type)):
-                    return vars(owner).get(node.attr)
-            return None
+                    # Static lookup follows inherited aliases without invoking descriptors.
+                    resolved = inspect.getattr_static(owner, node.attr, missing)
+                    if (
+                        isinstance(owner, type)
+                        and inspect.getattr_static(type(resolved), "__get__", missing)
+                        is not missing
+                    ):
+                        unsupported()
+                    return resolved
+            if isinstance(node, ast.Subscript):
+                owner = lookup(node.value)
+                key = node.slice
+                if type(owner) in (dict, list, tuple) and isinstance(key, ast.Constant):
+                    if type(key.value) not in (str, int):
+                        unsupported()
+                    if type(owner) is dict and any(type(k) not in (str, int) for k in owner):
+                        unsupported()
+                    try:
+                        return owner[key.value]
+                    except (KeyError, IndexError, TypeError):
+                        unsupported()
+            return missing
+
+        special = tuple(
+            getattr(typing, name, missing)
+            for name in (
+                "Union",
+                "Optional",
+                "Required",
+                "NotRequired",
+                "ReadOnly",
+                "ClassVar",
+                "Final",
+                "Unpack",
+            )
+        )
+        extensions = sys.modules.get("typing_extensions")
+        if extensions is not None:
+            special += tuple(
+                vars(extensions).get(name, missing)
+                for name in ("Required", "NotRequired", "ReadOnly", "Unpack")
+            )
+        containers = (
+            list,
+            dict,
+            tuple,
+            set,
+            frozenset,
+            abc.Sequence,
+            abc.MutableSequence,
+            abc.Mapping,
+            abc.MutableMapping,
+            abc.Set,
+            abc.MutableSet,
+        )
+        generic_getitem = inspect.getattr_static(typing.Generic, "__class_getitem__")
 
         def visit(node: ast.AST) -> None:
-            if isinstance(node, ast.Constant) and isinstance(node.value, str):
-                _declarative(node.value, seen, namespace)
+            value = lookup(node)
+            if value is not missing:
+                if isinstance(value, (property, staticmethod, classmethod)):
+                    unsupported()
+                _declarative(value, seen, namespace)
+            elif isinstance(node, ast.Constant):
+                if isinstance(node.value, str):
+                    _declarative(node.value, seen, namespace)
+                elif node.value is not None and node.value is not Ellipsis:
+                    unsupported()
             elif isinstance(node, ast.Subscript):
                 root = lookup(node.value)
+                if root is missing:
+                    unsupported()
                 if root is typing.Literal:
                     return
-                _declarative(root, seen, namespace)
                 if root is typing.Annotated and isinstance(node.slice, ast.Tuple):
                     visit(node.slice.elts[0])
-                else:
-                    visit(node.slice)
-            elif isinstance(node, (ast.Name, ast.Attribute)):
-                _declarative(lookup(node), seen, namespace)
-            else:
-                for child in ast.iter_child_nodes(node):
+                    # Metadata strings are values, never forward references.
+                    for metadata in node.slice.elts[1:]:
+                        try:
+                            ast.literal_eval(metadata)
+                        except (ValueError, TypeError, SyntaxError):
+                            resolved = lookup(metadata)
+                            if resolved is missing or isinstance(
+                                resolved, (property, staticmethod, classmethod)
+                            ):
+                                unsupported()
+                    return
+                origin = typing.get_origin(root)
+                if not (
+                    any(root is item or origin is item for item in containers + special)
+                    or isinstance(root, typing.TypeAliasType)
+                    or (
+                        isinstance(root, type)
+                        and inspect.getattr_static(root, "__class_getitem__", missing)
+                        is generic_getitem
+                    )
+                ):
+                    unsupported()
+                _declarative(root, seen, namespace)
+                visit(node.slice)
+            elif isinstance(node, ast.Tuple):
+                for child in node.elts:
                     visit(child)
+            elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+                for child in (node.left, node.right):
+                    value = lookup(child)
+                    if isinstance(value, type) and any(
+                        inspect.getattr_static(type(value), name, missing)
+                        is not inspect.getattr_static(type, name)
+                        for name in ("__or__", "__ror__")
+                    ):
+                        unsupported()
+                    visit(child)
+            else:
+                unsupported()
 
         visit(tree.body)
         return
