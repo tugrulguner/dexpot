@@ -45,6 +45,8 @@ class SQLitePool:
     """Fixed-size pool; a connection is exclusively leased to one handler."""
 
     def __init__(self, path: str, size: int):
+        if path in ("", ":memory:"):
+            raise ValueError("DEXPOT_EXAMPLE_DB must name a non-empty on-disk SQLite file")
         if size < 1:
             raise ValueError("DEXPOT_EXAMPLE_POOL_SIZE must be at least 1")
         self._available: queue.Queue[sqlite3.Connection] = queue.Queue(maxsize=size)

@@ -76,7 +76,9 @@ The POST statuses are 201, 409 and 500 respectively. The rollback row is absent;
 encoding-failure row is present despite 500. Stop and restart against the same file to
 verify persistence. Malformed typed input returns 422 before acquiring a lease. Set
 `DEXPOT_EXAMPLE_EVENTS=./database-events.jsonl` to observe open/acquire/commit/rollback/
-release/close events. Pool size defaults to 4; SQLite lock contention has a 250 ms busy
+release/close events. `DEXPOT_EXAMPLE_DB` must name a non-empty on-disk file: empty paths and `:memory:`
+are rejected before opening connections because they create private per-connection stores.
+Pool size defaults to 4; SQLite lock contention has a 250 ms busy
 timeout and may produce a sanitized 500 rather than an automatic retry. Pool exhaustion
 is a separate immediate 503. `/hold` intentionally holds a lease briefly for local
 exhaustion demonstrations; it is not query-configurable or a production endpoint.
