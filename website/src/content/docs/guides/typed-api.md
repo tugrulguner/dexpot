@@ -138,7 +138,7 @@ TypedDict and NamedTuple owners, including NewType wrappers, because re-evaluati
 disagree with an existing decoder. Construct constrained aliases eagerly (for example,
 `Name = Annotated[str, msgspec.Meta(min_length=1)]`) and use `name: Name` in the Struct.
 References must be statically resolvable: inherited class aliases and literal lookups in
-built-in dictionaries/lists/tuples are supported. Opaque descriptors, custom subscriptions or
+built-in dictionaries/lists/tuples are supported. Opaque attribute getters/descriptors, custom subscriptions or
 union operators, conditional type expressions and unresolved references reject rather than
 silently skipping a schema. Literal payloads and literal Annotated metadata remain values.
 

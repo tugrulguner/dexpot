@@ -33,6 +33,14 @@ def _finite(value: Any) -> None:
             _finite(item)
 
 
+def _ordinary_attribute_access(owner: Any) -> None:
+    base = type if isinstance(owner, type) else ModuleType
+    if inspect.getattr_static(type(owner), "__getattribute__") is not inspect.getattr_static(
+        base, "__getattribute__"
+    ):
+        raise TypeError("OpenAPI requires declarative schema annotations; opaque attribute access")
+
+
 def _declarative(tp: Any, seen: set[Any], namespace: dict[str, Any] | None = None) -> None:
     """Reject calls in type-position forward references, not Literal/metadata strings."""
     namespace = namespace or {}
@@ -63,6 +71,7 @@ def _declarative(tp: Any, seen: set[Any], namespace: dict[str, Any] | None = Non
             if isinstance(node, ast.Attribute):
                 owner = lookup(node.value)
                 if isinstance(owner, (ModuleType, type)):
+                    _ordinary_attribute_access(owner)
                     # Static lookup follows inherited aliases without invoking descriptors.
                     resolved = inspect.getattr_static(owner, node.attr, missing)
                     if (
@@ -184,6 +193,8 @@ def _declarative(tp: Any, seen: set[Any], namespace: dict[str, Any] | None = Non
     if id(tp) in seen:
         return
     seen.add(id(tp))
+    if isinstance(tp, type):
+        _ordinary_attribute_access(tp)
     if isinstance(tp, typing.NewType):
         _declarative(tp.__supertype__, seen, namespace)
         return

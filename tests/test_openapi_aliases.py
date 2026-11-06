@@ -53,6 +53,16 @@ class Descriptor:
         return Child
 class Custom:
     Alias = Descriptor()
+class StaticChild(msgspec.Struct):
+    value: str
+class GetterMeta(type):
+    def __getattribute__(cls, name):
+        if name == "Alias":
+            alias_calls.append(1)
+            return Child
+        return super().__getattribute__(name)
+class GetterNamespace(metaclass=GetterMeta):
+    Alias = StaticChild
 class UnionMeta(type):
     def __or__(cls, other):
         alias_calls.append(1)
@@ -74,6 +84,7 @@ class Body(msgspec.Struct):
         "Accessor[str]",
         "Opaque.Alias",
         "Custom.Alias",
+        "GetterNamespace.Alias",
         "UnionAlias | int",
         "Child if True else str",
     ],
@@ -106,6 +117,23 @@ def test_opaque_metadata_alias_is_not_reevaluated(monkeypatch):
     with pytest.raises(TypeError, match="declarative"):
         app.post("/value", body=module.Body)(lambda body: None)
     assert module.alias_calls == [1]
+    assert app._endpoints == []
+
+
+def test_opaque_schema_owner_attribute_access_rejects(monkeypatch):
+    module = aliases(monkeypatch, "str", False)
+    exec(
+        compile(
+            "class ModelMeta(type(msgspec.Struct)):\n def __getattribute__(cls, name):\n  return super().__getattribute__(name)\nclass Model(msgspec.Struct, metaclass=ModelMeta):\n value: str\n",
+            module.__name__,
+            "exec",
+            dont_inherit=True,
+        ),
+        module.__dict__,
+    )
+    app = Dex(openapi=True)
+    with pytest.raises(TypeError, match="declarative"):
+        app.post("/value", body=module.Model)(lambda body: None)
     assert app._endpoints == []
 
 
