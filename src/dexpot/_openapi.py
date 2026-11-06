@@ -105,7 +105,9 @@ def _declarative(tp: Any, seen: set[Any], namespace: dict[str, Any] | None = Non
     if not (
         issubclass(tp, msgspec.Struct)
         or is_dataclass(tp)
-        or typing.is_typeddict(tp)
+        # TypedDict providers use distinct metaclasses, but all are dict types
+        # with __total__. This guard must cover backports without importing them.
+        or (issubclass(tp, dict) and hasattr(tp, "__total__"))
         or (issubclass(tp, tuple) and hasattr(tp, "_fields"))
     ):
         return
