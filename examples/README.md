@@ -11,11 +11,13 @@ uv run python examples/response_policy.py
 uv run python examples/nested_responses.py
 uv run python examples/typed_inputs.py
 uv run python examples/lifecycle.py
+uv run python examples/database.py
 ```
 
 Set `DEXPOT_EXAMPLE_PORT` when port 8000 is already in use. Run one server at a time.
 The latest lifecycle and nested-response walkthroughs below target dexpot 0.8.0 or newer;
-none requires a database, credentials, or network service beyond the local HTTP server.
+`database.py` uses a local SQLite file through the Python standard library; none requires
+credentials or an external database/network service.
 
 ## Capability map
 
@@ -27,12 +29,66 @@ none requires a database, credentials, or network service beyond the local HTTP 
 | `response_policy.py` | Public-field projection, custom and duplicate headers, sanitized output failures, raw bytes, bodyless 204, status tuples |
 | `nested_responses.py` | Nested Struct projection, malformed/non-finite nested output rejection, valid recovery after failure |
 | `lifecycle.py` | Serving-time acquisition, explicit resource access, reverse cleanup, partial-startup rollback |
+| `database.py` | Bounded process-local SQLite connections, exclusive handler leases, durable writes, rollback and the post-commit encoding boundary |
 | `typed_inputs.py` | Unreleased explicit scalar Query/Header/Cookie sources, pagination/filtering, defaults, strict failures and raw Request compatibility |
 
 All examples except `typed_inputs.py` exercise shipped contracts. The typed-input example
 requires source containing that unreleased feature; none introduces dependency injection,
 OpenAPI or the experimental socket-I/O redesign. Public Request query/header metadata stays
 raw; application state is not shared across GIL worker processes.
+
+## Database resources and transactions
+
+`database.py` builds on the existing `app.lifespan(factory)` API (dexpot 0.8.0 or newer),
+not request-scoped dependency injection. Its SQLite pool is acquired at serving startup,
+not module import. A handler obtains an exclusive connection lease with an ordinary
+context manager and returns it on both successful and exceptional exits. Pool exhaustion
+returns 503 rather than waiting indefinitely. This is a teaching example, not a production
+pool implementation or an authentication service.
+
+Process/application resources are distinct from request leases. Connection threads within
+one process share the pool; GIL worker processes have independent pools. Budget aggregate
+connections across every process, and follow the database driver's thread-affinity rules.
+This example uses one serving process and SQLite connections configured for exclusive use
+across request threads. A keep-alive HTTP connection does not own a database lease between
+requests. Normal lifecycle cleanup waits for active handlers; forced process termination
+cannot guarantee Python cleanup.
+
+Validation rejects malformed typed bodies before a handler can acquire a lease. An exception
+inside a write transaction rolls back. However, an encoding failure after commit returns 500
+without undoing the committed write: response preparation happens after the handler returns.
+Socket failure after commit cannot undo the transaction either. Do not infer database/HTTP
+atomicity or retry safety from the response status; design idempotency separately.
+
+```bash
+DEXPOT_EXAMPLE_DB=./items.sqlite3 DEXPOT_EXAMPLE_POOL_SIZE=2 uv run python examples/database.py
+# In another terminal (GET uses the id returned by the first POST):
+curl -i -X POST http://127.0.0.1:8000/items -H 'Content-Type: application/json' \
+  -d '{"name":"keyboard","price":19.5}'
+curl -i http://127.0.0.1:8000/items/1
+curl -i -X POST http://127.0.0.1:8000/rollback -H 'Content-Type: application/json' \
+  -d '{"name":"discard","price":1.0}'
+curl -i -X POST http://127.0.0.1:8000/encoding-failure -H 'Content-Type: application/json' \
+  -d '{"name":"committed","price":3.0}'
+```
+
+The POST statuses are 201, 409 and 500 respectively. The rollback row is absent; the
+encoding-failure row is present despite 500. Stop and restart against the same file to
+verify persistence. Malformed typed input returns 422 before acquiring a lease. Set
+`DEXPOT_EXAMPLE_EVENTS=./database-events.jsonl` to observe open/acquire/commit/rollback/
+release/close events. `DEXPOT_EXAMPLE_DB` must name a non-empty on-disk file: empty paths and `:memory:`
+are rejected before opening connections because they create private per-connection stores.
+Item IDs outside SQLite's signed 64-bit range return 404 before acquiring a lease.
+Both representable bounds remain ordinary lookups; this is local to the database example,
+not a restriction on dexpot's integer path converter.
+Pool size defaults to 4; SQLite lock contention has a 250 ms busy
+timeout and may produce a sanitized 500 rather than an automatic retry. Pool exhaustion
+is a separate immediate 503. `/hold` intentionally holds a lease briefly for local
+exhaustion demonstrations; it is not query-configurable or a production endpoint.
+
+Run the example only in a local demonstration environment. Its deliberate rollback and
+invalid-response endpoints teach these boundaries rather than hiding them. It needs no
+Query/Header/Cookie markers, OpenAPI export, hooks or new framework runtime behavior.
 
 ## Typed scalar inputs (unreleased)
 
