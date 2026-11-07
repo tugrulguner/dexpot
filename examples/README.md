@@ -78,6 +78,9 @@ verify persistence. Malformed typed input returns 422 before acquiring a lease. 
 `DEXPOT_EXAMPLE_EVENTS=./database-events.jsonl` to observe open/acquire/commit/rollback/
 release/close events. `DEXPOT_EXAMPLE_DB` must name a non-empty on-disk file: empty paths and `:memory:`
 are rejected before opening connections because they create private per-connection stores.
+Item IDs outside SQLite's signed 64-bit range return 404 before acquiring a lease.
+Both representable bounds remain ordinary lookups; this is local to the database example,
+not a restriction on dexpot's integer path converter.
 Pool size defaults to 4; SQLite lock contention has a 250 ms busy
 timeout and may produce a sanitized 500 rather than an automatic retry. Pool exhaustion
 is a separate immediate 503. `/hold` intentionally holds a lease briefly for local

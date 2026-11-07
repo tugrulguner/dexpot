@@ -328,6 +328,10 @@ def _check_database(path: Path) -> None:
             before = events.read_text().count('"acquire"')
             assert _request(port, "POST", "/items", {"name": 2, "price": 1.0})[0] == 422
             assert events.read_text().count('"acquire"') == before
+            for item_id_outside_range in ("9223372036854775808", "-9223372036854775809"):
+                missing = _request(port, "GET", f"/items/{item_id_outside_range}")
+                assert missing[0] == 404 and missing[2] == {"detail": "item not found"}
+            assert events.read_text().count('"acquire"') == before
             assert _request(port, "POST", "/rollback", {"name": "discard", "price": 1.0})[0] == 409
             assert (
                 _request(port, "POST", "/encoding-failure", {"name": "committed", "price": 3.0})[0]

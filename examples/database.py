@@ -155,6 +155,8 @@ def create_item(item: ItemIn) -> tuple[int, dict[str, object]]:
 
 @app.get("/items/{item_id}", response=None)
 def get_item(item_id: int) -> dict[str, object] | tuple[int, dict[str, str]]:
+    if not -9223372036854775808 <= item_id <= 9223372036854775807:
+        return 404, {"detail": "item not found"}
     with _pool().lease() as connection:
         row = connection.execute(
             "SELECT id, name, price FROM items WHERE id = ?", (item_id,)

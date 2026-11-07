@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import httpx
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLE = ROOT / "examples" / "database.py"
@@ -103,6 +104,23 @@ def test_real_http_write_read_and_durable_sqlite_rows(tmp_path: Path) -> None:
         ]
     trace = _events(events)
     assert "commit" in trace and "release" in trace and "close" in trace
+
+
+@pytest.mark.parametrize("item_id", ["9223372036854775808", "-9223372036854775809"])
+def test_unrepresentable_item_id_is_not_found_without_a_database_lease(
+    tmp_path: Path, item_id: str
+) -> None:
+    with _serve(tmp_path) as (base, _database, events):
+        created = httpx.post(f"{base}/items", json={"name": "control", "price": 1.0})
+        assert created.status_code == 201
+        before = _events(events).count("acquire")
+        response = httpx.get(f"{base}/items/{item_id}")
+        assert response.status_code == 404
+        assert response.json() == {"detail": "item not found"}
+        assert _events(events).count("acquire") == before
+        for boundary in ["9223372036854775807", "-9223372036854775808"]:
+            assert httpx.get(f"{base}/items/{boundary}").status_code == 404
+        assert httpx.get(f"{base}/items/{created.json()['id']}").json() == created.json()
 
 
 def test_invalid_typed_body_does_not_lease_or_mutate(tmp_path: Path) -> None:

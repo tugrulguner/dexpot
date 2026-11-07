@@ -306,6 +306,8 @@ Thread sharing is explicit; GIL processes replicate pool capacity, and a keep-al
 connection does not retain a lease between requests. Normal shutdown retains resources for
 active handlers; forced termination need not run Python cleanup.
 
+In this example, item IDs outside SQLite's signed 64-bit range return 404 before a
+connection lease, without changing the framework's integer path conversion.
 Input validation precedes handler side effects. A handler-local transaction rolls back on
 an exception inside that transaction. An encoding failure after commit can still return
 500 while leaving the write committed, because checked response preparation follows handler
