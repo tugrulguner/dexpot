@@ -101,13 +101,20 @@ curl -i 'http://127.0.0.1:8000/items/drinks?limit=1&min_price=3&include_archived
   -H 'X-Request-ID: example-1' -H 'Cookie: theme=dark'
 curl -i 'http://127.0.0.1:8000/items/drinks?include_archived=yes' \
   -H 'X-Request-ID: example-2'
+curl -i 'http://127.0.0.1:8000/items/drinks?limit=1&limit=2' \
+  -H 'X-Request-ID: repeated'
+curl -i 'http://127.0.0.1:8000/items/drinks?limit=1&limit=1' \
+  -H 'X-Request-ID: identical'
 ```
 
 The example applies query pagination/filtering, a required request-id header and a cookie
 preference. The first call uses converted int/float/bool arguments; the second returns 422
 before the handler. Request-id is trace metadata, not authentication. Defaults apply only to
 missing values. Only exact str/int/finite float/bool are supported. Requested query/cookie
-duplicates fail; headers retain normalized/comma-folded behavior. Path converters are unchanged.
+duplicates fail, including identical values: both `limit=1&limit=2` and
+`limit=1&limit=1` return 422 with `{"detail":"query parameter 'limit': repeated"}`.
+A declared scalar accepts one occurrence; it never chooses the first or last.
+Headers retain normalized/comma-folded behavior. Path converters are unchanged.
 See [typed input sources](/route-contract/#typed-input-sources) for encoding/cookie
 rules, defaults, sanitized errors and precedence. Typed binding does not implicitly enable OpenAPI or DI.
 

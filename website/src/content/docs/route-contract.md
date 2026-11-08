@@ -292,3 +292,14 @@ an exception inside that transaction. An encoding failure after commit can still
 return. Do not promise rollback on every 500 or atomic database/remote HTTP delivery.
 Use the runnable example and `examples/README.md` for the bounded demonstration; no hooks,
 scoped factory graph, proxy trust or new runtime API is introduced.
+
+The source-checkout retry walkthrough adds `POST /retry-safe/items` and the runnable client
+`uv run python examples/database.py --retry-demo`. It generates an operation ID once,
+deliberately fails the first reply after commit, and retries the same operation ID and
+validated payload to recover the original 201 result without another insert. The item and
+operation record commit in the same database transaction; a conflicting payload for an
+existing ID returns 409. The mapping survives restart with the same SQLite file. This is
+application-owned deduplication, not a framework retry feature. Its fault header is for
+local demonstrations only. Operation IDs are not authentication, and deleting the mapping
+removes replay protection. The ordinary `/items` route remains unsafe to retry blindly;
+database commits and remote HTTP delivery are still not atomic.

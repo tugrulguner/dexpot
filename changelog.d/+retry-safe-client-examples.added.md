@@ -1,0 +1,1 @@
+Expand the runnable client examples to show that identical and conflicting scalar query repeats are rejected, and demonstrate retry-safe SQLite creation using an operation ID recorded atomically with the write, including recovery after a committed write's reply fails.

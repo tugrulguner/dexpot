@@ -3,6 +3,14 @@
 Run: uv run python examples/typed_inputs.py.
 The request-id header is tracing metadata, not authentication. GET /raw keeps
 Request.query raw; no typed source binding is requested on that route.
+
+Client checks (run while this server is listening):
+    curl -i 'http://127.0.0.1:8000/items/drinks?limit=1' -H 'X-Request-ID: demo'
+    curl -i 'http://127.0.0.1:8000/items/drinks?limit=1&limit=2' -H 'X-Request-ID: demo'
+    curl -i 'http://127.0.0.1:8000/items/drinks?limit=1&limit=1' -H 'X-Request-ID: demo'
+The single value succeeds. Both repeats return 422 with
+{"detail":"query parameter 'limit': repeated"}, even when values match.
+A declared scalar never selects the first or last occurrence.
 """
 
 from __future__ import annotations
