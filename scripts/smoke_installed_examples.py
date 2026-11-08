@@ -33,6 +33,7 @@ EXPECTED_EXAMPLES = {
     "lifecycle.py",
     "nested_responses.py",
     "typed_inputs.py",
+    "openapi.py",
 }
 
 
@@ -311,6 +312,61 @@ def _check_typed_inputs(path: Path) -> None:
             connection.close()
 
 
+def _check_openapi(path: Path) -> None:
+    with _serve(path) as port:
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+        try:
+
+            def request(method: str, endpoint: str, data: Any = None) -> tuple[int, Any]:
+                headers = {"X-Request-ID": "smoke"}
+                body = None if data is None else json.dumps(data)
+                if body is not None:
+                    headers["Content-Type"] = "application/json"
+                connection.request(method, endpoint, body=body, headers=headers)
+                response = connection.getresponse()
+                return response.status, json.loads(response.read())
+
+            status, document = request("GET", "/openapi.json")
+            assert status == 200 and document["openapi"] == "3.1.0"
+            operation = document["paths"]["/items/{item_id}"]["post"]
+            assert "200" not in operation["responses"] and "201" not in operation["responses"]
+            assert "internal_note" not in json.dumps(document)
+            active_socket = connection.sock
+            assert request("POST", "/items/7?limit=2", {"name": "tea", "price": 3.5}) == (
+                201,
+                {
+                    "id": 7,
+                    "name": "tea",
+                    "price": 3.5,
+                    "limit": 2,
+                    "request_id": "smoke",
+                    "theme": "light",
+                },
+            )
+            assert request("POST", "/items/7?limit=bad", {"name": "tea", "price": 3.5}) == (
+                422,
+                {"detail": "query parameter 'limit': invalid"},
+            )
+            assert request("GET", "/stats") == (200, 1)
+            assert request("GET", "/openapi.json") == (200, document)
+            assert connection.sock is active_socket
+        finally:
+            connection.close()
+    with tempfile.TemporaryDirectory(prefix="dexpot-openapi-") as cwd:
+        target = Path(cwd) / "openapi.json"
+        env = os.environ.copy()
+        env.pop("PYTHONPATH", None)
+        exported = subprocess.run(
+            [sys.executable, str(path), "--export", str(target)],
+            cwd=cwd,
+            env=env,
+            capture_output=True,
+            timeout=10,
+        )
+        assert exported.returncode == 0, exported.stderr
+        assert json.loads(target.read_bytes()) == document
+
+
 def _check_database(path: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="dexpot-database-") as directory:
         database = Path(directory) / "items.sqlite3"
@@ -363,6 +419,7 @@ def main() -> None:
     _check_response_policy(EXAMPLES / "response_policy.py")
     _check_nested_responses(EXAMPLES / "nested_responses.py")
     _check_typed_inputs(EXAMPLES / "typed_inputs.py")
+    _check_openapi(EXAMPLES / "openapi.py")
     _check_lifecycle(EXAMPLES / "lifecycle.py")
     _check_database(EXAMPLES / "database.py")
     print(

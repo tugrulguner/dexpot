@@ -24,6 +24,7 @@ EXPECTED_EXAMPLES = {
     "lifecycle.py",
     "nested_responses.py",
     "typed_inputs.py",
+    "openapi.py",
 }
 
 

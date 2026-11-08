@@ -22,9 +22,11 @@ def test_lifecycle_consumers_name_the_minimum_release(relative: str) -> None:
     assert "app.lifespan(factory)" in text
 
 
-def test_roadmap_separates_available_lifecycle_from_future_inputs() -> None:
+def test_roadmap_separates_available_lifecycle_from_unreleased_sources() -> None:
     text = (ROOT / "ROADMAP.md").read_text()
-    assert "**Next application capabilities:** typed input sources and OpenAPI" in text
+    assert "**Next application capabilities:** finish the remaining 3.3 contracts" in text
+    assert "Public v0.8.1 does not include these markers." in text
+    assert "Public v0.8.1 does not include Dex.openapi()." in text
     assert "**Included in v0.8.0:** `Dex.lifespan(factory)`" in text
     assert "macOS performance remains unqualified" in text
 
