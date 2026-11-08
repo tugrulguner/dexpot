@@ -1,4 +1,4 @@
-"""Run the unreleased scalar-input example through the real socket server."""
+"""Run the released scalar-input example through the real socket server."""
 
 from __future__ import annotations
 

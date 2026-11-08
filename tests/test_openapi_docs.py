@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 )
 def test_openapi_source_availability_and_opt_in_are_explicit(path):
     text = (ROOT / path).read_text()
-    assert "Unreleased: OpenAPI export." in text
-    assert "Public v0.8.1 does not include Dex.openapi()." in text
+    assert "Included in v0.9.0: OpenAPI export." in text
+    assert "Unreleased:" not in text
     assert "Dex(openapi=True)" in text
     assert "3.1" in text

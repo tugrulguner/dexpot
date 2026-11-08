@@ -65,8 +65,8 @@ def test_skill_documents_current_body_binding_order() -> None:
         "first parameter remaining after path, Request and explicit source bindings is the body parameter"
         in normalized
     )
-    assert "Unreleased: typed query/header/cookie inputs." in body
-    assert "Public v0.8.1 does not include these markers." in body
+    assert "Included in v0.9.0: typed query/header/cookie inputs." in body
+    assert "Unreleased:" not in body
     assert body.index("### Explicit annotation namespaces") < body.index("## HTTP boundary")
     assert "Dexpot always rejects a directly returned Request" in normalized
     assert (

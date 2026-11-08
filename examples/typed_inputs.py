@@ -1,6 +1,6 @@
-"""Explicit scalar Query/Header/Cookie sources (unreleased, not in v0.8.1).
+"""Explicit scalar Query/Header/Cookie sources (dexpot 0.9.0 or newer).
 
-Run from source containing the feature: uv run python examples/typed_inputs.py.
+Run: uv run python examples/typed_inputs.py.
 The request-id header is tracing metadata, not authentication. GET /raw keeps
 Request.query raw; no typed source binding is requested on that route.
 """

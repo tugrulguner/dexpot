@@ -39,9 +39,9 @@ instead of silently receiving strings in v0.8.0. Rejected registrations do not r
 route or invoke the handler. To migrate, use `str` and explicit application validation,
 or a typed JSON body where appropriate. JSON body and response schemas have separate rules.
 
-## Typed input sources (unreleased)
+## Typed input sources
 
-Unreleased: typed query/header/cookie inputs. Public v0.8.1 does not include these markers.
+Included in v0.9.0: typed query/header/cookie inputs.
 Use source containing this feature. A public-index v0.8.1 installation cannot run the new
 declarations. The existing path rules above remain unchanged, including rejection of
 `Annotated` path captures.
@@ -137,11 +137,11 @@ Typed-only handlers need no public Request allocation; unmarked routes do not pa
 data. Typed binding does not implicitly enable OpenAPI, DI, lists/repeated-value binding, public lazy views or proxy trust.
 
 The [typed-input example](https://github.com/tugrulguner/dexpot/blob/main/examples/typed_inputs.py)
-requires source containing this unreleased feature.
+requires dexpot 0.9.0 or newer.
 
-## OpenAPI export (unreleased)
+## OpenAPI export
 
-Unreleased: OpenAPI export. Public v0.8.1 does not include Dex.openapi().
+Included in v0.9.0: OpenAPI export.
 Create `Dex(openapi=True)` before declaring routes to capture OpenAPI 3.1 metadata at
 registration. `app.openapi(title="Example API", version="development")` returns a detached
 JSON-compatible document and freezes further registration after successful export. API

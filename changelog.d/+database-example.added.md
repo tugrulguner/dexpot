@@ -1,1 +1,0 @@
-Add a runnable SQLite database example using existing lifecycle APIs, bounded exclusive connection leases and handler-owned transactions, with HTTP/resource tests and explicit post-commit encoding-failure documentation. No framework runtime API changes.

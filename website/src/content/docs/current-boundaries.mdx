@@ -16,8 +16,9 @@ The current release deliberately keeps these boundaries visible:
 - Request targets must use origin form (`/path?query`). Absolute-form proxy targets are rejected.
 - The optional native request-head parser is experimental and separately installed. Python remains the reference and fallback.
 - Routing distinguishes 404 from 405, returns `Allow`, percent-decodes UTF-8 paths safely, and treats duplicate or trailing slashes as distinct paths.
-- Query strings and headers are parsed internally but are not yet injectable handler parameters.
-- There is no middleware, OpenAPI generation, authentication, TLS termination, streaming, WebSocket support, or proxy-header policy.
+- Included in v0.9.0: typed query/header/cookie inputs. Explicit `Annotated` bindings with `Query`, `Header` and `Cookie` support scalar values, defaults and sanitized 422 errors; raw Request query/header views remain raw. Repeated-value binding and dependency injection are not included.
+- Included in v0.9.0: OpenAPI export. `Dex(openapi=True)` captures registration-time OpenAPI 3.1 snapshots and `app.openapi()` returns a detached document; there is no automatic documentation endpoint or UI, inferred security or invented success statuses.
+- There is no middleware, authentication, TLS termination, streaming, WebSocket support, or proxy-header policy.
 - `response=T` validates and projects output; `response=None` uses generic JSON encoding.
 - Uncaught handler exceptions produce a stable public 500 body while the traceback is logged server-side. Structured logging and request IDs remain roadmap work.
 - Multiprocess serving is POSIX-only. Windows uses one process in the current release.
