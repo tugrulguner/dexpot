@@ -265,6 +265,10 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
   document through `app.openapi()`. It adds no automatic endpoint/UI or inferred security;
   dynamic response statuses remain explicit unknowns rather than invented 200 contracts.
   This bounded source-only export does not complete the whole milestone.
+- **Database ownership example:** `examples/database.py` demonstrates bounded process-local
+  SQLite resources and exclusive handler leases using the existing lifecycle API, including
+  rollback and post-commit encoding failure. This adds no hooks or scoped dependency graph
+  and does not complete this milestone; outbound I/O and other remaining contracts stay open.
 - Distinguish process/application, worker/thread, connection, and request lifetimes. A leased
   database connection need not have the sharing rules of its pool; a process-local singleton
   is not shared state across workers.

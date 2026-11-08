@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES = ROOT / "examples"
 EXPECTED_EXAMPLES = {
     "bounded_api.py",
+    "database.py",
     "minimal.py",
     "typed_crud.py",
     "response_policy.py",
