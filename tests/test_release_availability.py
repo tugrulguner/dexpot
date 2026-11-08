@@ -22,13 +22,25 @@ def test_lifecycle_consumers_name_the_minimum_release(relative: str) -> None:
     assert "app.lifespan(factory)" in text
 
 
-def test_roadmap_separates_available_lifecycle_from_unreleased_sources() -> None:
+def test_roadmap_separates_released_foundations_from_remaining_work() -> None:
     text = (ROOT / "ROADMAP.md").read_text()
     assert "**Next application capabilities:** finish the remaining 3.3 contracts" in text
-    assert "Public v0.8.1 does not include these markers." in text
-    assert "Public v0.8.1 does not include Dex.openapi()." in text
+    assert "Included in v0.9.0: typed query/header/cookie inputs." in text
+    assert "Included in v0.9.0: OpenAPI export." in text
     assert "**Included in v0.8.0:** `Dex.lifespan(factory)`" in text
     assert "macOS performance remains unqualified" in text
+
+
+def test_new_examples_and_guides_name_release_availability() -> None:
+    for relative in ("examples/typed_inputs.py", "examples/openapi.py"):
+        text = (ROOT / relative).read_text()
+        assert "0.9.0 or newer" in text
+        assert "unreleased" not in text.lower()
+        assert "source-only" not in text.lower()
+    for relative in ("README.md", "website/src/content/docs/guides/typed-api.md"):
+        text = (ROOT / relative).read_text()
+        assert "#typed-input-sources-unreleased" not in text
+        assert "#typed-input-sources" in text
 
 
 def test_nested_measurements_keep_their_original_provenance() -> None:

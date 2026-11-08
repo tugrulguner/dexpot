@@ -112,9 +112,9 @@ The runtime package is `dexpot`; the command requires `dexpot[cli]`.
 - Late route registration fails after application compilation. Declare every route before
   calling `serve()`; do not mutate the application while traffic is running.
 
-### Typed input sources (unreleased)
+### Typed input sources
 
-Unreleased: typed query/header/cookie inputs. Public v0.8.1 does not include these markers.
+Included in v0.9.0: typed query/header/cookie inputs.
 Use source containing the feature, not the published 0.8.1 package. Declare explicit aliases
 with `Annotated[int, Query("limit")]`, `Annotated[str, Header("x-request-id")]`, or
 `Annotated[str, Cookie("theme")]`. Base types are exact str/int/finite float/bool; booleans
@@ -161,9 +161,9 @@ created Request values returned by unchecked requestless handlers are outside th
 Prefer errors at registration. If a declaration can be proven invalid while the module is
 imported, do not defer it until a request.
 
-### Opt-in OpenAPI export (unreleased)
+### Opt-in OpenAPI export
 
-Unreleased: OpenAPI export. Public v0.8.1 does not include Dex.openapi().
+Included in v0.9.0: OpenAPI export.
 Create `Dex(openapi=True)` before declaring routes to capture OpenAPI 3.1 metadata at
 registration. `app.openapi(title="Example API", version="development")` returns a detached
 JSON-compatible document and freezes further registration after successful export. API

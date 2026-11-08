@@ -31,11 +31,11 @@ credentials or an external database/network service.
 | `nested_responses.py` | Nested Struct projection, malformed/non-finite nested output rejection, valid recovery after failure |
 | `lifecycle.py` | Serving-time acquisition, explicit resource access, reverse cleanup, partial-startup rollback |
 | `database.py` | Bounded process-local SQLite connections, exclusive handler leases, durable writes, rollback and the post-commit encoding boundary |
-| `typed_inputs.py` | Unreleased explicit scalar Query/Header/Cookie sources, pagination/filtering, defaults, strict failures and raw Request compatibility |
-| `openapi.py` | Unreleased opt-in OpenAPI snapshots, explicit JSON document serving/file export, checked 201 responses and input validation |
+| `typed_inputs.py` | Explicit scalar Query/Header/Cookie sources, pagination/filtering, defaults, strict failures and raw Request compatibility |
+| `openapi.py` | Opt-in OpenAPI snapshots, explicit JSON document serving/file export, checked 201 responses and input validation |
 
-`typed_inputs.py` and `openapi.py` require source containing their unreleased features; the
-other examples exercise shipped contracts. No example introduces dependency injection or
+`typed_inputs.py` and `openapi.py` require dexpot 0.9.0 or newer; the other examples
+target the versions stated below. No example introduces dependency injection or
 the experimental socket-I/O redesign. Public Request query/header metadata stays
 raw; application state is not shared across GIL worker processes.
 
@@ -92,9 +92,9 @@ Run the example only in a local demonstration environment. Its deliberate rollba
 invalid-response endpoints teach these boundaries rather than hiding them. It needs no
 Query/Header/Cookie markers, OpenAPI export, hooks or new framework runtime behavior.
 
-## Typed scalar inputs (unreleased)
+## Typed scalar inputs
 
-Unreleased: typed query/header/cookie inputs. Public v0.8.1 does not include these markers.
+Included in v0.9.0: typed query/header/cookie inputs.
 `typed_inputs.py` uses `Annotated` with explicit `Query`, `Header` and `Cookie` aliases and exact
 str/int/finite float/bool types. It does not add path converters or authentication.
 
@@ -115,9 +115,9 @@ physical duplicates have already been comma-folded. Cookie parsing uses strict A
 optional balanced quotes and no URL decoding; requested duplicate cookies fail. Unknown
 well-formed values are ignored. See the route reference for framing and error ordering.
 
-## OpenAPI snapshot example (unreleased)
+## OpenAPI snapshot example
 
-Unreleased: OpenAPI export. Public v0.8.1 does not include Dex.openapi().
+Included in v0.9.0: OpenAPI export.
 Create `Dex(openapi=True)` before declaring routes to capture OpenAPI 3.1 metadata at
 registration. `app.openapi(title="Example API", version="development")` returns a detached
 JSON-compatible document and freezes further registration after successful export. API

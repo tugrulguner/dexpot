@@ -81,9 +81,9 @@ uv run pytest tests/test_examples.py -q
 
 See [`examples/typed_crud.py`](https://github.com/tugrulguner/dexpot/blob/main/examples/typed_crud.py) for mutable CRUD state and application-owned locking. Do not share mutable state between concurrent handlers without synchronization. For binding details—including positional and keyword-only parameters, registration failures, postponed annotations, and `annotation_locals`—continue to [routes and handlers](/route-contract/). For bounded limits and parser behavior, read the [HTTP boundary](/http-boundary/).
 
-## 4. Explicit scalar inputs from source (unreleased)
+## 4. Explicit scalar inputs
 
-Unreleased: typed query/header/cookie inputs. Public v0.8.1 does not include these markers.
+Included in v0.9.0: typed query/header/cookie inputs.
 The public-install workflow above remains valid for JSON APIs; use a source checkout containing
 this feature for `Annotated[T, Query('name')]`, `Header('name')` and `Cookie('name')`.
 
@@ -108,12 +108,12 @@ preference. The first call uses converted int/float/bool arguments; the second r
 before the handler. Request-id is trace metadata, not authentication. Defaults apply only to
 missing values. Only exact str/int/finite float/bool are supported. Requested query/cookie
 duplicates fail; headers retain normalized/comma-folded behavior. Path converters are unchanged.
-See [typed input sources](/route-contract/#typed-input-sources-unreleased) for encoding/cookie
+See [typed input sources](/route-contract/#typed-input-sources) for encoding/cookie
 rules, defaults, sanitized errors and precedence. Typed binding does not implicitly enable OpenAPI or DI.
 
-## 5. Export the source-only OpenAPI contract
+## 5. Export the OpenAPI contract
 
-Unreleased: OpenAPI export. Public v0.8.1 does not include Dex.openapi().
+Included in v0.9.0: OpenAPI export.
 Create `Dex(openapi=True)` before declaring routes to capture OpenAPI 3.1 metadata at
 registration. `app.openapi(title="Example API", version="development")` returns a detached
 JSON-compatible document and freezes further registration after successful export. API

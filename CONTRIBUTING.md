@@ -84,7 +84,7 @@ Raw supported captures remain strings; JSON body and response schemas have separ
 
 ### Typed scalar input sources
 
-Unreleased: typed query/header/cookie inputs. Public v0.8.1 does not include these markers.
+Included in v0.9.0: typed query/header/cookie inputs.
 `Annotated[T, Query("name")]`, `Header("name")`, and `Cookie("name")` use exact
 `str`/`int`/finite `float`/`bool` source bindings compiled in EndpointPlan. Preserve explicit
 names, immutable descriptors, exact-type defaults, atomic failures and existing invocation.
@@ -102,7 +102,7 @@ New input binding must not steal body= or extend path converters, DI, OpenAPI or
 
 ### OpenAPI snapshot contract
 
-Unreleased: OpenAPI export. Public v0.8.1 does not include Dex.openapi().
+Included in v0.9.0: OpenAPI export.
 Create `Dex(openapi=True)` before declaring routes to capture OpenAPI 3.1 metadata at
 registration. `app.openapi(title="Example API", version="development")` returns a detached
 JSON-compatible document and freezes further registration after successful export. API

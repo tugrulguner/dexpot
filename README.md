@@ -89,7 +89,7 @@ dexpot is alpha software and is not yet recommended for untrusted production tra
 socket core now fails closed on malformed framing and enforces request limits, but production
 operations such as access logging, metrics, trusted-proxy policy, TLS guidance, middleware,
 Automatic documentation UI, streaming, and authentication remain on the [roadmap](ROADMAP.md).
-A bounded, source-only OpenAPI export is described below.
+A bounded, opt-in OpenAPI export is described below.
 
 ## Quick start
 
@@ -241,9 +241,9 @@ instead of silently receiving strings as they did in v0.8.0. This restriction do
 to JSON body or response schemas. To migrate, annotate raw captures as `str` and explicitly
 validate/convert them in application code, or use a typed JSON body where appropriate.
 
-### Explicit scalar input sources (unreleased)
+### Explicit scalar input sources
 
-Unreleased: typed query/header/cookie inputs. Public v0.8.1 does not include these markers.
+Included in v0.9.0: typed query/header/cookie inputs.
 From source containing this feature, declare an explicit `Annotated` source:
 
 ```python
@@ -269,13 +269,13 @@ return 422. Headers retain the parser's case-insensitive lookup and comma-folded
 physical header duplicates cannot be distinguished after normalization. Header presence
 alone is not authentication. This does not enable `Annotated` path captures or add path converters.
 
-See [the full input contract](https://dexpot.modepot.io/route-contract/#typed-input-sources-unreleased)
+See [the full input contract](https://dexpot.modepot.io/route-contract/#typed-input-sources)
 and [the runnable example](examples/typed_inputs.py) for decoding, strict lexical rules,
 cookie framing, deterministic errors, and raw Request compatibility. Typed binding alone does not add DI or OpenAPI; opt-in export is a separate feature below.
 
-### Opt-in OpenAPI export (unreleased)
+### Opt-in OpenAPI export
 
-Unreleased: OpenAPI export. Public v0.8.1 does not include Dex.openapi().
+Included in v0.9.0: OpenAPI export.
 Create `Dex(openapi=True)` before declaring routes to capture OpenAPI 3.1 metadata at
 registration. `app.openapi(title="Example API", version="development")` returns a detached
 JSON-compatible document and freezes further registration after successful export. API

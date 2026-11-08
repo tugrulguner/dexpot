@@ -59,7 +59,7 @@ or operating system; platform adapters must stay narrow, documented, and indepen
 - **Included in v0.8.1:** registration-time rejection of unsupported path annotations,
   preserving integer conversion and raw string captures, plus expanded runnable lifecycle
   and nested-response examples. This patch adds no new path converters or performance claims.
-- **Next application capabilities:** finish the remaining 3.3 contracts around the source-only typed inputs and OpenAPI export,
+- **Next application capabilities:** finish the remaining 3.3 contracts beyond the v0.9.0 typed inputs and OpenAPI export,
   followed by evidence-driven hooks and scoped factories in 3.4. Build on the existing plans;
   these capabilities are not contingent on first winning every external benchmark.
 - **Parallel work:** production observability and resource budgets in milestone 5. Expand the
@@ -254,17 +254,17 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
 #### 3.3 Paired lifecycle and typed input sources
 
 - **Included in v0.8.0:** `Dex.lifespan(factory)` registers synchronous context-manager factories; serving processes acquire them before accepting traffic and unwind in reverse order on shutdown or partial startup. GIL processes acquire independently; FT serving threads share the process-local resources. See README and `examples/README.md`.
-- **Unreleased: typed query/header/cookie inputs.** Public v0.8.1 does not include these markers.
+- **Included in v0.9.0: typed query/header/cookie inputs.**
   The first source increment uses explicit `Annotated[T, Query("name")]`, `Header("name")`,
   and `Cookie("name")` scalar bindings in EndpointPlan, with strict conversions, validated
   defaults and deterministic sanitized 422 errors. It does not add repeated-value/list binding,
   lazy public Request views, proxy trust, dependency injection or OpenAPI; this milestone is
-  not complete. Source-only code and examples must not be advertised as published behavior.
-- **Unreleased: OpenAPI export.** Public v0.8.1 does not include Dex.openapi().
+  not complete. Repeated-value binding and other remaining contracts stay open.
+- **Included in v0.9.0: OpenAPI export.**
   `Dex(openapi=True)` captures registration-time schemas and exports a detached OpenAPI 3.1
   document through `app.openapi()`. It adds no automatic endpoint/UI or inferred security;
   dynamic response statuses remain explicit unknowns rather than invented 200 contracts.
-  This bounded source-only export does not complete the whole milestone.
+  This bounded export does not complete the whole milestone.
 - **Database ownership example:** `examples/database.py` demonstrates bounded process-local
   SQLite resources and exclusive handler leases using the existing lifecycle API, including
   rollback and post-commit encoding failure. This adds no hooks or scoped dependency graph
@@ -279,7 +279,7 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
   metadata. Define repeated values, missing versus null, and trusted-proxy behavior.
 - Add typed query/header/cookie binding with explicit ambiguity resolution and registration-time
   validation, keeping ordinary Python functions and annotations central.
-- **Implemented from source:** opt-in OpenAPI export captures the same normalized endpoint
+- **Included in v0.9.0:** opt-in OpenAPI export captures the same normalized endpoint
   metadata and msgspec schemas used by traffic, not a second handler-introspection pipeline.
   Automatic documentation UI and security inference remain outside this bounded increment.
 

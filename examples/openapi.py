@@ -1,4 +1,4 @@
-"""Source-only OpenAPI 3.1 snapshots; public v0.8.1 cannot run this example.
+"""Opt-in OpenAPI 3.1 snapshots (dexpot 0.9.0 or newer).
 
 Run: uv run python examples/openapi.py
 Export without listening: uv run python examples/openapi.py --export openapi.json

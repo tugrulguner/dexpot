@@ -1,1 +1,0 @@
-Isolate the SQLite concurrent-lease regression from single-writer contention while preserving simultaneous distinct leases, two successful HTTP responses and two committed rows; runtime and example behavior are unchanged.

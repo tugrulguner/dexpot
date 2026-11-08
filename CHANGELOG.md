@@ -10,6 +10,19 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.9.0] - 2026-11-08
+
+### Added
+
+- Add a runnable SQLite database example using existing lifecycle APIs, bounded exclusive connection leases and handler-owned transactions, with HTTP/resource tests and explicit post-commit encoding-failure documentation. No framework runtime API changes.
+- Add explicit scalar query, header and cookie inputs with registration-compiled bindings, validated defaults and sanitized 422 errors while preserving existing path conversion and raw Request views.
+- Add opt-in registration-time OpenAPI 3.1 snapshots and detached document export for compiled endpoint contracts, with explicit application-owned serving and file-export examples.
+
+### Fixed
+
+- Isolate the SQLite concurrent-lease regression from single-writer contention while preserving simultaneous distinct leases, two successful HTTP responses and two committed rows; runtime and example behavior are unchanged.
+
+
 ## [0.8.1] - 2026-11-02
 
 ### Changed
