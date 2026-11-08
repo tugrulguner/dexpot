@@ -43,6 +43,16 @@ def test_new_examples_and_guides_name_release_availability() -> None:
         assert "#typed-input-sources" in text
 
 
+def test_boundary_page_describes_released_input_and_export_contracts() -> None:
+    text = (ROOT / "website/src/content/docs/current-boundaries.mdx").read_text()
+    assert "Included in v0.9.0: typed query/header/cookie inputs." in text
+    assert "Included in v0.9.0: OpenAPI export." in text
+    assert "Dex(openapi=True)" in text
+    assert "no automatic documentation endpoint or UI" in text
+    assert "not yet injectable handler parameters" not in text
+    assert "no middleware, OpenAPI generation" not in text
+
+
 def test_nested_measurements_keep_their_original_provenance() -> None:
     text = (ROOT / "docs/gil-nested-direct-experiment.md").read_text()
     assert "Implementation included in v0.8.0" in text
