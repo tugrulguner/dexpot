@@ -74,6 +74,10 @@ startup rollback, exhaustion and held-handler shutdown on GIL and FT. An encodin
 after commit can return 500 with a committed write; never promise rollback for every 500 or
 atomic database/HTTP delivery. Keep `examples/database.py`, its tests, documented commands
 and installed-example smoke dispatch synchronized; this example adds no public runtime API.
+Its application-owned retry demo must record the operation ID and item in one transaction,
+replay the same payload after a committed write's reply fails, reject conflicting reuse,
+and preserve deduplication across concurrent requests and restart. Test actual row counts
+and transaction rollback; an HTTP status alone does not prove duplicate prevention.
 
 Path annotations support only `str`, `int`, unannotated parameters, and `Any`.
 `float`, `bool`, `Enum`, `Annotated`, unions, and explicit `None` are unsupported.

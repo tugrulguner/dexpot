@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import httpx
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE = ROOT / "examples" / "typed_inputs.py"
@@ -61,6 +62,18 @@ def _server() -> Iterator[str]:
             raise AssertionError("typed-input example did not shut down") from None
         if started:
             assert process.returncode == 0
+
+
+@pytest.mark.parametrize("query", ["limit=1&limit=2", "limit=1&limit=1", "limit=1&%6cimit=1"])
+def test_example_rejects_repeated_scalars_without_first_or_last_selection(query: str) -> None:
+    with _server() as base, httpx.Client(base_url=base, trust_env=False) as client:
+        single = client.get("/items/drinks?limit=1", headers={"X-Request-ID": "control"})
+        repeated = client.get(f"/items/drinks?{query}", headers={"X-Request-ID": "repeated"})
+        recovery = client.get("/items/drinks?limit=2", headers={"X-Request-ID": "recovery"})
+    assert single.status_code == 200 and single.json()["limit"] == 1
+    assert repeated.status_code == 422
+    assert repeated.json() == {"detail": "query parameter 'limit': repeated"}
+    assert recovery.status_code == 200 and recovery.json()["limit"] == 2
 
 
 def test_example_binds_query_header_cookie_and_defaults() -> None:

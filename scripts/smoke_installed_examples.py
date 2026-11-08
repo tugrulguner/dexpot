@@ -18,7 +18,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -292,6 +292,9 @@ def _check_typed_inputs(path: Path) -> None:
             active_socket = connection.sock
             for query, detail in (
                 ("limit=", "query parameter 'limit': invalid"),
+                ("limit=1&limit=2", "query parameter 'limit': repeated"),
+                ("limit=1&limit=1", "query parameter 'limit': repeated"),
+                ("limit=1&%6cimit=1", "query parameter 'limit': repeated"),
                 ("limit=1&%6cimit=2", "query parameter 'limit': repeated"),
                 ("include_archived=yes", "query parameter 'include_archived': invalid"),
                 ("min_price=NaN", "query parameter 'min_price': invalid"),
@@ -407,6 +410,49 @@ def _check_database(path: Path) -> None:
         assert trace.count("commit") == 2 and trace.count("rollback") == 1
 
 
+def _check_database_retry(path: Path) -> None:
+    with tempfile.TemporaryDirectory(prefix="dexpot-database-retry-") as directory:
+        database = Path(directory) / "items.sqlite3"
+        extra_env = {"DEXPOT_EXAMPLE_DB": str(database), "DEXPOT_EXAMPLE_POOL_SIZE": "2"}
+        with _serve(path, extra_env=extra_env) as port:
+            env = os.environ.copy()
+            env.pop("PYTHONPATH", None)
+            env.update(
+                {
+                    "DEXPOT_EXAMPLE_HOST": "127.0.0.1",
+                    "DEXPOT_EXAMPLE_PORT": str(port),
+                }
+            )
+            result = subprocess.run(
+                [sys.executable, str(path), "--retry-demo"],
+                cwd=directory,
+                env=env,
+                capture_output=True,
+                timeout=15,
+            )
+            assert result.returncode == 0, (result.stdout, result.stderr)
+            recovered = json.loads(result.stdout)
+            assert recovered["first_status"] == 500 and recovered["retry_status"] == 201
+            item = recovered["item"]
+            payload = {
+                "operation_id": recovered["operation_id"],
+                "name": item["name"],
+                "price": item["price"],
+            }
+            assert _request(port, "GET", f"/items/{item['id']}")[2] == item
+            assert _request(port, "POST", "/retry-safe/items", payload)[0::2] == (201, item)
+            assert (
+                _request(port, "POST", "/retry-safe/items", {**payload, "name": "conflict"})[0]
+                == 409
+            )
+        with _serve(path, extra_env=extra_env) as port:
+            assert _request(port, "POST", "/retry-safe/items", payload)[0::2] == (201, item)
+        with closing(sqlite3.connect(database)) as connection:
+            assert connection.execute("SELECT id, name, price FROM items").fetchall() == [
+                (item["id"], item["name"], item["price"])
+            ]
+
+
 def main() -> None:
     discovered = {path.name for path in EXAMPLES.glob("*.py")}
     assert discovered == EXPECTED_EXAMPLES, discovered
@@ -422,6 +468,7 @@ def main() -> None:
     _check_openapi(EXAMPLES / "openapi.py")
     _check_lifecycle(EXAMPLES / "lifecycle.py")
     _check_database(EXAMPLES / "database.py")
+    _check_database_retry(EXAMPLES / "database.py")
     print(
         f"installed dexpot {importlib.metadata.version('dexpot')} passed CLI and "
         f"HTTP smoke checks; examples inventory contains {len(discovered)} files"

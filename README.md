@@ -628,7 +628,9 @@ through its real socket server:
 - [`lifecycle.py`](examples/lifecycle.py): paired process-scoped resource setup and cleanup.
 - [`database.py`](examples/database.py): bounded process-local SQLite connections, exclusive
   leases and transactions using existing lifecycle APIs; demonstrates rollback and why an
-  encoding failure after commit cannot undo a database write. No DI or new runtime API.
+  encoding failure after commit cannot undo a database write. Its source-checkout
+  `--retry-demo` client recovers the original result using an operation ID committed with
+  the write; conflicting ID reuse returns 409. No DI or new runtime API.
 
 Each example runs directly with `uv run python examples/<name>.py`, and the test suite launches
 every example as a subprocess and validates its public HTTP behavior. Examples will continue to

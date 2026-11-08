@@ -92,6 +92,51 @@ Run the example only in a local demonstration environment. Its deliberate rollba
 invalid-response endpoints teach these boundaries rather than hiding them. It needs no
 Query/Header/Cookie markers, OpenAPI export, hooks or new framework runtime behavior.
 
+## Retry after a committed write
+
+This source-checkout addition extends `database.py` using existing framework APIs; it is
+application-owned recovery, not built-in framework retry handling. Start the server above,
+then run this bounded client in another terminal with the same host/port settings:
+
+```bash
+uv run python examples/database.py --retry-demo
+```
+
+The client generates an `operation_id` once, then sends at most two identical requests to
+`POST /retry-safe/items`. Its local-only `X-Demo-Fail-Reply: 1` header deliberately breaks
+the first reply **after commit**. The first request returns 500, but the retry returns the
+original 201 result and item ID instead of inserting again. The client reads that item back
+and prints JSON with `first_status`, `retry_status`, `operation_id` and `item`.
+
+To inspect the same boundary manually, use a fresh operation ID for a new logical write,
+and reuse that exact ID and payload on every retry:
+
+```bash
+curl -i -X POST http://127.0.0.1:8000/retry-safe/items \
+  -H 'Content-Type: application/json' -H 'X-Demo-Fail-Reply: 1' \
+  -d '{"operation_id":"example-create-1","name":"tea","price":2.5}'
+curl -i -X POST http://127.0.0.1:8000/retry-safe/items \
+  -H 'Content-Type: application/json' -H 'X-Demo-Fail-Reply: 1' \
+  -d '{"operation_id":"example-create-1","name":"tea","price":2.5}'
+```
+
+The item and operation record commit in the same database transaction. The same operation ID
+and same validated payload replay the original result, including after a server restart
+against the same SQLite file. Reusing that ID with different data returns 409 without
+another write. A new ID means a new operation, even if its name and price match an older one.
+A single transaction also prevents simultaneous retries from each inserting a record.
+The ordinary `/items` and deliberately unsafe `/encoding-failure` routes remain unchanged;
+blind retries there can still create duplicates.
+
+These are local demonstration endpoints, not authenticated production services. Operation
+IDs are not credentials. Retain the operation records for as long as retries must be safe;
+the table grows with successful unique operations, so a production retention policy must
+match the promised retry window. Deleting records or resetting the database removes that
+protection. Retry-route writers wait at most 250 ms for their process-local write gate;
+a busy gate returns 503 before acquiring a connection. Pool exhaustion and SQLite lock
+timeouts remain bounded failures, not automatic server retries. This does not promise
+atomic database/HTTP delivery or universal exactly-once execution.
+
 ## Typed scalar inputs
 
 Included in v0.9.0: typed query/header/cookie inputs.
@@ -103,12 +148,18 @@ uv run python examples/typed_inputs.py
 curl -i 'http://127.0.0.1:8000/items/drinks?limit=1&min_price=3&include_archived=false' \
   -H 'X-Request-ID: example-1' -H 'Cookie: theme=dark'
 curl -i 'http://127.0.0.1:8000/items/drinks?limit=' -H 'X-Request-ID: example-2'
+curl -i 'http://127.0.0.1:8000/items/drinks?limit=1&limit=2' -H 'X-Request-ID: repeated'
+curl -i 'http://127.0.0.1:8000/items/drinks?limit=1&limit=1' -H 'X-Request-ID: identical'
 curl -i 'http://127.0.0.1:8000/items/drinks?limit=1&%6cimit=2' -H 'X-Request-ID: example-3'
 curl -i 'http://127.0.0.1:8000/raw?value=%FF'
 ```
 
 The first call filters and paginates fixture items. Empty numeric input and duplicate decoded
-requested keys return 422 before the handler; defaults apply only when absent. Booleans accept
+requested keys return 422 before the handler; defaults apply only when absent.
+Both `limit=1&limit=2` and `limit=1&limit=1` return
+`{"detail":"query parameter 'limit': repeated"}`. A declared scalar accepts only one
+occurrence, even when repeated values match: there is no first-value or last-value rule.
+Names are matched after decoding, so `%6cimit` also counts as `limit`. Booleans accept
 only true/false, case-insensitive. The raw Request route deliberately returns the original query
 text without enabling UTF-8 query-value decoding. Headers are normalized/case-insensitive;
 physical duplicates have already been comma-folded. Cookie parsing uses strict ASCII pairs,
