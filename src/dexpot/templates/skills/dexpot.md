@@ -294,3 +294,23 @@ resources remain acquired until the last handler finishes; deferred cleanup runs
 lifecycle finalizer thread, not a connection owner or necessarily the acquisition thread. Deferred
 cleanup errors are logged while every registered exit is attempted. Managers requiring enter/exit thread affinity
 are unsupported. Forced process termination may skip Python cleanup.
+
+
+## Database resource example
+
+The repository's `examples/database.py` uses existing synchronous `app.lifespan(factory)`
+(dexpot 0.8.0 or newer), ordinary context managers and stdlib SQLite. This is not
+request-scoped dependency injection. A bounded process-local pool owns connections; each
+handler exclusively leases a connection and returns it on every exit. Exhaustion is 503.
+Thread sharing is explicit; GIL processes replicate pool capacity, and a keep-alive HTTP
+connection does not retain a lease between requests. Normal shutdown retains resources for
+active handlers; forced termination need not run Python cleanup.
+
+In this example, item IDs outside SQLite's signed 64-bit range return 404 before a
+connection lease, without changing the framework's integer path conversion.
+Input validation precedes handler side effects. A handler-local transaction rolls back on
+an exception inside that transaction. An encoding failure after commit can still return
+500 while leaving the write committed, because checked response preparation follows handler
+return. Do not promise rollback on every 500 or atomic database/remote HTTP delivery.
+Use the runnable example and `examples/README.md` for the bounded demonstration; no hooks,
+scoped factory graph, proxy trust or new runtime API is introduced.

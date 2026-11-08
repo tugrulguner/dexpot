@@ -260,6 +260,10 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
   defaults and deterministic sanitized 422 errors. It does not add repeated-value/list binding,
   lazy public Request views, proxy trust, dependency injection or OpenAPI; this milestone is
   not complete. Source-only code and examples must not be advertised as published behavior.
+- **Database ownership example:** `examples/database.py` demonstrates bounded process-local
+  SQLite resources and exclusive handler leases using the existing lifecycle API, including
+  rollback and post-commit encoding failure. This adds no hooks or scoped dependency graph
+  and does not complete this milestone; outbound I/O and other remaining contracts stay open.
 - Distinguish process/application, worker/thread, connection, and request lifetimes. A leased
   database connection need not have the sharing rules of its pool; a process-local singleton
   is not shared state across workers.

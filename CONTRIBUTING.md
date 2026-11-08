@@ -68,6 +68,13 @@ than style preferences.
 
 ## Tests
 
+Database example changes must preserve bounded exclusive leases, parameterized SQL, durable
+writes, rollback inside handler transactions and validation before lease acquisition. Test
+startup rollback, exhaustion and held-handler shutdown on GIL and FT. An encoding failure
+after commit can return 500 with a committed write; never promise rollback for every 500 or
+atomic database/HTTP delivery. Keep `examples/database.py`, its tests, documented commands
+and installed-example smoke dispatch synchronized; this example adds no public runtime API.
+
 Path annotations support only `str`, `int`, unannotated parameters, and `Any`.
 `float`, `bool`, `Enum`, `Annotated`, unions, and explicit `None` are unsupported.
 In dexpot 0.8.1 and newer, unsupported path annotations raise `TypeError` during registration.
