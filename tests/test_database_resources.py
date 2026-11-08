@@ -84,7 +84,9 @@ def test_concurrent_http_handlers_exclusively_lease_distinct_connections(tmp_pat
             with lock:
                 leased.append(id(connection))
             barrier.wait()
-            with connection:
+            # Both leases are held concurrently above; SQLite still has one writer.
+            # Serialize only the test writes, not pool acquisition or the barrier.
+            with lock, connection:
                 connection.execute(
                     "INSERT INTO items(name,price) VALUES (?,?)", ("concurrent", 1.0)
                 )
