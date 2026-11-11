@@ -66,4 +66,8 @@ test('browser regression policy remains pinned to the project Playwright release
   assert.match(workflow, /git config --global --add safe\.directory "\$GITHUB_WORKSPACE"/);
   assert.doesNotMatch(workflow, /playwright install --with-deps chromium/);
   assert.match(workflow, /npm run test:visual/);
+  const website = workflow.split('  website:\n')[1].split('\n  build:')[0];
+  assert.match(website, /timeout-minutes: 10/);
+  const lock = JSON.parse(await readFile(new URL('../../package-lock.json', import.meta.url), 'utf8'));
+  assert.equal(lock.packages['node_modules/@playwright/test'].version, '1.63.0');
 });
