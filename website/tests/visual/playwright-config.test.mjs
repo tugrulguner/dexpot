@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { dirname } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const configPath = new URL('../../playwright.config.mjs', import.meta.url);
@@ -55,4 +56,18 @@ test('explicit external base URL disables local preview startup', async () => {
   const config = await loadConfig({ PLAYWRIGHT_BASE_URL: 'http://127.0.0.1:4342' });
   assert.equal(config.baseURL, 'http://127.0.0.1:4342');
   assert.equal(config.webServer, undefined);
+});
+
+test('browser regression policy remains pinned to the project Playwright release', async () => {
+  const workflow = await readFile(new URL('../../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  assert.match(workflow, /container:\n\s+image: mcr\.microsoft\.com\/playwright:v1\.63\.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27/);
+  assert.match(workflow, /options: --init --shm-size 1g/);
+  assert.match(workflow, /run: npm run test:playground/);
+  assert.match(workflow, /git config --global --add safe\.directory "\$GITHUB_WORKSPACE"/);
+  assert.doesNotMatch(workflow, /playwright install --with-deps chromium/);
+  assert.match(workflow, /npm run test:visual/);
+  const website = workflow.split('  website:\n')[1].split('\n  build:')[0];
+  assert.match(website, /timeout-minutes: 10/);
+  const lock = JSON.parse(await readFile(new URL('../../package-lock.json', import.meta.url), 'utf8'));
+  assert.equal(lock.packages['node_modules/@playwright/test'].version, '1.63.0');
 });
