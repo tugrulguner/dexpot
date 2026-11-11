@@ -7,8 +7,9 @@ import socket
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -133,15 +134,110 @@ def test_same_operation_id_with_different_payload_conflicts(tmp_path: Path) -> N
         assert count_rows(db, "items") == count_rows(db, "operations") == 1
 
 
+def test_concurrent_replay_recovers_from_bounded_write_contention(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_server = server
+    original_post = httpx.post
+    starts = 0
+    base_url = ""
+    first_responses: list[tuple[int, object]] = []
+    first_response_lock = threading.Lock()
+    worker_state = threading.local()
+
+    def release_gate() -> None:
+        response = httpx.get(f"{base_url}/release-write-gate", timeout=3)
+        assert response.status_code == 200, (response.status_code, response.text)
+
+    first_attempts = threading.Barrier(8, action=release_gate, timeout=8)
+
+    @contextlib.contextmanager
+    def busy_first_server(
+        tmp_path: Path, database: Path | None = None, *, hold_retry_lock: bool = False
+    ) -> Iterator[tuple[str, Path, Path]]:
+        nonlocal starts, base_url
+        starts += 1
+        with original_server(
+            tmp_path, database, hold_retry_lock=hold_retry_lock or starts == 1
+        ) as state:
+            base_url = state[0]
+            yield state
+
+    def post(url: str, *, json: object) -> httpx.Response:
+        response = original_post(url, json=json)
+        if threading.current_thread() is not threading.main_thread() and not getattr(
+            worker_state, "attempted", False
+        ):
+            worker_state.attempted = True
+            observed = (response.status_code, response.json())
+            with first_response_lock:
+                first_responses.append(observed)
+            assert observed == (503, {"detail": "retry write busy"}), observed
+            first_attempts.wait()
+        return response
+
+    monkeypatch.setattr(sys.modules[__name__], "server", busy_first_server)
+    monkeypatch.setattr(httpx, "post", post)
+    test_operation_mapping_survives_restart_and_same_key_concurrent_posts(tmp_path)
+    assert len(first_responses) == 8
+    assert starts == 2
+
+
+def post_replay(base: str, body: Mapping[str, object]) -> httpx.Response:
+    response = httpx.post(f"{base}/retry-safe/items", json=body)
+    # The application deliberately sheds contended writes after 250 ms. Keep
+    # the operation ID unchanged, and retry only that documented busy response.
+    for _ in range(2):
+        if response.status_code != 503:
+            break
+        try:
+            busy = response.json() == {"detail": "retry write busy"}
+        except ValueError:
+            busy = False
+        if not busy:
+            break
+        response = httpx.post(f"{base}/retry-safe/items", json=body)
+    return response
+
+
+@pytest.mark.parametrize(
+    ("status", "content", "expected_calls"),
+    [
+        (503, b'{"detail":"retry write busy"}', 3),
+        (503, b'{"detail":"other failure"}', 1),
+        (503, b"not JSON", 1),
+        (500, b'{"detail":"internal server error"}', 1),
+        (409, b'{"detail":"operation_id already used with a different payload"}', 1),
+        (201, b'{"id":1,"name":"book","price":4.0}', 1),
+    ],
+)
+def test_replay_attempts_are_bounded_and_only_retry_the_write_gate(
+    monkeypatch: pytest.MonkeyPatch, status: int, content: bytes, expected_calls: int
+) -> None:
+    calls: list[object] = []
+    body = {"operation_id": "same-operation", "name": "book", "price": 4.0}
+
+    def post(url: str, *, json: object) -> httpx.Response:
+        assert url == "http://example.test/retry-safe/items"
+        calls.append(json)
+        return httpx.Response(status, content=content)
+
+    monkeypatch.setattr(httpx, "post", post)
+    response = post_replay("http://example.test", body)
+    assert response.status_code == status and response.content == content
+    assert len(calls) == expected_calls
+    assert all(sent is body for sent in calls)
+
+
 def test_operation_mapping_survives_restart_and_same_key_concurrent_posts(tmp_path: Path) -> None:
     db = tmp_path / "restart.sqlite3"
     body = {"operation_id": "persisted", "name": "book", "price": 4.0}
     with server(tmp_path, db) as (base, _db, _events):
         with ThreadPoolExecutor(max_workers=8) as executor:
-            responses = list(
-                executor.map(lambda _: httpx.post(f"{base}/retry-safe/items", json=body), range(8))
-            )
-        assert all(r.status_code == 201 for r in responses)
+            responses = list(executor.map(lambda _: post_replay(base, body), range(8)))
+        assert all(r.status_code == 201 for r in responses), [
+            (r.status_code, r.text) for r in responses
+        ]
         assert len({r.json()["id"] for r in responses}) == 1
         expected = responses[0].json()
     with server(tmp_path, db) as (base, _db, _events):
