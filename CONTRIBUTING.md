@@ -274,3 +274,9 @@ accepting traffic and unwinds them in reverse order on shutdown or startup failu
 process fan-out each child owns a separate resource set; FT connection threads share one
 process-local set, which must be thread-safe. Shutdown's connection drain is bounded and Python
 threads cannot safely be forcibly cancelled.
+
+The blocking outbound HTTP example is application-owned and uses bounded, fixed loopback
+resources; it does not change dexpot's runtime transport. Keep allowlisted targets, bounded
+response reads, socket I/O timeouts, sanitized failures, no blind automatic retries, and
+real local HTTP lifecycle tests. A socket timeout is not a whole-operation deadline or
+cancellation guarantee.
