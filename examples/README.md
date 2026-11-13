@@ -13,6 +13,7 @@ uv run python examples/typed_inputs.py
 uv run python examples/openapi.py
 uv run python examples/lifecycle.py
 uv run python examples/database.py
+uv run python examples/outbound_io.py
 ```
 
 Set `DEXPOT_EXAMPLE_PORT` when port 8000 is already in use. Run one server at a time.
@@ -31,6 +32,7 @@ credentials or an external database/network service.
 | `nested_responses.py` | Nested Struct projection, malformed/non-finite nested output rejection, valid recovery after failure |
 | `lifecycle.py` | Serving-time acquisition, explicit resource access, reverse cleanup, partial-startup rollback |
 | `database.py` | Bounded process-local SQLite connections, exclusive handler leases, durable writes, rollback and the post-commit encoding boundary |
+| `outbound_io.py` | Bounded process-local blocking HTTP connections, fixed loopback targets, sanitized failures, timeout, exhaustion and recovery |
 | `typed_inputs.py` | Explicit scalar Query/Header/Cookie sources, pagination/filtering, defaults, strict failures and raw Request compatibility |
 | `openapi.py` | Opt-in OpenAPI snapshots, explicit JSON document serving/file export, checked 201 responses and input validation |
 
@@ -399,3 +401,39 @@ handlers remain, their connections and application resources are left untouched 
 when the last handler finishes. In a single-process embedded caller, serve returns after the deadline
 without killing the host interpreter; resources remain owned until quiescence. Forced process
 termination may skip Python cleanup.
+
+
+## Bounded outbound blocking HTTP
+
+Run `uv run python examples/outbound_io.py` from the source checkout. This addition uses
+existing framework APIs; it is not built-in outbound transport. One serving process owns
+one exclusive HTTP connection slot and a single-threaded loopback teaching service under
+`app.lifespan`. All outbound paths are fixed; clients cannot supply a destination URL.
+
+`/ok` demonstrates checked success projection. `/upstream-error`, `/malformed` and
+`/oversized` map to sanitized 502 responses; reads reject bodies larger than 4096 bytes.
+`/slow` maps a socket timeout to 504. `/hold` occupies the sole slot for three seconds;
+`/capacity` lets another client observe zero availability before checking immediate 503
+exhaustion. A failed connection or rejected response is closed and replaced before its
+slot is returned. The fixture deliberately closes each HTTP/1.0 response: reusing a slot
+does not demonstrate persistent upstream TCP reuse. No credentials or external service
+are needed, and this fixture is not production infrastructure or a benchmark.
+
+The 120 ms socket I/O timeout bounds individual blocking operations, not the whole request
+and not cancellation. A timeout or caller disconnect does not stop upstream work. Because
+the fixture serves one request at a time, it may remain busy briefly after `/slow` returns;
+recovery is checked after that work finishes. There are no per-request helper threads or
+automatic retries. Do not blindly retry side-effecting upstream writes; see `database.py`
+for the application-owned operation-ID pattern and its limits. FT threads share these
+process-local resources; separate serving processes would each acquire their own set.
+Startup rollback and normal shutdown close the pool and fixture and join the owned thread.
+Forced process termination may skip Python cleanup.
+
+```bash
+uv run python examples/outbound_io.py
+curl -i http://127.0.0.1:8000/ok
+curl -i http://127.0.0.1:8000/upstream-error
+curl -i http://127.0.0.1:8000/malformed
+curl -i http://127.0.0.1:8000/oversized
+curl -i http://127.0.0.1:8000/slow
+```

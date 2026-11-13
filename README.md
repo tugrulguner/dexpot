@@ -632,6 +632,11 @@ through its real socket server:
   `--retry-demo` client recovers the original result using an operation ID committed with
   the write; conflicting ID reuse returns 409. No DI or new runtime API.
 
+- [`outbound_io.py`](examples/outbound_io.py): one application-owned outbound HTTP slot,
+  fixed loopback upstream, capped response reads, sanitized failures, timeout and recovery.
+  It uses existing lifecycle APIs; a socket timeout is not cancellation or a whole-operation
+  deadline. See the source-checkout walkthrough in `examples/README.md`.
+
 Each example runs directly with `uv run python examples/<name>.py`, and the test suite launches
 every example as a subprocess and validates its public HTTP behavior. Examples will continue to
 grow only as middleware, schemas, deployment support, and other roadmap capabilities ship.

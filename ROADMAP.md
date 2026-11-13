@@ -268,7 +268,12 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
 - **Database ownership example:** `examples/database.py` demonstrates bounded process-local
   SQLite resources and exclusive handler leases using the existing lifecycle API, including
   rollback and post-commit encoding failure. This adds no hooks or scoped dependency graph
-  and does not complete this milestone; outbound I/O and other remaining contracts stay open.
+  and does not complete this milestone; other remaining contracts stay open.
+- **Outbound HTTP ownership example (source checkout):** `examples/outbound_io.py`
+  uses existing lifecycle APIs, one exclusive outbound connection slot and fixed loopback
+  teaching routes. It demonstrates bounded reads, socket timeouts, sanitized failure,
+  exhaustion, recovery and cleanup without a framework client API or automatic retries.
+  A socket timeout is not a whole-operation deadline or cancellation guarantee.
 - Distinguish process/application, worker/thread, connection, and request lifetimes. A leased
   database connection need not have the sharing rules of its pool; a process-local singleton
   is not shared state across workers.
