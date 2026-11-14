@@ -242,9 +242,11 @@ def test_concurrent_connections_do_not_share_input_values(source_server):
     from concurrent.futures import ThreadPoolExecutor
 
     def request(index):
-        response = source_server.get("/q/int", params={"value": index})
-        assert response.status_code == 200
-        return response.json()
+        # Do not share httpcore's mutable keep-alive expiry state between FT clients.
+        with httpx.Client(base_url=source_server.base_url, trust_env=False) as client:
+            response = client.get("/q/int", params={"value": index})
+            assert response.status_code == 200
+            return response.json()
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         observed = list(pool.map(request, range(32)))
