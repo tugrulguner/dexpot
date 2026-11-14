@@ -32,7 +32,7 @@ def test_gil_returns_canonical_without_serving_thread_bind(monkeypatch):
         lambda self: pytest.fail("GIL route bound a thread graph"),
     )
     assert prepare(Nested([1])) == {"values": [1]}
-    with pytest.raises((ValueError, TypeError)):
+    with pytest.raises(msgspec.ValidationError):
         prepare(Nested([cast(Any, ["bad"])]))
 
 

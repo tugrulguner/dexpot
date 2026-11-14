@@ -121,7 +121,7 @@ def test_ft_nested_compiler_keeps_scope_on_incumbent_fallback(monkeypatch):
     assert p.events == ([] if sys.platform == "darwin" else [0, 1])
     assert p.current() == 1
     p.events.clear()
-    with pytest.raises((ValueError, TypeError)):
+    with pytest.raises(msgspec.ValidationError):
         prepare(Nested([Item(cast(Any, "bad"))]))
     assert p.events == [0, 1]
     assert p.current() == 1

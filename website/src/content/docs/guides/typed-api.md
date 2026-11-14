@@ -13,6 +13,13 @@ python -m pip install 'dexpot[cli]'
 
 On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`. This guide uses a local-only listener; it does not expose the example to a network.
 
+For published v0.9.0 on Python 3.14/3.14t, install with
+`python -m pip install 'dexpot[cli]==0.9.0' 'msgspec>=0.20'`. Its metadata does not enforce
+this native-decoder floor; older decoders can silently omit ordinary Struct fields.
+The source checkout now enforces `msgspec>=0.20` on 3.14 and retains `msgspec>=0.19`
+on Python 3.12/3.13. This metadata correction is not yet released, and optional generic
+schema support still follows native interpreter/msgspec availability.
+
 ## 1. Declare the wire shapes and routes
 
 Save as `main.py`:

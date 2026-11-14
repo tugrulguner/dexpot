@@ -1,6 +1,10 @@
 version = 1
 revision = 3
 requires-python = ">=3.12"
+resolution-markers = [
+    "python_full_version >= '3.14'",
+    "python_full_version < '3.14'",
+]
 
 [[package]]
 name = "annotated-doc"
@@ -216,7 +220,8 @@ requires-dist = [
     { name = "dexpot", extras = ["all"], marker = "extra == 'dev'" },
     { name = "dexpot", extras = ["cli"], marker = "extra == 'all'" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
-    { name = "msgspec", specifier = ">=0.19" },
+    { name = "msgspec", marker = "python_full_version < '3.14'", specifier = ">=0.19" },
+    { name = "msgspec", marker = "python_full_version >= '3.14'", specifier = ">=0.20" },
     { name = "openapi-spec-validator", marker = "extra == 'dev'", specifier = ">=0.9.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0" },
     { name = "psutil", marker = "extra == 'benchmark'", specifier = ">=7" },
