@@ -1,0 +1,1 @@
+Record the bounded macOS comparison of published Dexpot 0.8.1 and 0.9.0, preserving the initial free-threaded screen failures and separate longer confirmation without claiming a stable speedup or release regression.

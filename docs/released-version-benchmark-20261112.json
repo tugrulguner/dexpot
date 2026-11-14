@@ -1,0 +1,1277 @@
+{
+  "schema": 1,
+  "scope": "Published0.8.1 vs0.9.0;macOSsame-hostnativeclosed-loop checked-response diagnostic;no SLOorcompetitorclaim",
+  "cohorts": {
+    "screen": {
+      "versions": {
+        "0.8.1": {
+          "completed": 12,
+          "good": 3644816,
+          "bad": 0,
+          "transport_errors": 0,
+          "cleanup_all_pass": true,
+          "manifest_fingerprints": {
+            "application": "1f0a0a7a116cb01e688e0790b34bf444c7b3686c7ad49690489a5a1af1bced02",
+            "validator": "b4db9bf1a4d3ee83e71c37d9742746f5bd9c0f528deecb73bde280c37731a68d",
+            "runner": "9767bc2634235e595bfa1d7d387b1cedc07f43268c1c040385095326eb75ac94",
+            "evaluator": "a3242d73315a2b4109794c2f6ab9034134c520b6355a9c196ae8f96c4f414f29",
+            "plan": "a55f5877a787ca18f7dd954e7af2dca8eb020b6f3c1dd246bdc8cd6a9f3ae99d",
+            "client": "3dde9a2186ec70f63f3ebfafb76d9665aba5db18824e1b40660cad8c1328d29f",
+            "wheel": "23efe01a3b6d8ec912247f8e7a6692bc4f0f6c3f35518beca66c7d65452595f6"
+          },
+          "groups": [
+            {
+              "runtime": "gil",
+              "profile": "flat",
+              "trials": 2,
+              "rps_median": 21452.23861268375,
+              "p50_us_range": [
+                696,
+                699
+              ],
+              "p95_us_range": [
+                1634,
+                1657
+              ],
+              "p99_us_range": [
+                2181,
+                2267
+              ],
+              "rss_bytes_range": [
+                32178176,
+                32473088
+              ],
+              "cpu_cores_range": [
+                1.996344704313633,
+                2.0065947633653494
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "gil-flat-0",
+                  "good": 109713,
+                  "duration_us": 5099571,
+                  "p50_us": 696,
+                  "p95_us": 1634,
+                  "p99_us": 2181,
+                  "sha256": "eea79b25a821b1ade1fdda77e3e938eb7af561553422cbb8bb995fcb0253d5ff"
+                },
+                {
+                  "id": "gil-flat-1",
+                  "good": 109089,
+                  "duration_us": 5099925,
+                  "p50_us": 699,
+                  "p95_us": 1657,
+                  "p99_us": 2267,
+                  "sha256": "856ca1ee0823bdfda4028613ca9e3429889672879a028124ac6864ee7d1d7f2e"
+                }
+              ]
+            },
+            {
+              "runtime": "gil",
+              "profile": "nested",
+              "trials": 2,
+              "rps_median": 17627.811778589115,
+              "p50_us_range": [
+                847,
+                855
+              ],
+              "p95_us_range": [
+                1962,
+                1969
+              ],
+              "p99_us_range": [
+                2641,
+                2658
+              ],
+              "rss_bytes_range": [
+                32096256,
+                32210944
+              ],
+              "cpu_cores_range": [
+                1.7395066014268585,
+                1.7433977086242487
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "gil-nested-0",
+                  "good": 89737,
+                  "duration_us": 5100822,
+                  "p50_us": 855,
+                  "p95_us": 1962,
+                  "p99_us": 2641,
+                  "sha256": "7ff7b5759ce921f9324fea57f67c9d0f1d8450e9c42e388e99ac7d4a314ae032"
+                },
+                {
+                  "id": "gil-nested-1",
+                  "good": 90081,
+                  "duration_us": 5099992,
+                  "p50_us": 847,
+                  "p95_us": 1969,
+                  "p99_us": 2658,
+                  "sha256": "7d7180e7c39bbb6d7b43287b9644cf0ba51b182655e6abb966d698e15dfb85a5"
+                }
+              ]
+            },
+            {
+              "runtime": "gil",
+              "profile": "mixed",
+              "trials": 2,
+              "rps_median": 18162.261504958515,
+              "p50_us_range": [
+                736,
+                738
+              ],
+              "p95_us_range": [
+                4679,
+                4725
+              ],
+              "p99_us_range": [
+                6176,
+                6198
+              ],
+              "rss_bytes_range": [
+                31948800,
+                32309248
+              ],
+              "cpu_cores_range": [
+                1.7834746970869593,
+                1.7942703103358246
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "gil-mixed-0",
+                  "good": 92913,
+                  "duration_us": 5103760,
+                  "p50_us": 738,
+                  "p95_us": 4679,
+                  "p99_us": 6176,
+                  "sha256": "defa66f337c2dbfab1c90d1a9097595ea302e7cfef91301d083d8f97bd0c8e02"
+                },
+                {
+                  "id": "gil-mixed-1",
+                  "good": 92466,
+                  "duration_us": 5103062,
+                  "p50_us": 736,
+                  "p95_us": 4725,
+                  "p99_us": 6198,
+                  "sha256": "967f19d5a7cb847c65a7ad6704a53d535a3c8cdea1b6356003acb944bb31084a"
+                }
+              ]
+            },
+            {
+              "runtime": "ft",
+              "profile": "flat",
+              "trials": 2,
+              "rps_median": 115623.11891562116,
+              "p50_us_range": [
+                110,
+                110
+              ],
+              "p95_us_range": [
+                285,
+                447
+              ],
+              "p99_us_range": [
+                491,
+                2716
+              ],
+              "rss_bytes_range": [
+                54280192,
+                54460416
+              ],
+              "cpu_cores_range": [
+                6.256651774417232,
+                6.5382107928180595
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "ft-flat-0",
+                  "good": 603245,
+                  "duration_us": 5099884,
+                  "p50_us": 110,
+                  "p95_us": 285,
+                  "p99_us": 491,
+                  "sha256": "0d4389c26a3a326bcd880dae196e15371c466999b0843b0f023bd4c268f82878"
+                },
+                {
+                  "id": "ft-flat-1",
+                  "good": 576139,
+                  "duration_us": 5100371,
+                  "p50_us": 110,
+                  "p95_us": 447,
+                  "p99_us": 2716,
+                  "sha256": "d39cfdff576add7ce03fb70aaeb5b5e7174598ba641fccdee846aea01bf3bf79"
+                }
+              ]
+            },
+            {
+              "runtime": "ft",
+              "profile": "nested",
+              "trials": 2,
+              "rps_median": 91174.00611361576,
+              "p50_us_range": [
+                134,
+                153
+              ],
+              "p95_us_range": [
+                309,
+                383
+              ],
+              "p99_us_range": [
+                566,
+                1067
+              ],
+              "rss_bytes_range": [
+                56819712,
+                56918016
+              ],
+              "cpu_cores_range": [
+                6.304558034787966,
+                6.978048380888667
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "ft-nested-0",
+                  "good": 496140,
+                  "duration_us": 5099814,
+                  "p50_us": 134,
+                  "p95_us": 309,
+                  "p99_us": 566,
+                  "sha256": "7919186b66d9f6621d3910794cdcfcfbf83b94bacfafd0fd65784176cacca2de"
+                },
+                {
+                  "id": "ft-nested-1",
+                  "good": 434882,
+                  "duration_us": 5112523,
+                  "p50_us": 153,
+                  "p95_us": 383,
+                  "p99_us": 1067,
+                  "sha256": "de1b0c83253fa8795109da7f18ada6086f33d0fb42e9a163bb3b3aa67e6de6f3"
+                }
+              ]
+            },
+            {
+              "runtime": "ft",
+              "profile": "mixed",
+              "trials": 2,
+              "rps_median": 93177.0673095787,
+              "p50_us_range": [
+                119,
+                121
+              ],
+              "p95_us_range": [
+                1069,
+                1081
+              ],
+              "p99_us_range": [
+                1286,
+                1330
+              ],
+              "rss_bytes_range": [
+                54804480,
+                55050240
+              ],
+              "cpu_cores_range": [
+                6.0012233527478,
+                6.0675728342053015
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "ft-mixed-0",
+                  "good": 476453,
+                  "duration_us": 5100364,
+                  "p50_us": 119,
+                  "p95_us": 1081,
+                  "p99_us": 1330,
+                  "sha256": "ee976ff335841c8efee0b2eeadafdfadd432542cf4d80dc8c94b610dd1077ac1"
+                },
+                {
+                  "id": "ft-mixed-1",
+                  "good": 473958,
+                  "duration_us": 5099687,
+                  "p50_us": 121,
+                  "p95_us": 1069,
+                  "p99_us": 1286,
+                  "sha256": "54a9666cc477cbde0440b5a22cad8a3a2ef5482282560e3f496849d793733d3d"
+                }
+              ]
+            }
+          ]
+        },
+        "0.9.0": {
+          "completed": 12,
+          "good": 3510695,
+          "bad": 0,
+          "transport_errors": 0,
+          "cleanup_all_pass": true,
+          "manifest_fingerprints": {
+            "application": "1f0a0a7a116cb01e688e0790b34bf444c7b3686c7ad49690489a5a1af1bced02",
+            "validator": "b4db9bf1a4d3ee83e71c37d9742746f5bd9c0f528deecb73bde280c37731a68d",
+            "runner": "9767bc2634235e595bfa1d7d387b1cedc07f43268c1c040385095326eb75ac94",
+            "evaluator": "a3242d73315a2b4109794c2f6ab9034134c520b6355a9c196ae8f96c4f414f29",
+            "plan": "a55f5877a787ca18f7dd954e7af2dca8eb020b6f3c1dd246bdc8cd6a9f3ae99d",
+            "client": "3dde9a2186ec70f63f3ebfafb76d9665aba5db18824e1b40660cad8c1328d29f",
+            "wheel": "671ef73acb70e17eb329fa23d5999401ecef7276f1f3e04522014c6456aaede7"
+          },
+          "groups": [
+            {
+              "runtime": "gil",
+              "profile": "flat",
+              "trials": 2,
+              "rps_median": 21512.378101879705,
+              "p50_us_range": [
+                694,
+                699
+              ],
+              "p95_us_range": [
+                1613,
+                1634
+              ],
+              "p99_us_range": [
+                2156,
+                2199
+              ],
+              "rss_bytes_range": [
+                32260096,
+                32292864
+              ],
+              "cpu_cores_range": [
+                2.004023976022231,
+                2.020604873557076
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "gil-flat-0",
+                  "good": 110014,
+                  "duration_us": 5099404,
+                  "p50_us": 694,
+                  "p95_us": 1613,
+                  "p99_us": 2156,
+                  "sha256": "5fc05c24bf4655144863b9a7a7263e16a4aac02cc8366593485eaa427aa7e056"
+                },
+                {
+                  "id": "gil-flat-1",
+                  "good": 109387,
+                  "duration_us": 5099422,
+                  "p50_us": 699,
+                  "p95_us": 1634,
+                  "p99_us": 2199,
+                  "sha256": "fe930ae378b11dfd6dc581e5727af8d40a981cbe3e02ecf215175c0138990991"
+                }
+              ]
+            },
+            {
+              "runtime": "gil",
+              "profile": "nested",
+              "trials": 2,
+              "rps_median": 17453.55930163765,
+              "p50_us_range": [
+                855,
+                864
+              ],
+              "p95_us_range": [
+                1978,
+                2003
+              ],
+              "p99_us_range": [
+                2679,
+                2684
+              ],
+              "rss_bytes_range": [
+                32440320,
+                32473088
+              ],
+              "cpu_cores_range": [
+                1.7280300558929558,
+                1.7311622657573162
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "gil-nested-0",
+                  "good": 88662,
+                  "duration_us": 5099977,
+                  "p50_us": 864,
+                  "p95_us": 2003,
+                  "p99_us": 2684,
+                  "sha256": "af03c5c7aad19be9c1e10ebe36dc7a65772d1479e786842f763b79bc0cc902bf"
+                },
+                {
+                  "id": "gil-nested-1",
+                  "good": 89358,
+                  "duration_us": 5099663,
+                  "p50_us": 855,
+                  "p95_us": 1978,
+                  "p99_us": 2679,
+                  "sha256": "4d039d98d48e9e9dc95a786628f69fac9c644649870cbcdc04634f166cc326e7"
+                }
+              ]
+            },
+            {
+              "runtime": "gil",
+              "profile": "mixed",
+              "trials": 2,
+              "rps_median": 17106.39514827877,
+              "p50_us_range": [
+                752,
+                814
+              ],
+              "p95_us_range": [
+                4663,
+                4703
+              ],
+              "p99_us_range": [
+                6204,
+                6269
+              ],
+              "rss_bytes_range": [
+                32489472,
+                32538624
+              ],
+              "cpu_cores_range": [
+                1.6990668722498894,
+                1.7621498095496713
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "gil-mixed-0",
+                  "good": 83877,
+                  "duration_us": 5106334,
+                  "p50_us": 814,
+                  "p95_us": 4663,
+                  "p99_us": 6269,
+                  "sha256": "fc3ba8dac9370eae9618ddc2518c192ab7ac16ea6a2eb48284e31ed8e91da1bc"
+                },
+                {
+                  "id": "gil-mixed-1",
+                  "good": 90876,
+                  "duration_us": 5109205,
+                  "p50_us": 752,
+                  "p95_us": 4703,
+                  "p99_us": 6204,
+                  "sha256": "2cd3554d50e26a34625c5b1005f3952d95b30f061465199606b07f345455ffb1"
+                }
+              ]
+            },
+            {
+              "runtime": "ft",
+              "profile": "flat",
+              "trials": 2,
+              "rps_median": 107773.03023366784,
+              "p50_us_range": [
+                111,
+                121
+              ],
+              "p95_us_range": [
+                303,
+                661
+              ],
+              "p99_us_range": [
+                554,
+                4088
+              ],
+              "rss_bytes_range": [
+                54738944,
+                54755328
+              ],
+              "cpu_cores_range": [
+                5.605454972219472,
+                6.491738746672002
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "ft-flat-0",
+                  "good": 511029,
+                  "duration_us": 5117447,
+                  "p50_us": 121,
+                  "p95_us": 661,
+                  "p99_us": 4088,
+                  "sha256": "c22dcb431b691ae3a1aaa6f956ec8b5a80037b7eee0c3e55abc3d8aaa534fb22"
+                },
+                {
+                  "id": "ft-flat-1",
+                  "good": 589904,
+                  "duration_us": 5099186,
+                  "p50_us": 111,
+                  "p95_us": 303,
+                  "p99_us": 554,
+                  "sha256": "9dc17cefa4d3502d53a1aafa84fccedd7e51c13b8102b6cbd5d54b9573d19b4d"
+                }
+              ]
+            },
+            {
+              "runtime": "ft",
+              "profile": "nested",
+              "trials": 2,
+              "rps_median": 87174.4553033192,
+              "p50_us_range": [
+                138,
+                162
+              ],
+              "p95_us_range": [
+                328,
+                545
+              ],
+              "p99_us_range": [
+                610,
+                3158
+              ],
+              "rss_bytes_range": [
+                57114624,
+                57491456
+              ],
+              "cpu_cores_range": [
+                5.932201347301302,
+                6.992217559798213
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "ft-nested-0",
+                  "good": 487905,
+                  "duration_us": 5099362,
+                  "p50_us": 138,
+                  "p95_us": 328,
+                  "p99_us": 610,
+                  "sha256": "6782f71c37caa118b95b741cdda7ae4e83d2957ab5d866d03881c8aaaa137c56"
+                },
+                {
+                  "id": "ft-nested-1",
+                  "good": 402436,
+                  "duration_us": 5115541,
+                  "p50_us": 162,
+                  "p95_us": 545,
+                  "p99_us": 3158,
+                  "sha256": "8d25b7caf5750b66cd472243f82cca9eafc584e84229de91a78a609d7551681a"
+                }
+              ]
+            },
+            {
+              "runtime": "ft",
+              "profile": "mixed",
+              "trials": 2,
+              "rps_median": 92865.4965055162,
+              "p50_us_range": [
+                116,
+                123
+              ],
+              "p95_us_range": [
+                1067,
+                1104
+              ],
+              "p99_us_range": [
+                1267,
+                1840
+              ],
+              "rss_bytes_range": [
+                55214080,
+                55394304
+              ],
+              "cpu_cores_range": [
+                5.793296887673816,
+                6.259176766179583
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "ft-mixed-0",
+                  "good": 496442,
+                  "duration_us": 5100477,
+                  "p50_us": 116,
+                  "p95_us": 1067,
+                  "p99_us": 1267,
+                  "sha256": "2468a12f73159cbf03faae405f954ccf8a238e1674f2bee015a027f02a1785a3"
+                },
+                {
+                  "id": "ft-mixed-1",
+                  "good": 450805,
+                  "duration_us": 5099689,
+                  "p50_us": 123,
+                  "p95_us": 1104,
+                  "p99_us": 1840,
+                  "sha256": "b84e669ce2cfa64224a1bbf30ca7e305c002cbdbc07edf00bc8b4122f24cbcd0"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "comparison": {
+        "status": "regression",
+        "errors": [],
+        "pairs": [
+          {
+            "id": "gil-flat-0",
+            "goodput_ratio": 1.0027763605065352,
+            "p99_ratio": 0.988537368179734,
+            "passed": true
+          },
+          {
+            "id": "ft-flat-0",
+            "goodput_ratio": 0.8442260711178323,
+            "p99_ratio": 8.325865580448065,
+            "passed": false
+          },
+          {
+            "id": "gil-nested-0",
+            "goodput_ratio": 0.988184251119608,
+            "p99_ratio": 1.016281711472927,
+            "passed": true
+          },
+          {
+            "id": "ft-nested-0",
+            "goodput_ratio": 0.9834890296823656,
+            "p99_ratio": 1.0777385159010602,
+            "passed": true
+          },
+          {
+            "id": "gil-mixed-0",
+            "goodput_ratio": 0.9022926748214198,
+            "p99_ratio": 1.0150582901554404,
+            "passed": true
+          },
+          {
+            "id": "ft-mixed-0",
+            "goodput_ratio": 1.0419306866184803,
+            "p99_ratio": 0.9526315789473684,
+            "passed": true
+          },
+          {
+            "id": "ft-mixed-1",
+            "goodput_ratio": 0.9511493069068238,
+            "p99_ratio": 1.4307931570762054,
+            "passed": false
+          },
+          {
+            "id": "gil-mixed-1",
+            "goodput_ratio": 0.9816228254444468,
+            "p99_ratio": 1.0009680542110357,
+            "passed": true
+          },
+          {
+            "id": "ft-nested-1",
+            "goodput_ratio": 0.924845305324336,
+            "p99_ratio": 2.9597000937207123,
+            "passed": false
+          },
+          {
+            "id": "gil-nested-1",
+            "goodput_ratio": 0.9920378864354408,
+            "p99_ratio": 1.007900677200903,
+            "passed": true
+          },
+          {
+            "id": "ft-flat-1",
+            "goodput_ratio": 1.0241297461371324,
+            "p99_ratio": 0.20397643593519882,
+            "passed": true
+          },
+          {
+            "id": "gil-flat-1",
+            "goodput_ratio": 1.002830622554268,
+            "p99_ratio": 0.9700044111160123,
+            "passed": true
+          }
+        ]
+      }
+    },
+    "confirmation": {
+      "versions": {
+        "0.8.1": {
+          "completed": 7,
+          "good": 12751290,
+          "bad": 0,
+          "transport_errors": 0,
+          "cleanup_all_pass": true,
+          "manifest_fingerprints": {
+            "application": "1f0a0a7a116cb01e688e0790b34bf444c7b3686c7ad49690489a5a1af1bced02",
+            "validator": "b4db9bf1a4d3ee83e71c37d9742746f5bd9c0f528deecb73bde280c37731a68d",
+            "runner": "9767bc2634235e595bfa1d7d387b1cedc07f43268c1c040385095326eb75ac94",
+            "evaluator": "a3242d73315a2b4109794c2f6ab9034134c520b6355a9c196ae8f96c4f414f29",
+            "plan": "f4a32273fd9a6cc5d23b1b348ab8f8264cb1e185659165c21c65c2a12d915711",
+            "client": "3dde9a2186ec70f63f3ebfafb76d9665aba5db18824e1b40660cad8c1328d29f",
+            "wheel": "23efe01a3b6d8ec912247f8e7a6692bc4f0f6c3f35518beca66c7d65452595f6"
+          },
+          "groups": [
+            {
+              "runtime": "gil",
+              "profile": "flat",
+              "trials": 1,
+              "rps_median": 21715.58791393886,
+              "p50_us_range": [
+                691,
+                691
+              ],
+              "p95_us_range": [
+                1606,
+                1606
+              ],
+              "p99_us_range": [
+                2140,
+                2140
+              ],
+              "rss_bytes_range": [
+                32194560,
+                32194560
+              ],
+              "cpu_cores_range": [
+                2.025162211866666,
+                2.025162211866666
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "gil-flat-0",
+                  "good": 436475,
+                  "duration_us": 20099617,
+                  "p50_us": 691,
+                  "p95_us": 1606,
+                  "p99_us": 2140,
+                  "sha256": "948ec2c01a60ce6bbdd75730d8458eea5928d87b8462a09d53e62c3d64d946e1"
+                }
+              ]
+            },
+            {
+              "runtime": "ft",
+              "profile": "flat",
+              "trials": 2,
+              "rps_median": 115776.33584681121,
+              "p50_us_range": [
+                110,
+                111
+              ],
+              "p95_us_range": [
+                284,
+                344
+              ],
+              "p99_us_range": [
+                483,
+                765
+              ],
+              "rss_bytes_range": [
+                53968896,
+                54018048
+              ],
+              "cpu_cores_range": [
+                6.350450067310744,
+                6.499120403641501
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "ft-flat-0",
+                  "good": 2298061,
+                  "duration_us": 20101946,
+                  "p50_us": 111,
+                  "p95_us": 344,
+                  "p99_us": 765,
+                  "sha256": "4022370f7ff7551037556a7c97e39a468d388546c476eb48c8789c6d153e9877"
+                },
+                {
+                  "id": "ft-flat-1",
+                  "good": 2356318,
+                  "duration_us": 20099555,
+                  "p50_us": 110,
+                  "p95_us": 284,
+                  "p99_us": 483,
+                  "sha256": "42fefb338cd883cdee14ca71d9d7c382999406fe6d0dd5ac6b0f6adc518922cf"
+                }
+              ]
+            },
+            {
+              "runtime": "ft",
+              "profile": "nested",
+              "trials": 2,
+              "rps_median": 91063.63527838414,
+              "p50_us_range": [
+                138,
+                145
+              ],
+              "p95_us_range": [
+                317,
+                572
+              ],
+              "p99_us_range": [
+                582,
+                19200
+              ],
+              "rss_bytes_range": [
+                56705024,
+                56885248
+              ],
+              "cpu_cores_range": [
+                6.462244127251849,
+                7.044601020783258
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "ft-nested-0",
+                  "good": 1734007,
+                  "duration_us": 20064155,
+                  "p50_us": 145,
+                  "p95_us": 572,
+                  "p99_us": 19200,
+                  "sha256": "fcb12fdef58553fd0108b4d1629ebe38785777a3e67da5c42deb9d23bfa4ae49"
+                },
+                {
+                  "id": "ft-nested-1",
+                  "good": 1923611,
+                  "duration_us": 20099558,
+                  "p50_us": 138,
+                  "p95_us": 317,
+                  "p99_us": 582,
+                  "sha256": "664bf4724d8fe65870df508be258c6a84e573b1004bf33bb53f3d538d4b98145"
+                }
+              ]
+            },
+            {
+              "runtime": "ft",
+              "profile": "mixed",
+              "trials": 2,
+              "rps_median": 99563.76571768109,
+              "p50_us_range": [
+                113,
+                114
+              ],
+              "p95_us_range": [
+                1058,
+                1058
+              ],
+              "p99_us_range": [
+                1254,
+                1254
+              ],
+              "rss_bytes_range": [
+                54657024,
+                54853632
+              ],
+              "cpu_cores_range": [
+                6.3587432493967,
+                6.381955763601458
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "ft-mixed-0",
+                  "good": 2004299,
+                  "duration_us": 20101684,
+                  "p50_us": 113,
+                  "p95_us": 1058,
+                  "p99_us": 1254,
+                  "sha256": "5a4ae32231412dc780878e720519f38d4e1e8a4fb1dbd308f6322e60cbba6e8a"
+                },
+                {
+                  "id": "ft-mixed-1",
+                  "good": 1998519,
+                  "duration_us": 20101878,
+                  "p50_us": 114,
+                  "p95_us": 1058,
+                  "p99_us": 1254,
+                  "sha256": "ccebf0912e8ed00e046433a371d5be217d0cb32f1ca805dba59faf177f613b41"
+                }
+              ]
+            }
+          ]
+        },
+        "0.9.0": {
+          "completed": 7,
+          "good": 12876438,
+          "bad": 0,
+          "transport_errors": 0,
+          "cleanup_all_pass": true,
+          "manifest_fingerprints": {
+            "application": "1f0a0a7a116cb01e688e0790b34bf444c7b3686c7ad49690489a5a1af1bced02",
+            "validator": "b4db9bf1a4d3ee83e71c37d9742746f5bd9c0f528deecb73bde280c37731a68d",
+            "runner": "9767bc2634235e595bfa1d7d387b1cedc07f43268c1c040385095326eb75ac94",
+            "evaluator": "a3242d73315a2b4109794c2f6ab9034134c520b6355a9c196ae8f96c4f414f29",
+            "plan": "f4a32273fd9a6cc5d23b1b348ab8f8264cb1e185659165c21c65c2a12d915711",
+            "client": "3dde9a2186ec70f63f3ebfafb76d9665aba5db18824e1b40660cad8c1328d29f",
+            "wheel": "671ef73acb70e17eb329fa23d5999401ecef7276f1f3e04522014c6456aaede7"
+          },
+          "groups": [
+            {
+              "runtime": "gil",
+              "profile": "flat",
+              "trials": 1,
+              "rps_median": 21452.706626957726,
+              "p50_us_range": [
+                699,
+                699
+              ],
+              "p95_us_range": [
+                1643,
+                1643
+              ],
+              "p99_us_range": [
+                2233,
+                2233
+              ],
+              "rss_bytes_range": [
+                32456704,
+                32456704
+              ],
+              "cpu_cores_range": [
+                2.0085406900296,
+                2.0085406900296
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "gil-flat-0",
+                  "good": 431241,
+                  "duration_us": 20101939,
+                  "p50_us": 699,
+                  "p95_us": 1643,
+                  "p99_us": 2233,
+                  "sha256": "9fd8d68a17a96b7ed975ebf3d123adc90806322f112121a8b2729ed3e51ec432"
+                }
+              ]
+            },
+            {
+              "runtime": "ft",
+              "profile": "flat",
+              "trials": 2,
+              "rps_median": 116080.30701121199,
+              "p50_us_range": [
+                110,
+                111
+              ],
+              "p95_us_range": [
+                295,
+                324
+              ],
+              "p99_us_range": [
+                526,
+                619
+              ],
+              "rss_bytes_range": [
+                54198272,
+                54427648
+              ],
+              "cpu_cores_range": [
+                6.412077276861286,
+                6.468290821235753
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "ft-flat-0",
+                  "good": 2322420,
+                  "duration_us": 20099513,
+                  "p50_us": 111,
+                  "p95_us": 324,
+                  "p99_us": 619,
+                  "sha256": "9c47ab14eee3c42a522509384efd066e8746bc9ed19019ac3bef22ace86a94f8"
+                },
+                {
+                  "id": "ft-flat-1",
+                  "good": 2343887,
+                  "duration_us": 20099442,
+                  "p50_us": 110,
+                  "p95_us": 295,
+                  "p99_us": 526,
+                  "sha256": "608e6627b52191cda6e4a63b81a01204ca84d5ea8ebb05d56a077be50021130a"
+                }
+              ]
+            },
+            {
+              "runtime": "ft",
+              "profile": "nested",
+              "trials": 2,
+              "rps_median": 94366.19644835597,
+              "p50_us_range": [
+                137,
+                141
+              ],
+              "p95_us_range": [
+                323,
+                350
+              ],
+              "p99_us_range": [
+                584,
+                714
+              ],
+              "rss_bytes_range": [
+                57180160,
+                57262080
+              ],
+              "cpu_cores_range": [
+                6.908708863667467,
+                7.0210928096702565
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "ft-nested-0",
+                  "good": 1877433,
+                  "duration_us": 20100578,
+                  "p50_us": 141,
+                  "p95_us": 350,
+                  "p99_us": 714,
+                  "sha256": "4fd180f923d48377a92a39eaaffec46c854c3a9ed55300b2028d89429a6f573a"
+                },
+                {
+                  "id": "ft-nested-1",
+                  "good": 1916105,
+                  "duration_us": 20099611,
+                  "p50_us": 137,
+                  "p95_us": 323,
+                  "p99_us": 584,
+                  "sha256": "dc8d92e9f488cd0a9e358cf582f30ee62f0ed8dcd22b6b73ab3ede4b871445b0"
+                }
+              ]
+            },
+            {
+              "runtime": "ft",
+              "profile": "mixed",
+              "trials": 2,
+              "rps_median": 99139.41824149502,
+              "p50_us_range": [
+                113,
+                114
+              ],
+              "p95_us_range": [
+                1057,
+                1057
+              ],
+              "p99_us_range": [
+                1252,
+                1254
+              ],
+              "rss_bytes_range": [
+                54951936,
+                55132160
+              ],
+              "cpu_cores_range": [
+                6.337873584708201,
+                6.358022112728271
+              ],
+              "threads_range": [
+                17,
+                17
+              ],
+              "fds_range": [
+                20,
+                20
+              ],
+              "raw_trials": [
+                {
+                  "id": "ft-mixed-0",
+                  "good": 2002291,
+                  "duration_us": 20099457,
+                  "p50_us": 113,
+                  "p95_us": 1057,
+                  "p99_us": 1252,
+                  "sha256": "7fc00c5193f34fcf5bb72bdc648e62eadc485df134a663729c31e02e8349b089"
+                },
+                {
+                  "id": "ft-mixed-1",
+                  "good": 1983061,
+                  "duration_us": 20100015,
+                  "p50_us": 114,
+                  "p95_us": 1057,
+                  "p99_us": 1254,
+                  "sha256": "a2880823e5724e86bcf8809d01ecf4c56f2176d413a4b82712b026df70b9a32c"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "comparison": {
+        "status": "screen-passed",
+        "errors": [],
+        "pairs": [
+          {
+            "id": "ft-flat-0",
+            "goodput_ratio": 1.0107221364534096,
+            "p99_ratio": 0.8091503267973856,
+            "passed": true
+          },
+          {
+            "id": "ft-nested-0",
+            "goodput_ratio": 1.08075170463771,
+            "p99_ratio": 0.0371875,
+            "passed": true
+          },
+          {
+            "id": "ft-mixed-0",
+            "goodput_ratio": 0.9991088414786387,
+            "p99_ratio": 0.9984051036682615,
+            "passed": true
+          },
+          {
+            "id": "ft-flat-1",
+            "goodput_ratio": 0.9947299886696067,
+            "p99_ratio": 1.0890269151138716,
+            "passed": true
+          },
+          {
+            "id": "ft-nested-1",
+            "goodput_ratio": 0.996095337095727,
+            "p99_ratio": 1.0034364261168385,
+            "passed": true
+          },
+          {
+            "id": "ft-mixed-1",
+            "goodput_ratio": 0.9923572420274216,
+            "p99_ratio": 1.0,
+            "passed": true
+          },
+          {
+            "id": "gil-flat-0",
+            "goodput_ratio": 0.987894350914055,
+            "p99_ratio": 1.0434579439252336,
+            "passed": true
+          }
+        ]
+      }
+    }
+  },
+  "completed_trials": 38,
+  "exact_replies": 32783239,
+  "verdict": "Initial screen fails3FTpairs;all7held-out20spairs pass;initiallosses not consistently reproduced, significanttailvariation remains. No repeatable overall speedup or release-regression conclusion."
+}

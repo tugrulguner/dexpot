@@ -5,6 +5,13 @@ ranking, scheduled-arrival latency/SLO test, or release qualification. It change
 code. Do not close the broader benchmark-harness contributor issue on the strength of this
 screen.
 
+## Published release comparison
+
+The [2026-11-12 public 0.9.0 versus 0.8.1 screen](../../docs/released-version-benchmark-20261112.md)
+records 38 valid trials with all initial failures retained. Three short FT pairs failed;
+a separate alternating-order confirmation passed without consistently reproducing those
+losses. Tail variation remains, so this is not a stable speedup or release-regression claim.
+
 ## Recorded diagnostic baseline
 
 [`baseline-macos-v071.json`](baseline-macos-v071.json) records the repaired harness's macOS
