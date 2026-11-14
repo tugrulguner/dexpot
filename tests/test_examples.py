@@ -25,6 +25,7 @@ EXPECTED_EXAMPLES = {
     "nested_responses.py",
     "typed_inputs.py",
     "openapi.py",
+    "outbound_io.py",
 }
 
 
@@ -167,3 +168,39 @@ def test_lifecycle_example_serves_health() -> None:
         response = httpx.get(f"{base}/health")
     assert response.status_code == 200
     assert response.json() == {"ok": True}
+
+
+def test_outbound_example_executes_bounded_local_http_workflow() -> None:
+    with _run_example("outbound_io.py") as base:
+        assert httpx.get(f"{base}/capacity").json() == {"available": 1, "limit": 1}
+        assert httpx.get(f"{base}/ok").json() == {
+            "status": 200,
+            "body": {"message": "local upstream"},
+        }
+        failed = httpx.get(f"{base}/upstream-error")
+        assert failed.status_code == 502 and failed.json() == {"detail": "upstream unavailable"}
+        malformed = httpx.get(f"{base}/malformed")
+        assert malformed.status_code == 502 and malformed.json() == {
+            "detail": "upstream unavailable"
+        }
+        slow = httpx.get(f"{base}/slow")
+        assert slow.status_code == 504 and slow.json() == {"detail": "upstream timeout"}
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            held = executor.submit(httpx.get, f"{base}/hold")
+            deadline = time.monotonic() + 2
+            while time.monotonic() < deadline:
+                if httpx.get(f"{base}/capacity").json()["available"] == 0:
+                    break
+            else:
+                raise AssertionError("hold request never acquired its lease")
+            exhausted = httpx.get(f"{base}/ok")
+            held.result(timeout=5)
+        assert exhausted.status_code == 503 and exhausted.json() == {
+            "detail": "outbound capacity exhausted"
+        }
+        recovered = httpx.get(f"{base}/ok")
+        assert recovered.status_code == 200 and recovered.json()["body"] == {
+            "message": "local upstream"
+        }

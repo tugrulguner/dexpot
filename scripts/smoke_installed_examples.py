@@ -34,6 +34,7 @@ EXPECTED_EXAMPLES = {
     "nested_responses.py",
     "typed_inputs.py",
     "openapi.py",
+    "outbound_io.py",
 }
 
 
@@ -453,6 +454,55 @@ def _check_database_retry(path: Path) -> None:
             ]
 
 
+def _check_outbound(path: Path) -> None:
+    with _serve(path) as port:
+        assert _request(port, "GET", "/capacity")[2] == {"available": 1, "limit": 1}
+        assert _request(port, "GET", "/ok")[2] == {
+            "status": 200,
+            "body": {"message": "local upstream"},
+        }
+        assert _request(port, "GET", "/upstream-error")[0::2] == (
+            502,
+            {"detail": "upstream unavailable"},
+        )
+        assert _request(port, "GET", "/malformed")[0::2] == (
+            502,
+            {"detail": "upstream unavailable"},
+        )
+        assert _request(port, "GET", "/slow")[0::2] == (504, {"detail": "upstream timeout"})
+        # The socket timeout does not cancel the single-threaded teaching upstream.
+        recovered = None
+        for _ in range(8):
+            recovered = _request(port, "GET", "/ok")
+            if recovered[0] == 200:
+                break
+            assert recovered[0] == 504
+        assert recovered is not None and recovered[0] == 200
+        assert _request(port, "GET", "/oversized")[0::2] == (
+            502,
+            {"detail": "upstream unavailable"},
+        )
+        held = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        try:
+            held.request("GET", "/hold")
+            deadline = time.monotonic() + 2
+            while time.monotonic() < deadline:
+                if _request(port, "GET", "/capacity")[2]["available"] == 0:
+                    break
+            else:
+                raise AssertionError("hold request never acquired its outbound slot")
+            assert _request(port, "GET", "/ok")[0::2] == (
+                503,
+                {"detail": "outbound capacity exhausted"},
+            )
+            response = held.getresponse()
+            assert response.status == 200 and json.loads(response.read()) == {"ok": True}
+        finally:
+            held.close()
+        assert _request(port, "GET", "/ok")[0] == 200
+        assert _request(port, "GET", "/capacity")[2] == {"available": 1, "limit": 1}
+
+
 def main() -> None:
     discovered = {path.name for path in EXAMPLES.glob("*.py")}
     assert discovered == EXPECTED_EXAMPLES, discovered
@@ -469,6 +519,7 @@ def main() -> None:
     _check_lifecycle(EXAMPLES / "lifecycle.py")
     _check_database(EXAMPLES / "database.py")
     _check_database_retry(EXAMPLES / "database.py")
+    _check_outbound(EXAMPLES / "outbound_io.py")
     print(
         f"installed dexpot {importlib.metadata.version('dexpot')} passed CLI and "
         f"HTTP smoke checks; examples inventory contains {len(discovered)} files"

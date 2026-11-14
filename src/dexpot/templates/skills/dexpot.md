@@ -372,3 +372,20 @@ application-owned deduplication, not a framework retry feature. Its fault header
 local demonstrations only. Operation IDs are not authentication, and deleting the mapping
 removes replay protection. The ordinary `/items` route remains unsafe to retry blindly;
 database commits and remote HTTP delivery are still not atomic.
+
+## Outbound blocking HTTP example
+
+The source-checkout `examples/outbound_io.py` adds an application-owned workflow, not a
+framework HTTP client API. Run `uv run python examples/outbound_io.py` to start a local
+teaching upstream and an exclusive pool of one HTTP connection slot using `app.lifespan`.
+Targets are fixed loopback routes. Checked `/ok` output, sanitized 502 failures, oversized
+response rejection (4096-byte cap), socket-timeout 504 and immediate exhaustion 503 are
+exercised through real HTTP. `/capacity` reports the slot count; `/hold` occupies it for
+three seconds. Failed connections and rejected responses are closed and replaced.
+
+The fixture is single-threaded and closes HTTP/1.0 responses; slot reuse is not persistent
+TCP reuse. Its work can continue after the 120 ms socket timeout, so recovery is checked
+after that work finishes. This is not a whole-operation deadline, cancellation, production
+upstream or benchmark. There are no automatic retries or per-request helper threads.
+Resources are process-local and cleanup follows handler quiescence; forced process exit
+may skip Python cleanup. Do not blindly retry side-effecting outbound writes.
