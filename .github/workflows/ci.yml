@@ -100,11 +100,14 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: uv sync --all-extras --locked
       - name: Resolve the source artifact at its native dependency floor
+        env:
+          MSGSPEC_FLOOR: ${{ matrix.msgspec }}
+          EXPECTED_MODE: ${{ matrix.mode }}
         run: |
-          uv pip install --python .venv/bin/python '.[dev]' 'msgspec==${{ matrix.msgspec }}'
+          uv pip install --python .venv/bin/python '.[dev]' "msgspec==$MSGSPEC_FLOOR"
           export PATH="$PWD/.venv/bin:$PATH"
-          .venv/bin/python -c 'import msgspec; assert msgspec.__version__ == "${{ matrix.msgspec }}"'
-          .venv/bin/python scripts/verify_runtime_mode.py --expect '${{ matrix.mode }}'
+          .venv/bin/python -c 'import os, msgspec; assert msgspec.__version__ == os.environ["MSGSPEC_FLOOR"]'
+          .venv/bin/python scripts/verify_runtime_mode.py --expect "$EXPECTED_MODE"
           .venv/bin/python -m pytest tests/ -q --cov=src/dexpot --cov-fail-under=65
 
   website:
