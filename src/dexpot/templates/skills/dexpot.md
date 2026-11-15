@@ -17,6 +17,13 @@ Do not introduce `async def`, an ASGI adapter, or a second dispatcher just for t
 
 ## Minimal application
 
+Dependency compatibility: the source checkout requires msgspec>=0.20 on Python 3.14/3.14t
+and retains msgspec>=0.19 on Python 3.12/3.13. This correction is not yet released;
+when installing published v0.9.0 on 3.14, use
+`pip install "dexpot[cli]==0.9.0" "msgspec>=0.20"`. Older native decoders can silently
+omit ordinary Struct fields. Preserve native generic-model availability rather than
+patching native annotation internals in application code.
+
 ```python
 import msgspec
 

@@ -26,7 +26,7 @@ def test_binding_uses_registration_snapshot(monkeypatch):
     assert a(Output(3)) == b(Output(3)) == {"value": 3}
     try:
         a(Output("bad"))  # pyright: ignore[reportArgumentType]
-    except (ValueError, TypeError):
+    except msgspec.ValidationError:
         pass
     else:
         raise AssertionError("strict validation lost")

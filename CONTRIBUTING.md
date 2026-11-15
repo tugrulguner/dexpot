@@ -68,6 +68,13 @@ than style preferences.
 
 ## Tests
 
+Keep the native dependency floor interpreter-specific: msgspec>=0.19 on Python 3.12/3.13,
+msgspec>=0.20 on Python 3.14/3.14t in the source checkout. Run the full floor matrix as
+well as the locked latest-dependency lanes; verify actual FT state after native imports.
+Older msgspec.ValidationError versions are not ValueError subclasses. Assert the native
+validation exception explicitly while preserving rejection, wire-status and policy-restoration
+checks. Optional native generic support must not be invented by the framework.
+
 Database example changes must preserve bounded exclusive leases, parameterized SQL, durable
 writes, rollback inside handler transactions and validation before lease acquisition. Test
 startup rollback, exhaustion and held-handler shutdown on GIL and FT. An encoding failure

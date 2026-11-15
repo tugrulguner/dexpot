@@ -25,7 +25,7 @@ def test_flat_struct_uses_native_checked_preparation():
     prepare = compile_preparer(Small, fallback)
     assert registrations == [Small]
     assert prepare(Small("alice")) == {"name": "alice"}
-    with pytest.raises(ValueError):
+    with pytest.raises(msgspec.ValidationError):
         prepare(Small(cast(Any, 123)))
 
 
@@ -95,7 +95,7 @@ def test_flat_endpoint_reuses_typed_validated_bytes(monkeypatch):
 
     monkeypatch.setattr(msgspec.json, "decode", forbidden_untyped_decode)
     assert plan.encode(Public("alice")) == b'{"name":"alice"}'
-    with pytest.raises(ValueError):
+    with pytest.raises(msgspec.ValidationError):
         plan.encode(Public(cast(Any, 123)))
 
 
@@ -116,7 +116,7 @@ def test_native_endpoint_validates_with_registration_codecs_without_bridge_call(
 
     object.__setattr__(plan, "resp_prepare", _NativeCheckedPreparation(forbidden_bridge))
     assert plan.encode(Public("alice")) == b'{"name":"alice"}'
-    with pytest.raises(ValueError):
+    with pytest.raises(msgspec.ValidationError):
         plan.encode(Public(cast(Any, 123)))
 
 

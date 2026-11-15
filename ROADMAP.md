@@ -64,6 +64,10 @@ or operating system; platform adapters must stay narrow, documented, and indepen
   these capabilities are not contingent on first winning every external benchmark.
 - **Parallel work:** production observability and resource budgets in milestone 5. Expand the
   ecosystem in milestone 6 as its underlying contracts become stable.
+- **Source checkout dependency correction (unreleased):** require msgspec>=0.20 for
+  Python 3.14/3.14t while retaining >=0.19 on Python 3.12/3.13; qualify the native floors
+  separately from the locked latest-dependency lanes. This changes no runtime API or
+  native generic-model admission and is not a new package release.
 
 Milestone numbers identify workstreams, not a waterfall. Every runtime-affecting change needs
 the applicable correctness, performance, and resource gates before promotion. Long-term goals
