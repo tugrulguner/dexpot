@@ -10,7 +10,7 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
-## [0.9.1] - 2026-11-15
+## [0.9.1] - 2026-11-16
 
 ### Added
 
