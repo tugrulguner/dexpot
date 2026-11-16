@@ -10,6 +10,24 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.9.1] - 2026-11-16
+
+### Added
+
+- Add a runnable bounded outbound blocking-HTTP example with a local upstream fixture.
+- Expand the runnable client examples to show that identical and conflicting scalar query repeats are rejected, and demonstrate retry-safe SQLite creation using an operation ID recorded atomically with the write, including recovery after a committed write's reply fails.
+- Record the bounded macOS comparison of published Dexpot 0.8.1 and 0.9.0, preserving the initial free-threaded screen failures and separate longer confirmation without claiming a stable speedup or release regression.
+
+### Changed
+
+- Run the website visual browser suite in a pinned Playwright container with its browser preinstalled.
+
+### Fixed
+
+- Make the database retry example's concurrency regression honor bounded write-gate rejection, retain final replay and persistence checks, and report unexpected response details.
+- Require msgspec 0.20 or newer on Python 3.14 and free-threaded 3.14 to preserve native model fields, while retaining the 0.19 floor on Python 3.12 and 3.13.
+
+
 ## [0.9.0] - 2026-11-08
 
 ### Added

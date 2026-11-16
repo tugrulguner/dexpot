@@ -1,5 +1,7 @@
 """Bounded blocking HTTP calls to a local teaching upstream.
 
+Included in Dexpot 0.9.1 or newer.
+
 Run ``uv run python examples/outbound_io.py``. This is not production transport
 infrastructure. It uses only fixed allowlisted loopback routes and no credentials.
 """

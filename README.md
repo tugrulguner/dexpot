@@ -99,8 +99,8 @@ A bounded, opt-in OpenAPI export is described below.
 pip install "dexpot[cli]"
 ```
 
-The source checkout requires `msgspec>=0.20` on Python 3.14/3.14t; Python 3.12/3.13
-retain `msgspec>=0.19`. This dependency correction is not yet released. Published v0.9.0
+Dexpot v0.9.1 and newer require `msgspec>=0.20` on Python 3.14/3.14t; Python 3.12/3.13
+retain `msgspec>=0.19`. Older v0.9.0
 metadata does not enforce the Python 3.14 floor; install that release on 3.14 with
 `pip install "dexpot[cli]==0.9.0" "msgspec>=0.20"`. Older decoders can silently omit
 fields declared without postponed annotations. Generic-model support still follows the
