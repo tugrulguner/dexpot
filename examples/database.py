@@ -1,5 +1,7 @@
 """Runnable process-owned SQLite transactions example.
 
+The retry-safe create/client recipe is included in Dexpot 0.9.1 or newer.
+
 Run ``uv run python examples/database.py``. Set DEXPOT_EXAMPLE_DB to choose
 the SQLite file and DEXPOT_EXAMPLE_POOL_SIZE for the fixed connection budget
 (default 4). The demo serves one worker. Pool exhaustion returns HTTP 503

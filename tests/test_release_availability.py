@@ -41,6 +41,7 @@ def test_new_examples_and_guides_name_release_availability() -> None:
         text = (ROOT / relative).read_text()
         assert "#typed-input-sources-unreleased" not in text
         assert "#typed-input-sources" in text
+        assert "use a source checkout containing\nthis feature" not in text
 
 
 def test_boundary_page_describes_released_input_and_export_contracts() -> None:
@@ -81,3 +82,46 @@ def test_patch_changelog_covers_runtime_examples_and_tooling() -> None:
         "Python development and website build dependencies",
     ):
         assert phrase in text
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "README.md",
+        "ROADMAP.md",
+        "CONTRIBUTING.md",
+        "src/dexpot/templates/skills/dexpot.md",
+        "website/src/content/docs/guides/typed-api.md",
+    ],
+)
+def test_python314_floor_names_the_patch_release(relative: str) -> None:
+    text = (ROOT / relative).read_text()
+    paragraph = next(p for p in text.split("\n\n") if "msgspec>=0.20" in p)
+    assert "0.9.1" in paragraph
+    assert "msgspec>=0.19" in paragraph
+    assert "not yet released" not in paragraph
+    assert "dependency correction (unreleased)" not in paragraph
+
+
+@pytest.mark.parametrize("relative", ["examples/outbound_io.py", "examples/database.py"])
+def test_patch_example_workflows_name_availability(relative: str) -> None:
+    assert "0.9.1 or newer" in (ROOT / relative).read_text()
+
+
+def test_patch_release_records_all_consumed_fragments() -> None:
+    import re
+    import tomllib
+
+    assert tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"] == "0.9.1"
+    changelog = (ROOT / "CHANGELOG.md").read_text()
+    section = re.search(r"^## \[0\.9\.1\][^\n]*\n(.*?)(?=^## \[|\Z)", changelog, re.M | re.S)
+    assert section is not None
+    for phrase in (
+        "bounded outbound blocking-HTTP example",
+        "retry-safe SQLite creation",
+        "msgspec 0.20 or newer",
+        "bounded write-gate rejection",
+        "pinned Playwright container",
+        "without claiming a stable speedup",
+    ):
+        assert phrase in section.group(1)

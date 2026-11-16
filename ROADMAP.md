@@ -64,10 +64,10 @@ or operating system; platform adapters must stay narrow, documented, and indepen
   these capabilities are not contingent on first winning every external benchmark.
 - **Parallel work:** production observability and resource budgets in milestone 5. Expand the
   ecosystem in milestone 6 as its underlying contracts become stable.
-- **Source checkout dependency correction (unreleased):** require msgspec>=0.20 for
-  Python 3.14/3.14t while retaining >=0.19 on Python 3.12/3.13; qualify the native floors
+- **Included in v0.9.1: dependency correction.** Require msgspec>=0.20 for
+  Python 3.14/3.14t while retaining msgspec>=0.19 on Python 3.12/3.13; qualify the native floors
   separately from the locked latest-dependency lanes. This changes no runtime API or
-  native generic-model admission and is not a new package release.
+  native generic-model admission.
 
 Milestone numbers identify workstreams, not a waterfall. Every runtime-affecting change needs
 the applicable correctness, performance, and resource gates before promotion. Long-term goals
@@ -273,7 +273,7 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
   SQLite resources and exclusive handler leases using the existing lifecycle API, including
   rollback and post-commit encoding failure. This adds no hooks or scoped dependency graph
   and does not complete this milestone; other remaining contracts stay open.
-- **Outbound HTTP ownership example (source checkout):** `examples/outbound_io.py`
+- **Outbound HTTP ownership example (included in v0.9.1):** `examples/outbound_io.py`
   uses existing lifecycle APIs, one exclusive outbound connection slot and fixed loopback
   teaching routes. It demonstrates bounded reads, socket timeouts, sanitized failure,
   exhaustion, recovery and cleanup without a framework client API or automatic retries.

@@ -405,7 +405,7 @@ termination may skip Python cleanup.
 
 ## Bounded outbound blocking HTTP
 
-Run `uv run python examples/outbound_io.py` from the source checkout. This addition uses
+Included in Dexpot 0.9.1 or newer. Run `uv run python examples/outbound_io.py`. This example uses
 existing framework APIs; it is not built-in outbound transport. One serving process owns
 one exclusive HTTP connection slot and a single-threaded loopback teaching service under
 `app.lifespan`. All outbound paths are fixed; clients cannot supply a destination URL.

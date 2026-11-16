@@ -13,11 +13,11 @@ python -m pip install 'dexpot[cli]'
 
 On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`. This guide uses a local-only listener; it does not expose the example to a network.
 
-For published v0.9.0 on Python 3.14/3.14t, install with
+For older v0.9.0 on Python 3.14/3.14t, install with
 `python -m pip install 'dexpot[cli]==0.9.0' 'msgspec>=0.20'`. Its metadata does not enforce
 this native-decoder floor; older decoders can silently omit ordinary Struct fields.
-The source checkout now enforces `msgspec>=0.20` on 3.14 and retains `msgspec>=0.19`
-on Python 3.12/3.13. This metadata correction is not yet released, and optional generic
+Dexpot v0.9.1 and newer enforce `msgspec>=0.20` on 3.14 and retain `msgspec>=0.19`
+on Python 3.12/3.13. Optional generic
 schema support still follows native interpreter/msgspec availability.
 
 ## 1. Declare the wire shapes and routes
@@ -91,10 +91,10 @@ See [`examples/typed_crud.py`](https://github.com/tugrulguner/dexpot/blob/main/e
 ## 4. Explicit scalar inputs
 
 Included in v0.9.0: typed query/header/cookie inputs.
-The public-install workflow above remains valid for JSON APIs; use a source checkout containing
-this feature for `Annotated[T, Query('name')]`, `Header('name')` and `Cookie('name')`.
+The public-install workflow above supports `Annotated[T, Query('name')]`, `Header('name')`
+and `Cookie('name')`; no source-only installation is needed for these released bindings.
 
-From that checkout, run:
+To run the complete repository example from a checkout, use:
 
 ```bash
 uv sync --all-extras
