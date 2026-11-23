@@ -3,6 +3,9 @@
 import argparse
 import json
 import runpy
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -98,3 +101,39 @@ def test_comparison_requires_control_and_trial_provenance(tmp_path, location, ke
     path.write_text(json.dumps(data))
     compare = runpy.run_path(str(ROOT / "benchmarks/regression/run.py"))["compare_directories"]
     assert compare(args) == 1
+
+
+@pytest.mark.parametrize("divisor,expected", [(1, "repeatable"), (2, "unstable")])
+def test_repeatability_checks_both_directions(tmp_path, divisor, expected):
+    args = recording_pair(tmp_path)
+    shutil.rmtree(args.candidate)
+    shutil.copytree(args.baseline, args.candidate)
+    path = args.candidate / "gil-flat-0.json"
+    row = json.loads(path.read_text())
+    row["metrics"]["duration_us"] //= divisor
+    path.write_text(json.dumps(row))
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "benchmarks/regression/run.py"),
+            "compare",
+            "--repeatability",
+            "--baseline",
+            str(args.baseline),
+            "--candidate",
+            str(args.candidate),
+            "--output",
+            str(args.output),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert args.output.exists(), completed.stderr
+    result = json.loads(args.output.read_text())
+    assert result["status"] == expected
+    assert result["forward"]["status"] == "screen-passed"
+    assert result["reverse"]["status"] == (
+        "screen-passed" if expected == "repeatable" else "regression"
+    )
+    assert completed.returncode == (expected != "repeatable")

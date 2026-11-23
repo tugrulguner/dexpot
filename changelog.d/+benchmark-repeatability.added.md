@@ -1,0 +1,1 @@
+Add a maintainer benchmark calibration check that compares two same-wheel GIL and free-threaded recordings in both directions before screening a performance change. This does not change serving behavior.

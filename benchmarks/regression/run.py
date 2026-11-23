@@ -462,6 +462,7 @@ def check_recording(manifest: dict, rows: list, controls: dict) -> dict:
 
 
 def compare_directories(args) -> int:
+    repeatability = getattr(args, "repeatability", False)
     result = {"status": "invalid", "errors": [], "pairs": []}
     try:
         base = json.loads((args.baseline / "manifest.json").read_text())
@@ -472,14 +473,22 @@ def compare_directories(args) -> int:
         for key, value in base["fingerprints"].items():
             if key != "wheel" and cand["fingerprints"].get(key) != value:
                 raise ValueError("measurement contract changed: " + key)
-        if base["fingerprints"]["wheel"] == cand["fingerprints"]["wheel"]:
+        if args.baseline.resolve() == args.candidate.resolve():
+            raise ValueError("comparison requires two recording directories")
+        same_wheel = base["fingerprints"]["wheel"] == cand["fingerprints"]["wheel"]
+        if repeatability and not same_wheel:
+            raise ValueError("repeatability requires identical wheels")
+        if not repeatability and same_wheel:
             raise ValueError("identical artifacts cannot establish a candidate change")
         for mode, identity in base["runtime"].items():
             other = cand["runtime"][mode]
             for key in ("python", "msgspec", "gil_enabled", "ft_build"):
                 if identity[key] != other[key]:
                     raise ValueError("interpreter/dependency mismatch: " + key)
-            if identity["source_sha256"] == other["source_sha256"]:
+            same_source = identity["source_sha256"] == other["source_sha256"]
+            if repeatability and not same_source:
+                raise ValueError("repeatability requires identical installed sources")
+            if not repeatability and same_source:
                 raise ValueError("identical installed sources cannot establish a candidate change")
         api = runpy.run_path(str(ROOT / "evaluate.py"))
         observations = []
@@ -503,11 +512,24 @@ def compare_directories(args) -> int:
                 raise ValueError("incomplete or invalid recording: " + str(validation["errors"]))
             observations.append(rows)
         result = api["compare"](base["plan"], *observations)
+        if repeatability:
+            reverse = api["compare"](base["plan"], *reversed(observations))
+            statuses = {result["status"], reverse["status"]}
+            result = {
+                "status": "invalid"
+                if "invalid" in statuses
+                else "repeatable"
+                if statuses == {"screen-passed"}
+                else "unstable",
+                "forward": result,
+                "reverse": reverse,
+                "qualified": False,
+            }
     except (ValueError, KeyError, TypeError, OSError) as exc:
         result["errors"] = [str(exc)]
     save(args.output, result)
     print(json.dumps(result, indent=2), flush=True)
-    return 0 if result["status"] == "screen-passed" else 1
+    return 0 if result["status"] == ("repeatable" if repeatability else "screen-passed") else 1
 
 
 def main() -> int:
@@ -526,6 +548,9 @@ def main() -> int:
     )
     other.add_argument("--baseline", type=Path, required=True)
     other.add_argument("--candidate", type=Path, required=True)
+    other.add_argument(
+        "--repeatability", action="store_true", help="check identical artifacts in both directions"
+    )
     other.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     return record(args) if args.command == "record" else compare_directories(args)
