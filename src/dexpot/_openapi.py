@@ -435,15 +435,19 @@ class Registry:
                 int: {"type": "integer"},
                 float: {"type": "number"},
                 bool: {"type": "boolean"},
-            }[binding.annotation].copy()
+            }[binding.scalar_type].copy()
             param = {
                 "name": binding.name,
                 "in": binding.source,
                 "required": binding.default is _MISSING,
                 "schema": schema,
             }
+            if binding.repeated:
+                param.update(style="form", explode=True, schema={"type": "array", "items": schema})
             if binding.default is not _MISSING:
-                param["schema"]["default"] = binding.default
+                param["schema"]["default"] = (
+                    list(binding.default) if binding.repeated else binding.default
+                )
             parameters.append(param)
         operation: dict[str, Any] = {"responses": {}}
         if route.summary:

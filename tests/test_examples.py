@@ -26,6 +26,7 @@ EXPECTED_EXAMPLES = {
     "typed_inputs.py",
     "openapi.py",
     "outbound_io.py",
+    "repeated_query.py",
 }
 
 
@@ -204,3 +205,14 @@ def test_outbound_example_executes_bounded_local_http_workflow() -> None:
         assert recovered.status_code == 200 and recovered.json()["body"] == {
             "message": "local upstream"
         }
+
+
+def test_repeated_query_example_filters_over_http() -> None:
+    with (
+        _run_example("repeated_query.py") as base,
+        httpx.Client(base_url=base, trust_env=False) as client,
+    ):
+        reply = client.get("/items?category=food&category=drinks")
+        assert reply.status_code == 200
+        assert reply.json() == {"items": ["tea", "bread"]}
+        assert client.get("/items?category=").json() == {"items": []}

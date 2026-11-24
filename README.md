@@ -250,6 +250,11 @@ validate/convert them in application code, or use a typed JSON body where approp
 
 ### Explicit scalar input sources
 
+The development checkout also supports repeated query keys with
+`Annotated[list[str], Query("tag")]`: `?tag=python&tag=api` binds in wire order.
+This is not in v0.9.1. Scalar duplicates still return 422; `Request.query` stays raw.
+See the [runnable filtering example](examples/repeated_query.py).
+
 Included in v0.9.0: typed query/header/cookie inputs.
 From source containing this feature, declare an explicit `Annotated` source:
 
