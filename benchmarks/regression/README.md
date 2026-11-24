@@ -108,6 +108,32 @@ replace evidence. `--resume` verifies the immutable manifest, reuses completed r
 runs only untouched cells. An interrupted `.started.json` without a result remains missing,
 not silently retried. Resume reports are separately named; original reports remain intact.
 
+## Calibrate before screening a candidate
+
+On an isolated runner, record the same installed wheel twice into fresh directories
+using the same plan, client, interpreter builds, codec version and unchanged host settings.
+Each acquisition gets its own recording ID, preserved on resume and checked against its
+preflights and trials. Copying or moving an acquisition does not create a new one. Older
+recordings without an ID remain historical evidence and cannot be resumed or compared by
+this runner; do not add IDs retroactively. The default calibration is 24 five-second
+trials (120 seconds of traffic plus preflight and cleanup).
+
+```sh
+uv run python benchmarks/regression/run.py compare --repeatability \
+  --baseline /absolute/evidence/control-a \
+  --candidate /absolute/evidence/control-b \
+  --output /absolute/evidence/repeatability.json
+```
+
+Both recordings must be valid, and each pair must meet the existing directional limits
+in **both** directions. Exit 0 and `repeatable` permit a separate candidate screen on
+that runner, not a release qualification. `invalid` means missing or failed evidence;
+`unstable` means a valid same-artifact pair exceeded the numerical limits. Neither
+authorizes a product performance verdict. Preserve both recordings and both directions;
+do not rerun only losing cells. Keep the calibration and the subsequent candidate runs
+on the same runner configuration. Shared hosted CI is suitable for harness tests, not
+for enforcing these timing budgets without its own demonstrated repeatability.
+
 ## Screen a future candidate
 
 Record a candidate in a separate directory with the same frozen plan, native client,

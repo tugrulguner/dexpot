@@ -16,6 +16,7 @@ import sys
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
     import psutil
@@ -246,6 +247,7 @@ def trial(cell: dict, plan: dict, python: str, env: dict, out: Path, args, froze
 
     row = {
         "cell": cell,
+        "recording_id": args.recording_id,
         "fingerprints": frozen,
         "metrics": None,
         "resources": {"complete": False},
@@ -381,7 +383,11 @@ def record(args) -> int:
                 "ft_build"
             ] is not (mode == "ft"):
                 raise ValueError("installed interpreter build/GIL mismatch")
+        target = args.output / "manifest.json"
+        existing = json.loads(target.read_text()) if target.exists() else None
+        recording_id = read_recording_id(existing) if existing is not None else uuid4().hex
         manifest = {
+            "recording_id": recording_id,
             "fingerprints": frozen,
             "plan": plan,
             "runtime": identities,
@@ -391,13 +397,13 @@ def record(args) -> int:
             "psutil": psutil.__version__,
             "controller_python": sys.version,
         }
-        target = args.output / "manifest.json"
-        if target.exists():
-            if json.loads(target.read_text()) != manifest:
+        if existing is not None:
+            if existing != manifest:
                 raise ValueError("resume cannot change frozen measurement inputs")
         else:
             save(target, manifest)
         args.identities = identities
+        args.recording_id = recording_id
         preflights = {}
         for mode, python in interpreters.items():
             path = args.output / (mode + ".preflight.json")
@@ -412,6 +418,7 @@ def record(args) -> int:
                     mode,
                     frozen,
                 )
+                preflights[mode]["recording_id"] = recording_id
                 save(path, preflights[mode])
         rows = []
         for cell in plan["matrix"]:
@@ -434,21 +441,39 @@ def record(args) -> int:
         return 0 if report["status"] == "baseline-recorded" else 1
 
 
+def read_recording_id(manifest: dict) -> str:
+    value = manifest.get("recording_id")
+    if isinstance(value, str) and len(value) == 32:
+        try:
+            parsed = UUID(value)
+        except ValueError:
+            pass
+        else:
+            if parsed.version == 4 and parsed.hex == value:
+                return value
+    raise ValueError("missing or invalid recording ID; create a fresh recording")
+
+
 def check_recording(manifest: dict, rows: list, controls: dict) -> dict:
     evaluate = runpy.run_path(str(ROOT / "evaluate.py"))["evaluate"]
     report = evaluate(manifest["plan"], rows, controls)
     if report["status"] != "baseline-recorded":
         return report
     try:
+        recording_id = read_recording_id(manifest)
         modes = {cell["runtime"] for cell in manifest["plan"]["matrix"]}
         if set(controls) != modes or set(manifest["runtime"]) != modes:
             raise ValueError("recording has inconsistent runtime/control inventory")
         for row in rows:
             mode = row["cell"]["runtime"]
+            if row.get("recording_id") != recording_id:
+                raise ValueError("trial recording ID does not match its manifest")
             if row.get("fingerprints") != manifest["fingerprints"]:
                 raise ValueError("trial is detached from its artifact/input manifest")
             verify_runtime(row["runtime"], manifest["runtime"][mode], mode)
         for mode, control in controls.items():
+            if control.get("recording_id") != recording_id:
+                raise ValueError("preflight recording ID does not match its manifest")
             if (
                 control.get("fingerprints") != manifest["fingerprints"]
                 or control.get("limits") != PREFLIGHT_LIMITS
@@ -462,6 +487,7 @@ def check_recording(manifest: dict, rows: list, controls: dict) -> dict:
 
 
 def compare_directories(args) -> int:
+    repeatability = getattr(args, "repeatability", False)
     result = {"status": "invalid", "errors": [], "pairs": []}
     try:
         base = json.loads((args.baseline / "manifest.json").read_text())
@@ -472,14 +498,24 @@ def compare_directories(args) -> int:
         for key, value in base["fingerprints"].items():
             if key != "wheel" and cand["fingerprints"].get(key) != value:
                 raise ValueError("measurement contract changed: " + key)
-        if base["fingerprints"]["wheel"] == cand["fingerprints"]["wheel"]:
+        if args.baseline.resolve() == args.candidate.resolve():
+            raise ValueError("comparison requires two recording directories")
+        if read_recording_id(base) == read_recording_id(cand):
+            raise ValueError("comparison requires a distinct recording ID for each acquisition")
+        same_wheel = base["fingerprints"]["wheel"] == cand["fingerprints"]["wheel"]
+        if repeatability and not same_wheel:
+            raise ValueError("repeatability requires identical wheels")
+        if not repeatability and same_wheel:
             raise ValueError("identical artifacts cannot establish a candidate change")
         for mode, identity in base["runtime"].items():
             other = cand["runtime"][mode]
             for key in ("python", "msgspec", "gil_enabled", "ft_build"):
                 if identity[key] != other[key]:
                     raise ValueError("interpreter/dependency mismatch: " + key)
-            if identity["source_sha256"] == other["source_sha256"]:
+            same_source = identity["source_sha256"] == other["source_sha256"]
+            if repeatability and not same_source:
+                raise ValueError("repeatability requires identical installed sources")
+            if not repeatability and same_source:
                 raise ValueError("identical installed sources cannot establish a candidate change")
         api = runpy.run_path(str(ROOT / "evaluate.py"))
         observations = []
@@ -503,11 +539,24 @@ def compare_directories(args) -> int:
                 raise ValueError("incomplete or invalid recording: " + str(validation["errors"]))
             observations.append(rows)
         result = api["compare"](base["plan"], *observations)
+        if repeatability:
+            reverse = api["compare"](base["plan"], *reversed(observations))
+            statuses = {result["status"], reverse["status"]}
+            result = {
+                "status": "invalid"
+                if "invalid" in statuses
+                else "repeatable"
+                if statuses == {"screen-passed"}
+                else "unstable",
+                "forward": result,
+                "reverse": reverse,
+                "qualified": False,
+            }
     except (ValueError, KeyError, TypeError, OSError) as exc:
         result["errors"] = [str(exc)]
     save(args.output, result)
     print(json.dumps(result, indent=2), flush=True)
-    return 0 if result["status"] == "screen-passed" else 1
+    return 0 if result["status"] == ("repeatable" if repeatability else "screen-passed") else 1
 
 
 def main() -> int:
@@ -526,6 +575,9 @@ def main() -> int:
     )
     other.add_argument("--baseline", type=Path, required=True)
     other.add_argument("--candidate", type=Path, required=True)
+    other.add_argument(
+        "--repeatability", action="store_true", help="check identical artifacts in both directions"
+    )
     other.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     return record(args) if args.command == "record" else compare_directories(args)

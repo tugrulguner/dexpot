@@ -3,6 +3,9 @@
 import argparse
 import json
 import runpy
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -10,34 +13,39 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def recording_pair(tmp_path):
+def recording_pair(tmp_path, *, same_wheel=False):
     records = runpy.run_path(str(ROOT / "tests/test_regression_evaluate.py"))["records"]
     folders = []
     for side, digit in (("baseline", "a"), ("candidate", "b")):
         folder = tmp_path / side
         folder.mkdir()
         plan, rows, controls = records()
-        fingerprints = {"runner": "c" * 64, "wheel": digit * 64}
+        artifact = "a" if same_wheel else digit
+        recording_id = f"{digit * 12}4{digit * 3}8{digit * 15}"
+        fingerprints = {"runner": "c" * 64, "wheel": artifact * 64}
         identities = {}
         for row in rows:
             mode = row["cell"]["runtime"]
             row["runtime"].update(parser="python", selected_ft=mode == "ft")
-            row["runtime"]["version"] = "0.7.1" if side == "baseline" else "0.8.0"
+            row["runtime"]["version"] = "0.7.1" if artifact == "a" else "0.8.0"
             row["fingerprints"] = fingerprints
+            row["recording_id"] = recording_id
             identities[mode] = dict(
                 row["runtime"],
-                source_sha256=digit * 64,
+                source_sha256=artifact * 64,
                 python="unit-test-interpreter",
                 msgspec="unit-test-codec",
             )
             controls[mode].update(
                 runtime=row["runtime"],
                 fingerprints=fingerprints,
+                recording_id=recording_id,
                 limits={"DEXPOT_POOL": "2", "DEXPOT_MAX_QUEUE": "2", "DEXPOT_MAX_CONNECTIONS": "4"},
             )
             (folder / (row["cell"]["id"] + ".json")).write_text(json.dumps(row))
             (folder / (mode + ".preflight.json")).write_text(json.dumps(controls[mode]))
         manifest = dict(
+            recording_id=recording_id,
             plan=plan,
             platform="synthetic-test",
             machine="synthetic-test",
@@ -98,3 +106,59 @@ def test_comparison_requires_control_and_trial_provenance(tmp_path, location, ke
     path.write_text(json.dumps(data))
     compare = runpy.run_path(str(ROOT / "benchmarks/regression/run.py"))["compare_directories"]
     assert compare(args) == 1
+
+
+@pytest.mark.parametrize("divisor,expected", [(1, "repeatable"), (2, "unstable")])
+def test_repeatability_checks_both_directions(tmp_path, divisor, expected):
+    args = recording_pair(tmp_path, same_wheel=True)
+    path = args.candidate / "gil-flat-0.json"
+    row = json.loads(path.read_text())
+    row["metrics"]["duration_us"] //= divisor
+    path.write_text(json.dumps(row))
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "benchmarks/regression/run.py"),
+            "compare",
+            "--repeatability",
+            "--baseline",
+            str(args.baseline),
+            "--candidate",
+            str(args.candidate),
+            "--output",
+            str(args.output),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert args.output.exists(), completed.stderr
+    result = json.loads(args.output.read_text())
+    assert result["status"] == expected
+    assert result["forward"]["status"] == "screen-passed"
+    assert result["reverse"]["status"] == (
+        "screen-passed" if expected == "repeatable" else "regression"
+    )
+    assert completed.returncode == (expected != "repeatable")
+
+
+@pytest.mark.parametrize("mutation", ["copy", "trial", "preflight", "legacy"])
+def test_repeatability_requires_two_independent_recordings(tmp_path, mutation):
+    args = recording_pair(tmp_path, same_wheel=True)
+    args.repeatability = True
+    if mutation == "copy":
+        shutil.copytree(args.baseline, args.candidate, dirs_exist_ok=True)
+    elif mutation == "legacy":
+        for folder in (args.baseline, args.candidate):
+            for path in folder.glob("*.json"):
+                data = json.loads(path.read_text())
+                del data["recording_id"]
+                path.write_text(json.dumps(data))
+    else:
+        name = "gil-flat-0.json" if mutation == "trial" else "gil.preflight.json"
+        shutil.copyfile(args.baseline / name, args.candidate / name)
+    compare = runpy.run_path(str(ROOT / "benchmarks/regression/run.py"))["compare_directories"]
+    assert compare(args) == 1
+    result = json.loads(args.output.read_text())
+    assert result["status"] == "invalid"
+    assert any("recording ID" in error for error in result["errors"])
