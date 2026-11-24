@@ -33,6 +33,7 @@ credentials or an external database/network service.
 | `lifecycle.py` | Serving-time acquisition, explicit resource access, reverse cleanup, partial-startup rollback |
 | `database.py` | Bounded process-local SQLite connections, exclusive handler leases, durable writes, rollback and the post-commit encoding boundary |
 | `outbound_io.py` | Bounded process-local blocking HTTP connections, fixed loopback targets, sanitized failures, timeout, exhaustion and recovery |
+| `repeated_query.py` | Query-only typed list filters, an omitted default, explicit empty values and invalid encoding |
 | `typed_inputs.py` | Explicit scalar Query/Header/Cookie sources, pagination/filtering, defaults, strict failures and raw Request compatibility |
 | `openapi.py` | Opt-in OpenAPI snapshots, explicit JSON document serving/file export, checked 201 responses and input validation |
 
@@ -40,6 +41,25 @@ credentials or an external database/network service.
 target the versions stated below. No example introduces dependency injection or
 the experimental socket-I/O redesign. Public Request query/header metadata stays
 raw; application state is not shared across GIL worker processes.
+
+## Repeated query filters
+
+This example requires the development checkout; it is not available in v0.9.1.
+
+```bash
+uv run python examples/repeated_query.py
+```
+
+From a second terminal:
+
+```bash
+curl -i 'http://127.0.0.1:8000/items?category=food&category=drinks'
+curl -i 'http://127.0.0.1:8000/items'
+curl -i 'http://127.0.0.1:8000/items?category='
+```
+
+The first request matches both categories. Omission uses the empty-list default (no filter);
+`category=` instead supplies one empty string and matches nothing.
 
 ## Database resources and transactions
 

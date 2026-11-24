@@ -95,6 +95,11 @@ Raw supported captures remain strings; JSON body and response schemas have separ
 
 ### Typed scalar input sources
 
+Development checkout: list bindings are query-only. Preserve occurrence order, exact scalar
+item conversion, first-error behavior and sanitized 422s. Snapshot exact list defaults at
+registration and give each handler invocation its own list. Preserve the raw query and
+require OpenAPI `form`/`explode: true` for arrays.
+
 Included in v0.9.0: typed query/header/cookie inputs.
 `Annotated[T, Query("name")]`, `Header("name")`, and `Cookie("name")` use exact
 `str`/`int`/finite `float`/`bool` source bindings compiled in EndpointPlan. Preserve explicit

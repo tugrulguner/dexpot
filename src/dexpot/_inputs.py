@@ -7,7 +7,7 @@ import re
 import unicodedata
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any, cast, get_args, get_origin
 from urllib.parse import unquote_to_bytes
 
 _TOKEN = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+")
@@ -76,22 +76,38 @@ class InputBinding:
     annotation: Any
     default: Any = _MISSING
     convert: Callable[[str], Any] = field(init=False, repr=False)
+    repeated: bool = field(init=False)
+    scalar_type: type = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        if not any(self.annotation is typ for typ in (str, int, float, bool)):
-            raise TypeError("input types must be str, int, float or bool")
-        if self.default is not _MISSING and (
-            type(self.default) is not self.annotation
-            or (self.annotation is float and not math.isfinite(self.default))
-        ):
-            raise TypeError("input defaults must have the exact finite scalar type")
+        repeated = self.source == "query" and get_origin(self.annotation) is list
+        args = get_args(self.annotation) if repeated else (self.annotation,)
+        if len(args) != 1 or not any(args[0] is typ for typ in (str, int, float, bool)):
+            raise TypeError(
+                "input types must be str, int, float or bool; queries also accept lists of these types"
+            )
+        scalar = args[0]
+        if self.default is not _MISSING:
+            if repeated and type(self.default) is not list:
+                raise TypeError("repeated query defaults must be lists")
+            values = tuple(self.default) if repeated else (self.default,)
+            if any(
+                type(item) is not scalar
+                or (scalar is float and not math.isfinite(cast(float, item)))
+                for item in values
+            ):
+                raise TypeError("input defaults must have the exact finite scalar type")
+            if repeated:
+                object.__setattr__(self, "default", values)
+        object.__setattr__(self, "repeated", repeated)
+        object.__setattr__(self, "scalar_type", scalar)
         converter = (
             str
-            if self.annotation is str
+            if scalar is str
             else _as_int
-            if self.annotation is int
+            if scalar is int
             else _as_float
-            if self.annotation is float
+            if scalar is float
             else _as_bool
         )
         object.__setattr__(self, "convert", converter)
@@ -149,6 +165,18 @@ def _as_bool(value: str) -> bool:
     raise ValueError("invalid scalar")
 
 
+def _convert_input(binding: InputBinding, text: str) -> Any:
+    if binding.source == "query":
+        try:
+            text = unquote_to_bytes(text.replace("+", " ")).decode("utf-8")
+        except UnicodeDecodeError:
+            raise InputError(f"query parameter '{binding.name}': encoding") from None
+    try:
+        return binding.convert(text)
+    except (ValueError, OverflowError):
+        raise InputError(f"{binding.source} parameter '{binding.name}': invalid") from None
+
+
 def bind_inputs(
     bindings: tuple[InputBinding, ...], query: str, headers: Mapping[str, str]
 ) -> tuple[Any, ...]:
@@ -167,6 +195,14 @@ def bind_inputs(
                 if cookie_pairs is None:
                     cookie_pairs = _cookie_pairs(headers.get("cookie", ""))
                 values = cookie_pairs.get(binding.name) or ()
+            if binding.repeated:
+                if values:
+                    result.append([_convert_input(binding, item) for item in values])
+                elif binding.default is _MISSING:
+                    raise InputError(f"query parameter '{binding.name}': missing")
+                else:
+                    result.append(list(binding.default))
+                continue
             if len(values) > 1:
                 raise InputError(f"{binding.source} parameter '{binding.name}': repeated")
             value = values[0] if values else _MISSING
@@ -175,14 +211,5 @@ def bind_inputs(
                 raise InputError(f"{binding.source} parameter '{binding.name}': missing")
             result.append(binding.default)
             continue
-        text = cast(str, value)
-        if binding.source == "query":
-            try:
-                text = unquote_to_bytes(text.replace("+", " ")).decode("utf-8")
-            except UnicodeDecodeError:
-                raise InputError(f"query parameter '{binding.name}': encoding") from None
-        try:
-            result.append(binding.convert(text))
-        except (ValueError, OverflowError):
-            raise InputError(f"{binding.source} parameter '{binding.name}': invalid") from None
+        result.append(_convert_input(binding, cast(str, value)))
     return tuple(result)

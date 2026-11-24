@@ -35,6 +35,7 @@ EXPECTED_EXAMPLES = {
     "typed_inputs.py",
     "openapi.py",
     "outbound_io.py",
+    "repeated_query.py",
 }
 
 
@@ -503,6 +504,22 @@ def _check_outbound(path: Path) -> None:
         assert _request(port, "GET", "/capacity")[2] == {"available": 1, "limit": 1}
 
 
+def _check_repeated_query(path: Path) -> None:
+    with _serve(path) as port:
+        cases = (
+            ("/items", 200, {"items": ["tea", "bread", "soap"]}),
+            ("/items?category=food&%63ategory=drinks", 200, {"items": ["tea", "bread"]}),
+            ("/items?category=", 200, {"items": []}),
+            (
+                "/items?category=food&category=%FF",
+                422,
+                {"detail": "query parameter 'category': encoding"},
+            ),
+        )
+        for endpoint, status, payload in cases:
+            assert _request(port, "GET", endpoint)[0::2] == (status, payload)
+
+
 def main() -> None:
     discovered = {path.name for path in EXAMPLES.glob("*.py")}
     assert discovered == EXPECTED_EXAMPLES, discovered
@@ -520,6 +537,7 @@ def main() -> None:
     _check_database(EXAMPLES / "database.py")
     _check_database_retry(EXAMPLES / "database.py")
     _check_outbound(EXAMPLES / "outbound_io.py")
+    _check_repeated_query(EXAMPLES / "repeated_query.py")
     print(
         f"installed dexpot {importlib.metadata.version('dexpot')} passed CLI and "
         f"HTTP smoke checks; examples inventory contains {len(discovered)} files"

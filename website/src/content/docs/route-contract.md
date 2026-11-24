@@ -86,7 +86,7 @@ for numeric/bool inputs. Invalid present data never falls back to a default.
   segments and do not split semicolons. Decode names with strict UTF-8 percent decoding and
   plus-as-space before matching: limit and %6cimit are duplicates. Decode only requested
   values. Unknown values (including %FF) and unknown duplicates are ignored. Undecodable names
-  fail the typed query source; repeated requested keys fail even if values agree.
+  fail the typed query source; repeated requested scalar keys fail even if values agree.
 - Headers: use the existing lowercase dictionary and outer-whitespace-normalized values.
   Physical duplicates are already comma-folded: str sees `1, 2`, while int rejects it. Do not
   claim physical-duplicate detection or treat header presence as authentication.
@@ -134,7 +134,17 @@ binding; its structural errors precede per-binding checks there. Return only the
 before the handler runs. Keep-alive/pipelining recovery, HEAD body suppression and method
 matching are unchanged. Decoded state belongs to one request, not a route or reused connection.
 Typed-only handlers need no public Request allocation; unmarked routes do not parse query/cookie
-data. Typed binding does not implicitly enable OpenAPI, DI, lists/repeated-value binding, public lazy views or proxy trust.
+data. Typed binding does not implicitly enable OpenAPI, DI, public lazy views or proxy trust.
+
+### Repeated query values (development checkout)
+
+Not available in v0.9.1. Use `Annotated[list[T], Query("tag")]`, where `T` is `str`, `int`,
+finite `float` or `bool`. Each occurrence supplies one item in wire order, including duplicates.
+Commas do not split values. A missing key returns 422 unless an exact list default was
+declared; defaults are snapshotted at registration and copied per request. `?tag` and
+`?tag=` each supply one empty value, accepted only for strings. An invalid item rejects
+the entire binding before the handler runs. Headers and cookies stay scalar. OpenAPI
+describes lists as query arrays with `style: form` and `explode: true`.
 
 The [typed-input example](https://github.com/tugrulguner/dexpot/blob/main/examples/typed_inputs.py)
 requires dexpot 0.9.0 or newer.

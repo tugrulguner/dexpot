@@ -263,7 +263,11 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
   and `Cookie("name")` scalar bindings in EndpointPlan, with strict conversions, validated
   defaults and deterministic sanitized 422 errors. It does not add repeated-value/list binding,
   lazy public Request views, proxy trust, dependency injection or OpenAPI; this milestone is
-  not complete. Repeated-value binding and other remaining contracts stay open.
+  not complete.
+- **Development checkout: repeated query values.** Explicit `Annotated[list[T], Query("name")]`
+  binds ordered occurrences for the same four scalar types, with matching OpenAPI array
+  serialization. Scalar duplicates remain invalid. Header/cookie collections, lazy public
+  views, proxy trust and hooks are not part of this increment.
 - **Included in v0.9.0: OpenAPI export.**
   `Dex(openapi=True)` captures registration-time schemas and exports a detached OpenAPI 3.1
   document through `app.openapi()`. It adds no automatic endpoint/UI or inferred security;
