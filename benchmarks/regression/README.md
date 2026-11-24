@@ -112,7 +112,10 @@ not silently retried. Resume reports are separately named; original reports rema
 
 On an isolated runner, record the same installed wheel twice into fresh directories
 using the same plan, client, interpreter builds, codec version and unchanged host settings.
-Do not reuse a recording as its own control. The default calibration is 24 five-second
+Each acquisition gets its own recording ID, preserved on resume and checked against its
+preflights and trials. Copying or moving an acquisition does not create a new one. Older
+recordings without an ID remain historical evidence and cannot be resumed or compared by
+this runner; do not add IDs retroactively. The default calibration is 24 five-second
 trials (120 seconds of traffic plus preflight and cleanup).
 
 ```sh
