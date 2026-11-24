@@ -34,6 +34,7 @@ credentials or an external database/network service.
 | `database.py` | Bounded process-local SQLite connections, exclusive handler leases, durable writes, rollback and the post-commit encoding boundary |
 | `outbound_io.py` | Bounded process-local blocking HTTP connections, fixed loopback targets, sanitized failures, timeout, exhaustion and recovery |
 | `repeated_query.py` | Query-only typed list filters, an omitted default, explicit empty values and invalid encoding |
+| `decoded_query.py` | Dynamic filters using a decoded query view and explicit key validation |
 | `typed_inputs.py` | Explicit scalar Query/Header/Cookie sources, pagination/filtering, defaults, strict failures and raw Request compatibility |
 | `openapi.py` | Opt-in OpenAPI snapshots, explicit JSON document serving/file export, checked 201 responses and input validation |
 
@@ -60,6 +61,17 @@ curl -i 'http://127.0.0.1:8000/items?category='
 
 The first request matches both categories. Omission uses the empty-list default (no filter);
 `category=` instead supplies one empty string and matches nothing.
+
+## Dynamic query filters
+
+Requires a development checkout, not v0.9.1. Start with `uv run python examples/decoded_query.py`.
+
+```sh
+curl -i 'http://127.0.0.1:8000/items?category=drinks&category=food&origin=France'
+```
+
+This returns `{"items":["bread"]}`: a product can match either category, but must also match
+the origin. The handler uses `request.query_pairs()` and rejects unknown filter names explicitly.
 
 ## Database resources and transactions
 

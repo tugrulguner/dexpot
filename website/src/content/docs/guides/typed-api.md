@@ -95,6 +95,9 @@ For multi-select filters such as `?category=food&category=drinks`, see the
 and the [runnable filtering example](https://github.com/tugrulguner/dexpot/blob/main/examples/repeated_query.py).
 This extension requires a development checkout; the v0.9.1 install above supports scalar inputs.
 
+For filter names chosen at request time, use [`request.query_pairs()`](/route-contract/#decoded-query-pairs-development-checkout)
+instead. It decodes on demand without changing `Request.query` and does not declare OpenAPI parameters.
+
 Included in v0.9.0: typed query/header/cookie inputs.
 The public-install workflow above supports `Annotated[T, Query('name')]`, `Header('name')`
 and `Cookie('name')`; no source-only installation is needed for these released bindings.
