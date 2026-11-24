@@ -127,7 +127,12 @@ with `Annotated[int, Query("limit")]`, `Annotated[str, Header("x-request-id")]`,
 accept only true/false in ASCII case-insensitive form. Defaults must have the exact declared
 type; missing selects a valid default, while empty/invalid present values do not.
 
-Required missing, repeated requested query/cookie names, invalid conversions and selected-value
+In a development checkout with repeated query support (not v0.9.1), use
+`Annotated[list[str], Query("tag")]` for `?tag=python&tag=api`. Order and duplicates are
+preserved. Missing required lists return 422; an exact list default is copied per request.
+An empty occurrence is one empty string, not an empty array. Lists are query-only.
+
+Required missing, repeated requested scalar query/cookie names, invalid conversions and selected-value
 UTF-8 errors return 422 before the handler. New errors contain only source/declared alias/fixed
 reason, never supplied values. Header names are case-insensitive and values already normalized;
 repeated physical headers are comma-folded, not independently recoverable. Query names/values
