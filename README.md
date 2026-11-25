@@ -258,6 +258,10 @@ See the [runnable filtering example](examples/repeated_query.py).
 For dynamic names, `request.query_pairs()` decodes ordered pairs
 on demand without changing `Request.query`. See [dynamic query filters](examples/decoded_query.py).
 
+In the development checkout, `request.cookie_pairs()` parses cookies on demand without
+changing the normalized Cookie header or typed bindings. See the
+[display preference example](examples/cookie_preferences.py).
+
 Included in v0.9.0: typed query/header/cookie inputs.
 From source containing this feature, declare an explicit `Annotated` source:
 

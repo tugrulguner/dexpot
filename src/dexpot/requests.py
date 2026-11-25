@@ -6,7 +6,7 @@ from typing import Any
 
 import msgspec
 
-from ._inputs import decode_query_pairs
+from ._inputs import decode_query_pairs, iter_cookie_pairs
 
 
 class Request(msgspec.Struct, frozen=True, gc=True):
@@ -23,3 +23,7 @@ class Request(msgspec.Struct, frozen=True, gc=True):
     def query_pairs(self) -> tuple[tuple[str, str], ...]:
         """Decode ordered query pairs on demand; raise ValueError for invalid UTF-8."""
         return decode_query_pairs(self.query)
+
+    def cookie_pairs(self) -> tuple[tuple[str, str], ...]:
+        """Parse ordered Cookie pairs on demand; raise ValueError for malformed syntax."""
+        return tuple(iter_cookie_pairs(self.headers.get("cookie", "")))

@@ -37,6 +37,7 @@ EXPECTED_EXAMPLES = {
     "outbound_io.py",
     "repeated_query.py",
     "decoded_query.py",
+    "cookie_preferences.py",
 }
 
 
@@ -107,9 +108,12 @@ def _request(
     payload: object | None = None,
     *,
     raw: bytes | None = None,
+    cookie: str | None = None,
 ) -> tuple[int, dict[str, str], Any]:
     body: bytes | None = raw
     headers: dict[str, str] = {}
+    if cookie is not None:
+        headers["Cookie"] = cookie
     if payload is not None:
         body = json.dumps(payload, separators=(",", ":")).encode()
         headers["Content-Type"] = "application/json"
@@ -532,6 +536,17 @@ def _check_decoded_query(path: Path) -> None:
             assert _request(port, "GET", endpoint)[0::2] == (status, payload)
 
 
+def _check_cookie_preferences(path: Path) -> None:
+    with _serve(path) as port:
+        for cookie, status, payload in (
+            (None, 200, {"theme": "light"}),
+            ('theme="dark"; unrelated=ignored', 200, {"theme": "dark"}),
+            ("theme=dark; theme=light", 422, {"detail": "invalid theme preference"}),
+            ('theme=dark; other="unfinished', 422, {"detail": "invalid cookie header"}),
+        ):
+            assert _request(port, "GET", "/preferences", cookie=cookie)[0::2] == (status, payload)
+
+
 def main() -> None:
     discovered = {path.name for path in EXAMPLES.glob("*.py")}
     assert discovered == EXPECTED_EXAMPLES, discovered
@@ -551,6 +566,7 @@ def main() -> None:
     _check_outbound(EXAMPLES / "outbound_io.py")
     _check_repeated_query(EXAMPLES / "repeated_query.py")
     _check_decoded_query(EXAMPLES / "decoded_query.py")
+    _check_cookie_preferences(EXAMPLES / "cookie_preferences.py")
     print(
         f"installed dexpot {importlib.metadata.version('dexpot')} passed CLI and "
         f"HTTP smoke checks; examples inventory contains {len(discovered)} files"

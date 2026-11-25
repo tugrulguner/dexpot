@@ -149,6 +149,12 @@ In Dexpot 0.10.0 or newer, `request.query_pairs()` explicitly decodes all query
 names and values into immutable ordered pairs, preserving repeats and empty values. It raises
 `ValueError` for invalid UTF-8; catch it to choose a client response. `Request.query` stays raw.
 
+In a development checkout (not v0.10.0), `request.cookie_pairs()` parses the normalized
+Cookie header on demand using the strict cookie grammar. It returns immutable ordered pairs
+with case-sensitive names and duplicates preserved, strips balanced quotes, and does not
+URL-decode values. Malformed syntax raises a sanitized `ValueError`. Headers and typed cookie
+bindings stay unchanged. Do not treat or echo arbitrary cookie values as trusted data.
+
 Inject parsed request context by annotating a parameter with `Request`; the parameter name and
 position are unrestricted:
 

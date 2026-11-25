@@ -35,6 +35,7 @@ credentials or an external database/network service.
 | `outbound_io.py` | Bounded process-local blocking HTTP connections, fixed loopback targets, sanitized failures, timeout, exhaustion and recovery |
 | `repeated_query.py` | Query-only typed list filters, an omitted default, explicit empty values and invalid encoding |
 | `decoded_query.py` | Dynamic filters using a decoded query view and explicit key validation |
+| `cookie_preferences.py` | Read a display preference without returning unrelated cookies |
 | `typed_inputs.py` | Explicit scalar Query/Header/Cookie sources, pagination/filtering, defaults, strict failures and raw Request compatibility |
 | `openapi.py` | Opt-in OpenAPI snapshots, explicit JSON document serving/file export, checked 201 responses and input validation |
 
@@ -42,6 +43,19 @@ credentials or an external database/network service.
 target the versions stated below. No example introduces dependency injection or
 the experimental socket-I/O redesign. Public Request query/header metadata stays
 raw; application state is not shared across GIL worker processes.
+
+## Cookie preferences
+
+Requires a development checkout (not v0.10.0). Start with
+`uv run python examples/cookie_preferences.py`, then try:
+
+```sh
+curl -i http://127.0.0.1:8000/preferences -H 'Cookie: theme=dark; unrelated=ignored'
+```
+
+The response contains only the selected theme. No theme defaults to `light`; duplicate
+or unsupported themes and malformed Cookie headers receive 422. This is a display
+preference, not authentication.
 
 ## Repeated query filters
 

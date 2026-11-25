@@ -163,6 +163,17 @@ raises a sanitized `ValueError`; the handler can catch it and choose its respons
 Malformed percent escapes on the wire still receive parser-level 400 before the handler.
 This method neither declares an OpenAPI parameter nor changes typed bindings.
 
+### Parsed cookie pairs (development checkout)
+
+Not available in v0.10.0. `request.cookie_pairs()` parses the normalized `Cookie` header
+on demand. It returns an immutable tuple of `(name, value)` pairs in wire order, including
+duplicates across header lines. Names are case-sensitive. Empty values are retained, balanced
+quotes are removed, and neither `%xx` nor `+` is decoded. An absent or empty header gives `()`.
+The same strict syntax as typed cookie binding applies; one malformed pair raises
+`ValueError("invalid cookie header")`. The handler chooses the response. Parsing is not cached,
+does not mutate `Request.headers`, and does not change typed scalar duplicate rejection.
+Treat cookie values as untrusted and do not echo credentials.
+
 The [typed-input example](https://github.com/tugrulguner/dexpot/blob/main/examples/typed_inputs.py)
 requires dexpot 0.9.0 or newer.
 

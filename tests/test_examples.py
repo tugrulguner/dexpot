@@ -28,6 +28,7 @@ EXPECTED_EXAMPLES = {
     "outbound_io.py",
     "repeated_query.py",
     "decoded_query.py",
+    "cookie_preferences.py",
 }
 
 
@@ -228,3 +229,17 @@ def test_decoded_query_example_supports_dynamic_filters() -> None:
         assert (reply.status_code, reply.json()) == (200, {"items": ["bread"]})
         invalid = client.get("/items?origin=%FF")
         assert (invalid.status_code, invalid.json()) == (422, {"detail": "invalid query encoding"})
+
+
+def test_cookie_preferences_example_only_returns_supported_preferences() -> None:
+    with (
+        _run_example("cookie_preferences.py") as base,
+        httpx.Client(base_url=base, trust_env=False) as client,
+    ):
+        reply = client.get("/preferences", headers={"Cookie": 'theme="dark"; unrelated=ignored'})
+        assert (reply.status_code, reply.json()) == (200, {"theme": "dark"})
+        invalid = client.get("/preferences", headers={"Cookie": "theme=dark; theme=light"})
+        assert (invalid.status_code, invalid.json()) == (
+            422,
+            {"detail": "invalid theme preference"},
+        )
