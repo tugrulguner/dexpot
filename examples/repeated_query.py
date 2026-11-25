@@ -1,4 +1,4 @@
-"""Filter items by repeated category keys (requires a checkout with list query binding)."""
+"""Filter items by repeated category keys (Dexpot 0.10.0 or newer)."""
 
 import os
 from typing import Annotated

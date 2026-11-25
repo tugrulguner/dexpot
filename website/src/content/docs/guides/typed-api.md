@@ -91,11 +91,11 @@ See [`examples/typed_crud.py`](https://github.com/tugrulguner/dexpot/blob/main/e
 ## 4. Explicit scalar inputs
 
 For multi-select filters such as `?category=food&category=drinks`, see the
-[repeated query contract](/route-contract/#repeated-query-values-development-checkout)
+[repeated query contract](/route-contract/#repeated-query-values)
 and the [runnable filtering example](https://github.com/tugrulguner/dexpot/blob/main/examples/repeated_query.py).
-This extension requires a development checkout; the v0.9.1 install above supports scalar inputs.
+Repeated query lists and decoded query pairs require Dexpot 0.10.0 or newer.
 
-For filter names chosen at request time, use [`request.query_pairs()`](/route-contract/#decoded-query-pairs-development-checkout)
+For filter names chosen at request time, use [decoded query pairs](/route-contract/#decoded-query-pairs)
 instead. It decodes on demand without changing `Request.query` and does not declare OpenAPI parameters.
 
 Included in v0.9.0: typed query/header/cookie inputs.

@@ -1,4 +1,4 @@
-"""Dynamic filters using a development checkout of Dexpot (not v0.9.1)."""
+"""Dynamic filters using Dexpot 0.10.0 or newer."""
 
 import os
 

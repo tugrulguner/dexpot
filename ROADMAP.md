@@ -264,7 +264,7 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
   defaults and deterministic sanitized 422 errors. It does not add repeated-value/list binding,
   lazy public Request views, proxy trust, dependency injection or OpenAPI; this milestone is
   not complete.
-- **Development checkout: repeated query values.** Explicit `Annotated[list[T], Query("name")]`
+- **Included in v0.10.0: repeated query values.** Explicit `Annotated[list[T], Query("name")]`
   binds ordered occurrences for the same four scalar types, with matching OpenAPI array
   serialization. Scalar duplicates remain invalid. Header/cookie collections, lazy public
   views, proxy trust and hooks are not part of this increment.
@@ -288,7 +288,7 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
 - Document that the same application source does not imply identical state sharing: GIL
   process fan-out replicates pools and caches, whereas FT threads share process-local state.
   Validate pool ownership, leases, thread safety, and total connection budgets explicitly.
-- **Development checkout: decoded query pairs.** `Request.query_pairs()` returns immutable
+- **Included in v0.10.0: decoded query pairs.** `Request.query_pairs()` returns immutable
   decoded pairs in wire order on demand. Raw `Request.query` is unchanged.
 - Extend request context with a decoded cookie view and explicitly sourced client metadata.
   Define missing versus null and trusted-proxy behavior separately.

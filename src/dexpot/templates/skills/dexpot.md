@@ -127,7 +127,7 @@ with `Annotated[int, Query("limit")]`, `Annotated[str, Header("x-request-id")]`,
 accept only true/false in ASCII case-insensitive form. Defaults must have the exact declared
 type; missing selects a valid default, while empty/invalid present values do not.
 
-In a development checkout with repeated query support (not v0.9.1), use
+In Dexpot 0.10.0 or newer, use
 `Annotated[list[str], Query("tag")]` for `?tag=python&tag=api`. Order and duplicates are
 preserved. Missing required lists return 422; an exact list default is copied per request.
 An empty occurrence is one empty string, not an empty array. Lists are query-only.
@@ -142,10 +142,10 @@ Cookies use strict ASCII cookie pairs, optional balanced quotes, no URL decoding
 malformed headers when needed. Do not treat a header's presence as authentication.
 
 Raw Request query/header views and the existing path/body rules remain separate. No DI,
-OpenAPI, lists/Optional/Enum/extra Annotated metadata, new path conversions or proxy trust are
+automatic OpenAPI serving, Optional/Enum/extra Annotated metadata, new path conversions or proxy trust are
 provided by this feature. Follow the full route contract for cookie framing and error ordering.
 
-In a development checkout (not v0.9.1), `request.query_pairs()` explicitly decodes all query
+In Dexpot 0.10.0 or newer, `request.query_pairs()` explicitly decodes all query
 names and values into immutable ordered pairs, preserving repeats and empty values. It raises
 `ValueError` for invalid UTF-8; catch it to choose a client response. `Request.query` stays raw.
 

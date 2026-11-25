@@ -10,6 +10,15 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.10.0] - 2026-11-25
+
+### Added
+
+- Add `Request.query_pairs()` for on-demand decoding of ordered query pairs without changing the raw query or typed bindings.
+- Add a maintainer benchmark calibration check that compares two same-wheel GIL and free-threaded recordings in both directions before screening a performance change. This does not change serving behavior.
+- Add opt-in repeated query parameters for lists of supported scalar types, with matching OpenAPI array serialization. Scalar parameters still reject duplicates.
+
+
 ## [0.9.1] - 2026-11-16
 
 ### Added

@@ -250,12 +250,12 @@ validate/convert them in application code, or use a typed JSON body where approp
 
 ### Explicit scalar input sources
 
-The development checkout also supports repeated query keys with
+Starting with Dexpot 0.10.0, bind repeated query keys with
 `Annotated[list[str], Query("tag")]`: `?tag=python&tag=api` binds in wire order.
-This is not in v0.9.1. Scalar duplicates still return 422; `Request.query` stays raw.
+Scalar duplicates still return 422; `Request.query` stays raw.
 See the [runnable filtering example](examples/repeated_query.py).
 
-For dynamic names, the development-only `request.query_pairs()` decodes ordered pairs
+For dynamic names, `request.query_pairs()` decodes ordered pairs
 on demand without changing `Request.query`. See [dynamic query filters](examples/decoded_query.py).
 
 Included in v0.9.0: typed query/header/cookie inputs.
