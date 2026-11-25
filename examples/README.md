@@ -45,7 +45,7 @@ raw; application state is not shared across GIL worker processes.
 
 ## Repeated query filters
 
-This example requires the development checkout; it is not available in v0.9.1.
+This example requires Dexpot 0.10.0 or newer.
 
 ```bash
 uv run python examples/repeated_query.py
@@ -64,7 +64,7 @@ The first request matches both categories. Omission uses the empty-list default 
 
 ## Dynamic query filters
 
-Requires a development checkout, not v0.9.1. Start with `uv run python examples/decoded_query.py`.
+Requires Dexpot 0.10.0 or newer. Start with `uv run python examples/decoded_query.py`.
 
 ```sh
 curl -i 'http://127.0.0.1:8000/items?category=drinks&category=food&origin=France'

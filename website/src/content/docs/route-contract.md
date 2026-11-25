@@ -137,9 +137,11 @@ Typed-only handlers need no public Request allocation. Query decoding occurs onl
 binding or an explicit `Request.query_pairs()` call. Typed binding does not implicitly enable
 OpenAPI, DI or proxy trust.
 
-### Repeated query values (development checkout)
+### Repeated query values
 
-Not available in v0.9.1. Use `Annotated[list[T], Query("tag")]`, where `T` is `str`, `int`,
+<span id="repeated-query-values-development-checkout"></span>
+
+Requires Dexpot 0.10.0 or newer. Use `Annotated[list[T], Query("tag")]`, where `T` is `str`, `int`,
 finite `float` or `bool`. Each occurrence supplies one item in wire order, including duplicates.
 Commas do not split values. A missing key returns 422 unless an exact list default was
 declared; defaults are snapshotted at registration and copied per request. `?tag` and
@@ -147,9 +149,11 @@ declared; defaults are snapshotted at registration and copied per request. `?tag
 the entire binding before the handler runs. Headers and cookies stay scalar. OpenAPI
 describes lists as query arrays with `style: form` and `explode: true`.
 
-### Decoded query pairs (development checkout)
+### Decoded query pairs
 
-Not available in v0.9.1. Call `request.query_pairs()` for filters with dynamic names.
+<span id="decoded-query-pairs-development-checkout"></span>
+
+Requires Dexpot 0.10.0 or newer. Call `request.query_pairs()` for filters with dynamic names.
 It decodes names and values as UTF-8 on demand (`+` becomes a space) and returns an
 immutable tuple of `(name, value)` pairs in wire order, including duplicates. A missing
 key has no pair; `?tag` and `?tag=` both produce `("tag", "")`. Empty `&` segments are

@@ -110,9 +110,7 @@ def test_patch_example_workflows_name_availability(relative: str) -> None:
 
 def test_patch_release_records_all_consumed_fragments() -> None:
     import re
-    import tomllib
 
-    assert tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"] == "0.9.1"
     changelog = (ROOT / "CHANGELOG.md").read_text()
     section = re.search(r"^## \[0\.9\.1\][^\n]*\n(.*?)(?=^## \[|\Z)", changelog, re.M | re.S)
     assert section is not None
@@ -124,4 +122,32 @@ def test_patch_release_records_all_consumed_fragments() -> None:
         "pinned Playwright container",
         "without claiming a stable speedup",
     ):
+        assert phrase in section.group(1)
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "README.md",
+        "ROADMAP.md",
+        "CONTRIBUTING.md",
+        "examples/README.md",
+        "examples/decoded_query.py",
+        "examples/repeated_query.py",
+        "src/dexpot/templates/skills/dexpot.md",
+        "website/src/content/docs/route-contract.md",
+        "website/src/content/docs/guides/typed-api.md",
+    ],
+)
+def test_query_consumers_name_the_minimum_release(relative: str) -> None:
+    assert "0.10.0" in (ROOT / relative).read_text()
+
+
+def test_query_release_records_all_consumed_fragments() -> None:
+    import re
+
+    changelog = (ROOT / "CHANGELOG.md").read_text()
+    section = re.search(r"^## \[0\.10\.0\][^\n]*\n(.*?)(?=^## \[|\Z)", changelog, re.M | re.S)
+    assert section is not None
+    for phrase in ("repeated query", "Request.query_pairs()", "benchmark calibration check"):
         assert phrase in section.group(1)
