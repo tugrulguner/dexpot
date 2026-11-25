@@ -255,6 +255,9 @@ The development checkout also supports repeated query keys with
 This is not in v0.9.1. Scalar duplicates still return 422; `Request.query` stays raw.
 See the [runnable filtering example](examples/repeated_query.py).
 
+For dynamic names, the development-only `request.query_pairs()` decodes ordered pairs
+on demand without changing `Request.query`. See [dynamic query filters](examples/decoded_query.py).
+
 Included in v0.9.0: typed query/header/cookie inputs.
 From source containing this feature, declare an explicit `Annotated` source:
 
@@ -659,7 +662,7 @@ The shipped foundation now includes the HTTP-hardening gate and the optional nat
 request-head seam. Remaining work is organized around four gates:
 
 1. Consolidate the already-shipped request-aware response handling and output policy, then
-   extend the shipped request context with decoded query parameters, cookies, and client metadata,
+   extend the shipped request context with cookie views and client metadata,
    and complete middleware and schemas;
 2. publish reproducible GIL and free-threaded benchmarks with correctness parity; and
 3. add production operations without replacing the synchronous execution model; and

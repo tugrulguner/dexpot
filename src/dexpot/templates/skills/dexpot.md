@@ -136,7 +136,7 @@ Required missing, repeated requested scalar query/cookie names, invalid conversi
 UTF-8 errors return 422 before the handler. New errors contain only source/declared alias/fixed
 reason, never supplied values. Header names are case-insensitive and values already normalized;
 repeated physical headers are comma-folded, not independently recoverable. Query names/values
-decode UTF-8 and plus-as-space only on marked routes; unknown values are ignored, but malformed
+decode UTF-8 and plus-as-space during typed binding; unknown values are ignored, but malformed
 name encodings fail lookup. `%GG` still fails at the HTTP parser with 400 on every route.
 Cookies use strict ASCII cookie pairs, optional balanced quotes, no URL decoding, and reject
 malformed headers when needed. Do not treat a header's presence as authentication.
@@ -144,6 +144,10 @@ malformed headers when needed. Do not treat a header's presence as authenticatio
 Raw Request query/header views and the existing path/body rules remain separate. No DI,
 OpenAPI, lists/Optional/Enum/extra Annotated metadata, new path conversions or proxy trust are
 provided by this feature. Follow the full route contract for cookie framing and error ordering.
+
+In a development checkout (not v0.9.1), `request.query_pairs()` explicitly decodes all query
+names and values into immutable ordered pairs, preserving repeats and empty values. It raises
+`ValueError` for invalid UTF-8; catch it to choose a client response. `Request.query` stays raw.
 
 Inject parsed request context by annotating a parameter with `Request`; the parameter name and
 position are unrestricted:

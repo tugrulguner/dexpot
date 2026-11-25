@@ -27,6 +27,7 @@ EXPECTED_EXAMPLES = {
     "openapi.py",
     "outbound_io.py",
     "repeated_query.py",
+    "decoded_query.py",
 }
 
 
@@ -216,3 +217,14 @@ def test_repeated_query_example_filters_over_http() -> None:
         assert reply.status_code == 200
         assert reply.json() == {"items": ["tea", "bread"]}
         assert client.get("/items?category=").json() == {"items": []}
+
+
+def test_decoded_query_example_supports_dynamic_filters() -> None:
+    with (
+        _run_example("decoded_query.py") as base,
+        httpx.Client(base_url=base, trust_env=False) as client,
+    ):
+        reply = client.get("/items?category=drinks&category=food&%6Frigin=France")
+        assert (reply.status_code, reply.json()) == (200, {"items": ["bread"]})
+        invalid = client.get("/items?origin=%FF")
+        assert (invalid.status_code, invalid.json()) == (422, {"detail": "invalid query encoding"})

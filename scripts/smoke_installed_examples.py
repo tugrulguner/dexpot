@@ -36,6 +36,7 @@ EXPECTED_EXAMPLES = {
     "openapi.py",
     "outbound_io.py",
     "repeated_query.py",
+    "decoded_query.py",
 }
 
 
@@ -520,6 +521,17 @@ def _check_repeated_query(path: Path) -> None:
             assert _request(port, "GET", endpoint)[0::2] == (status, payload)
 
 
+def _check_decoded_query(path: Path) -> None:
+    with _serve(path) as port:
+        cases = (
+            ("/items?category=drinks&category=food&%6Frigin=France", 200, {"items": ["bread"]}),
+            ("/items?origin=%FF", 422, {"detail": "invalid query encoding"}),
+            ("/items?other=France", 422, {"detail": "unknown filter"}),
+        )
+        for endpoint, status, payload in cases:
+            assert _request(port, "GET", endpoint)[0::2] == (status, payload)
+
+
 def main() -> None:
     discovered = {path.name for path in EXAMPLES.glob("*.py")}
     assert discovered == EXPECTED_EXAMPLES, discovered
@@ -538,6 +550,7 @@ def main() -> None:
     _check_database_retry(EXAMPLES / "database.py")
     _check_outbound(EXAMPLES / "outbound_io.py")
     _check_repeated_query(EXAMPLES / "repeated_query.py")
+    _check_decoded_query(EXAMPLES / "decoded_query.py")
     print(
         f"installed dexpot {importlib.metadata.version('dexpot')} passed CLI and "
         f"HTTP smoke checks; examples inventory contains {len(discovered)} files"

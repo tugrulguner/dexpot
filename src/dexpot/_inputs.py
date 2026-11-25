@@ -117,13 +117,29 @@ class InputError(ValueError):
     """A sanitized, client-facing source binding error."""
 
 
+def _decode_query_component(text: str) -> str:
+    return unquote_to_bytes(text.replace("+", " ")).decode("utf-8")
+
+
+def decode_query_pairs(query: str) -> tuple[tuple[str, str], ...]:
+    pairs = []
+    try:
+        for segment in query.split("&"):
+            if segment:
+                name, _, value = segment.partition("=")
+                pairs.append((_decode_query_component(name), _decode_query_component(value)))
+    except UnicodeDecodeError:
+        raise ValueError("invalid query encoding") from None
+    return tuple(pairs)
+
+
 def _query_pairs(query: str) -> dict[str, list[str]]:
     pairs: dict[str, list[str]] = {}
     try:
         for segment in query.split("&"):
             if segment:
                 raw_name, _, value = segment.partition("=")
-                name = unquote_to_bytes(raw_name.replace("+", " ")).decode("utf-8")
+                name = _decode_query_component(raw_name)
                 pairs.setdefault(name, []).append(value)
     except UnicodeDecodeError:
         raise InputError("invalid query encoding") from None
@@ -168,7 +184,7 @@ def _as_bool(value: str) -> bool:
 def _convert_input(binding: InputBinding, text: str) -> Any:
     if binding.source == "query":
         try:
-            text = unquote_to_bytes(text.replace("+", " ")).decode("utf-8")
+            text = _decode_query_component(text)
         except UnicodeDecodeError:
             raise InputError(f"query parameter '{binding.name}': encoding") from None
     try:

@@ -133,8 +133,9 @@ marked inputs then validate in handler declaration order. Parse a source lazily 
 binding; its structural errors precede per-binding checks there. Return only the first error
 before the handler runs. Keep-alive/pipelining recovery, HEAD body suppression and method
 matching are unchanged. Decoded state belongs to one request, not a route or reused connection.
-Typed-only handlers need no public Request allocation; unmarked routes do not parse query/cookie
-data. Typed binding does not implicitly enable OpenAPI, DI, public lazy views or proxy trust.
+Typed-only handlers need no public Request allocation. Query decoding occurs only for typed
+binding or an explicit `Request.query_pairs()` call. Typed binding does not implicitly enable
+OpenAPI, DI or proxy trust.
 
 ### Repeated query values (development checkout)
 
@@ -145,6 +146,18 @@ declared; defaults are snapshotted at registration and copied per request. `?tag
 `?tag=` each supply one empty value, accepted only for strings. An invalid item rejects
 the entire binding before the handler runs. Headers and cookies stay scalar. OpenAPI
 describes lists as query arrays with `style: form` and `explode: true`.
+
+### Decoded query pairs (development checkout)
+
+Not available in v0.9.1. Call `request.query_pairs()` for filters with dynamic names.
+It decodes names and values as UTF-8 on demand (`+` becomes a space) and returns an
+immutable tuple of `(name, value)` pairs in wire order, including duplicates. A missing
+key has no pair; `?tag` and `?tag=` both produce `("tag", "")`. Empty `&` segments are
+ignored and `=value` has an empty name. Decoding is not cached; keep the result locally
+if you need it twice. `Request.query` remains raw. Invalid UTF-8 anywhere in the pairs
+raises a sanitized `ValueError`; the handler can catch it and choose its response.
+Malformed percent escapes on the wire still receive parser-level 400 before the handler.
+This method neither declares an OpenAPI parameter nor changes typed bindings.
 
 The [typed-input example](https://github.com/tugrulguner/dexpot/blob/main/examples/typed_inputs.py)
 requires dexpot 0.9.0 or newer.

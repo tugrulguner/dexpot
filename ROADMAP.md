@@ -288,8 +288,10 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
 - Document that the same application source does not imply identical state sharing: GIL
   process fan-out replicates pools and caches, whereas FT threads share process-local state.
   Validate pool ownership, leases, thread safety, and total connection budgets explicitly.
-- Extend request context with lazy decoded query/cookie views and explicitly sourced client
-  metadata. Define repeated values, missing versus null, and trusted-proxy behavior.
+- **Development checkout: decoded query pairs.** `Request.query_pairs()` returns immutable
+  decoded pairs in wire order on demand. Raw `Request.query` is unchanged.
+- Extend request context with a decoded cookie view and explicitly sourced client metadata.
+  Define missing versus null and trusted-proxy behavior separately.
 - Add typed query/header/cookie binding with explicit ambiguity resolution and registration-time
   validation, keeping ordinary Python functions and annotations central.
 - **Included in v0.9.0:** opt-in OpenAPI export captures the same normalized endpoint
