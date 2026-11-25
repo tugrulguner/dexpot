@@ -43,12 +43,17 @@ for (const colorScheme of ['light', 'dark']) {
       const geometry = await block.evaluate((pre) => ({ tabIndex: pre.tabIndex, outline: getComputedStyle(pre).outlineStyle }));
       expect(geometry.tabIndex, `code block ${index} explicitly participates in sequential keyboard navigation`).toBe(0);
       expect(geometry.outline, `code block ${index} has visible keyboard focus`).not.toBe('none');
-      for (let step = 0; step < 100; step++) {
-        if (await block.evaluate((pre) => pre.scrollLeft >= pre.scrollWidth - pre.clientWidth - 1)) break;
-        await page.keyboard.press('ArrowRight');
-      }
-      const end = await block.evaluate((pre) => ({ max: pre.scrollWidth - pre.clientWidth, left: pre.scrollLeft }));
-      expect(end.left, `ArrowRight reveals the complete line in code block ${index}`).toBeGreaterThanOrEqual(end.max - 1);
+      let presses = 0;
+      // Observe native scrolling between key presses rather than sending a burst
+      // faster than Chromium can apply it. Keep the same endpoint and press budget.
+      await expect.poll(async () => {
+        const atEnd = await block.evaluate((pre) => pre.scrollLeft >= pre.scrollWidth - pre.clientWidth - 1);
+        if (!atEnd && presses < 100) {
+          presses++;
+          await page.keyboard.press('ArrowRight');
+        }
+        return atEnd;
+      }, { intervals: [25], message: `ArrowRight reveals the complete line in code block ${index}` }).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth), 'page remains within the 320px viewport').toBeLessThanOrEqual(320);
     }
   });
