@@ -155,6 +155,10 @@ with case-sensitive names and duplicates preserved, strips balanced quotes, and 
 URL-decode values. Malformed syntax raises a sanitized `ValueError`. Headers and typed cookie
 bindings stay unchanged. Do not treat or echo arbitrary cookie values as trusted data.
 
+In a development checkout (not v0.10.0), `request.peer` is the direct TCP `(ip, port)`
+or `None` if unavailable. It ignores forwarding headers. Behind a proxy it describes the
+proxy connection, not the original client, and does not establish identity.
+
 Inject parsed request context by annotating a parameter with `Request`; the parameter name and
 position are unrestricted:
 

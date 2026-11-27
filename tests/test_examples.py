@@ -29,6 +29,7 @@ EXPECTED_EXAMPLES = {
     "repeated_query.py",
     "decoded_query.py",
     "cookie_preferences.py",
+    "request_peer.py",
 }
 
 
@@ -229,6 +230,17 @@ def test_decoded_query_example_supports_dynamic_filters() -> None:
         assert (reply.status_code, reply.json()) == (200, {"items": ["bread"]})
         invalid = client.get("/items?origin=%FF")
         assert (invalid.status_code, invalid.json()) == (422, {"detail": "invalid query encoding"})
+
+
+def test_request_peer_example_ignores_forwarded_addresses() -> None:
+    with (
+        _run_example("request_peer.py") as base,
+        httpx.Client(base_url=base, trust_env=False) as client,
+    ):
+        response = client.get("/peer", headers={"X-Forwarded-For": "192.0.2.22"})
+        assert response.status_code == 200
+        host, port = response.json()["peer"]
+        assert host == "127.0.0.1" and type(port) is int and 0 < port <= 65535
 
 
 def test_cookie_preferences_example_only_returns_supported_preferences() -> None:

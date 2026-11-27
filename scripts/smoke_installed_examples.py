@@ -38,6 +38,7 @@ EXPECTED_EXAMPLES = {
     "repeated_query.py",
     "decoded_query.py",
     "cookie_preferences.py",
+    "request_peer.py",
 }
 
 
@@ -547,6 +548,20 @@ def _check_cookie_preferences(path: Path) -> None:
             assert _request(port, "GET", "/preferences", cookie=cookie)[0::2] == (status, payload)
 
 
+def _check_request_peer(path: Path) -> None:
+    with _serve(path) as port:
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+        try:
+            connection.connect()
+            assert connection.sock is not None
+            expected = list(connection.sock.getsockname()[:2])
+            connection.request("GET", "/peer", headers={"X-Forwarded-For": "192.0.2.22"})
+            reply = connection.getresponse()
+            assert reply.status == 200 and json.loads(reply.read()) == {"peer": expected}
+        finally:
+            connection.close()
+
+
 def main() -> None:
     discovered = {path.name for path in EXAMPLES.glob("*.py")}
     assert discovered == EXPECTED_EXAMPLES, discovered
@@ -567,6 +582,7 @@ def main() -> None:
     _check_repeated_query(EXAMPLES / "repeated_query.py")
     _check_decoded_query(EXAMPLES / "decoded_query.py")
     _check_cookie_preferences(EXAMPLES / "cookie_preferences.py")
+    _check_request_peer(EXAMPLES / "request_peer.py")
     print(
         f"installed dexpot {importlib.metadata.version('dexpot')} passed CLI and "
         f"HTTP smoke checks; examples inventory contains {len(discovered)} files"

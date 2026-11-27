@@ -42,7 +42,7 @@ def canonical_ast(node: object) -> object:
 
 
 def without_typed_input_seam(node: ast.FunctionDef) -> ast.FunctionDef:
-    """Remove only the four exact authorized splices, retaining the original fingerprint.
+    """Remove only the exact input and peer splices, retaining the original fingerprint.
 
     Real HTTP tests separately enforce input ordering and the unused-source bypass.
     Constructor, scheduler, parsing, framing and all other dispatch AST stay frozen.
@@ -75,6 +75,16 @@ def without_typed_input_seam(node: ast.FunctionDef) -> ast.FunctionDef:
             statement("result = route.invoke(captures_list, body_arg)"),
         ),
         (error_try.handlers[0], None),
+        (
+            statement(
+                "context = Request(request.method, request.path, request_params, request.query, "
+                "request.headers, request.body, body_arg, peer=_request_peer(conn))"
+            ),
+            statement(
+                "context = Request(request.method, request.path, request_params, request.query, "
+                "request.headers, request.body, body_arg)"
+            ),
+        ),
     ]
     patterns = [ast.dump(before) for before, _after in replacements]
     counts = [0] * len(patterns)
@@ -89,7 +99,7 @@ def without_typed_input_seam(node: ast.FunctionDef) -> ast.FunctionDef:
             return super().visit(node)
 
     result = RemoveSeam().visit(node)
-    assert counts == [1, 1, 1, 1], "typed-input dispatch seam changed; review its exact scope"
+    assert counts == [1, 1, 1, 1, 1], "request dispatch seam changed; review its exact scope"
     assert isinstance(result, ast.FunctionDef)
     return result
 

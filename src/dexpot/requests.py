@@ -19,6 +19,7 @@ class Request(msgspec.Struct, frozen=True, gc=True):
     headers: dict[str, str]
     raw_body: bytes = b""
     body: Any = None
+    peer: tuple[str, int] | None = None
 
     def query_pairs(self) -> tuple[tuple[str, str], ...]:
         """Decode ordered query pairs on demand; raise ValueError for invalid UTF-8."""

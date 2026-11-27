@@ -36,6 +36,7 @@ credentials or an external database/network service.
 | `repeated_query.py` | Query-only typed list filters, an omitted default, explicit empty values and invalid encoding |
 | `decoded_query.py` | Dynamic filters using a decoded query view and explicit key validation |
 | `cookie_preferences.py` | Read a display preference without returning unrelated cookies |
+| `request_peer.py` | Local diagnostic for the direct TCP peer, without trusting forwarding headers |
 | `typed_inputs.py` | Explicit scalar Query/Header/Cookie sources, pagination/filtering, defaults, strict failures and raw Request compatibility |
 | `openapi.py` | Opt-in OpenAPI snapshots, explicit JSON document serving/file export, checked 201 responses and input validation |
 
@@ -43,6 +44,12 @@ credentials or an external database/network service.
 target the versions stated below. No example introduces dependency injection or
 the experimental socket-I/O redesign. Public Request query/header metadata stays
 raw; application state is not shared across GIL worker processes.
+
+## Direct socket peer
+
+Requires the development checkout. Run `uv run python examples/request_peer.py` and
+request `http://127.0.0.1:8000/peer`. The response contains the local client's IP and
+source port. The example binds only to loopback. Do not treat a peer address as identity.
 
 ## Cookie preferences
 

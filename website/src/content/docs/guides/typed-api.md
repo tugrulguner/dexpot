@@ -102,6 +102,9 @@ For cookies with names not declared at registration, the development checkout ad
 [parsed cookie pairs](/route-contract/#parsed-cookie-pairs-development-checkout) and a
 [display preference example](https://github.com/tugrulguner/dexpot/blob/main/examples/cookie_preferences.py).
 
+For connection diagnostics, see [direct socket peer](/route-contract/#direct-socket-peer-development-checkout)
+in the development checkout. This feature does not interpret forwarding headers.
+
 Included in v0.9.0: typed query/header/cookie inputs.
 The public-install workflow above supports `Annotated[T, Query('name')]`, `Header('name')`
 and `Cookie('name')`; no source-only installation is needed for these released bindings.
