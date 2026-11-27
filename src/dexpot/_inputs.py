@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import re
 import unicodedata
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any, cast, get_args, get_origin
 from urllib.parse import unquote_to_bytes
@@ -146,8 +146,7 @@ def _query_pairs(query: str) -> dict[str, list[str]]:
     return pairs
 
 
-def _cookie_pairs(raw: str) -> dict[str, list[str]]:
-    pairs: dict[str, list[str]] = {}
+def iter_cookie_pairs(raw: str) -> Iterator[tuple[str, str]]:
     if raw:
         for segment in raw.split(";"):
             name, separator, value = segment.strip(" \t").partition("=")
@@ -157,7 +156,13 @@ def _cookie_pairs(raw: str) -> dict[str, list[str]]:
                 value = value[1:-1]
             if not _COOKIE.fullmatch(value):
                 raise InputError("invalid cookie header")
-            pairs.setdefault(name, []).append(value)
+            yield name, value
+
+
+def _cookie_pairs(raw: str) -> dict[str, list[str]]:
+    pairs: dict[str, list[str]] = {}
+    for name, value in iter_cookie_pairs(raw):
+        pairs.setdefault(name, []).append(value)
     return pairs
 
 

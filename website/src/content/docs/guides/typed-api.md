@@ -98,6 +98,10 @@ Repeated query lists and decoded query pairs require Dexpot 0.10.0 or newer.
 For filter names chosen at request time, use [decoded query pairs](/route-contract/#decoded-query-pairs)
 instead. It decodes on demand without changing `Request.query` and does not declare OpenAPI parameters.
 
+For cookies with names not declared at registration, the development checkout adds
+[parsed cookie pairs](/route-contract/#parsed-cookie-pairs-development-checkout) and a
+[display preference example](https://github.com/tugrulguner/dexpot/blob/main/examples/cookie_preferences.py).
+
 Included in v0.9.0: typed query/header/cookie inputs.
 The public-install workflow above supports `Annotated[T, Query('name')]`, `Header('name')`
 and `Cookie('name')`; no source-only installation is needed for these released bindings.

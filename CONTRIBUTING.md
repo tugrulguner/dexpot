@@ -106,7 +106,9 @@ Included in v0.9.0: typed query/header/cookie inputs.
 names, immutable descriptors, exact-type defaults, atomic failures and existing invocation.
 Reject unsupported types/metadata and conflicting sources at registration. Typed-only routes
 must not allocate Request; routes without typed inputs or an explicit `Request.query_pairs()`
-call must not decode query data. Cookies are parsed only for typed binding. Measure the absent
+call must not decode query data. Cookies are parsed only for typed binding or an explicit
+`Request.cookie_pairs()` call. Preserve framing, case, order and duplicate occurrences in the
+explicit view; keep typed scalar rejection unchanged. Measure the absent
 feature's costs rather than asserting zero overhead.
 
 Test real handler argument types, normalized and repeated inputs, malformed encodings,
