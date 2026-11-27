@@ -163,9 +163,11 @@ raises a sanitized `ValueError`; the handler can catch it and choose its respons
 Malformed percent escapes on the wire still receive parser-level 400 before the handler.
 This method neither declares an OpenAPI parameter nor changes typed bindings.
 
-### Parsed cookie pairs (development checkout)
+<span id="parsed-cookie-pairs-development-checkout"></span>
 
-Not available in v0.10.0. `request.cookie_pairs()` parses the normalized `Cookie` header
+### Parsed cookie pairs
+
+Requires Dexpot 0.11.0 or newer. `request.cookie_pairs()` parses the normalized `Cookie` header
 on demand. It returns an immutable tuple of `(name, value)` pairs in wire order, including
 duplicates across header lines. Names are case-sensitive. Empty values are retained, balanced
 quotes are removed, and neither `%xx` nor `+` is decoded. An absent or empty header gives `()`.
@@ -293,15 +295,6 @@ Pass only the required names, not an entire frame's `locals()`. Dexpot shallow-c
 
 ## Request context
 
-### Direct socket peer (development checkout)
-
-Not available in v0.10.0. `request.peer` is the direct TCP endpoint as an immutable
-`(ip, port)` tuple. A manually constructed request defaults to `None`; a non-IP socket
-or failed peer lookup also yields `None`. IPv6 flow and scope fields are not included.
-Only handlers that ask for `Request` incur the lookup. Forwarded headers do not affect
-this field: behind a reverse proxy, the peer is the proxy, not necessarily the caller.
-Do not use the peer address as authentication.
-
 Annotate a parameter with the public `Request` type:
 
 ```python
@@ -319,6 +312,17 @@ def create_with_context(item: ItemIn, account_id: int, *, request: Request) -> d
 ```
 
 The request object is allocated only for handlers that ask for it. It is frozen and contains the decoded route values, raw query string, lowercase headers, received body bytes, and the same validated body object passed to the handler.
+
+<span id="direct-socket-peer-development-checkout"></span>
+
+### Direct socket peer
+
+Requires Dexpot 0.11.0 or newer. `request.peer` is the direct TCP endpoint as an immutable
+`(ip, port)` tuple. A manually constructed request defaults to `None`; a non-IP socket
+or failed peer lookup also yields `None`. IPv6 flow and scope fields are not included.
+Only handlers that ask for `Request` incur the lookup. Forwarded headers do not affect
+this field: behind a reverse proxy, the peer is the proxy, not necessarily the caller.
+Do not use the peer address as authentication.
 
 
 ## Database resource example

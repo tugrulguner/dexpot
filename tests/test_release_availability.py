@@ -151,3 +151,51 @@ def test_query_release_records_all_consumed_fragments() -> None:
     assert section is not None
     for phrase in ("repeated query", "Request.query_pairs()", "benchmark calibration check"):
         assert phrase in section.group(1)
+
+
+@pytest.mark.parametrize(
+    ("relative", "marker"),
+    [
+        ("README.md", "`request.cookie_pairs()` parses"),
+        ("README.md", "`request.peer`, the direct TCP peer"),
+        ("ROADMAP.md", "parsed cookie pairs.**"),
+        ("ROADMAP.md", "direct socket peer.**"),
+        ("examples/README.md", "examples/cookie_preferences.py`"),
+        ("examples/README.md", "examples/request_peer.py`"),
+        ("examples/cookie_preferences.py", '"""Read a display preference'),
+        ("examples/request_peer.py", '"""Inspect a direct connection'),
+        ("src/dexpot/templates/skills/dexpot.md", "`request.cookie_pairs()` parses"),
+        ("src/dexpot/templates/skills/dexpot.md", "`request.peer` is the direct TCP"),
+        ("website/src/content/docs/route-contract.md", "`request.cookie_pairs()` parses"),
+        ("website/src/content/docs/route-contract.md", "`request.peer` is the direct TCP"),
+        ("website/src/content/docs/guides/typed-api.md", "[parsed cookie pairs]"),
+        ("website/src/content/docs/guides/typed-api.md", "[direct socket peer]"),
+    ],
+)
+def test_request_metadata_consumers_name_the_minimum_release(relative: str, marker: str) -> None:
+    text = (ROOT / relative).read_text()
+    paragraph = next(p for p in text.split("\n\n") if marker in p and not p.startswith("|"))
+    assert "0.11.0" in paragraph
+    assert "development checkout" not in paragraph
+    assert "Not available" not in paragraph
+
+
+def test_request_metadata_release_notes_and_links() -> None:
+    import re
+    import tomllib
+
+    metadata = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    version = tuple(map(int, metadata["project"]["version"].split(".")))
+    assert version >= (0, 11, 0)
+    changelog = (ROOT / "CHANGELOG.md").read_text()
+    sections = re.findall(r"^## \[0\.11\.0\][^\n]*\n(.*?)(?=^## \[|\Z)", changelog, re.M | re.S)
+    assert len(sections) == 1
+    assert all(name in sections[0] for name in ("Request.cookie_pairs()", "Request.peer"))
+    route = (ROOT / "website/src/content/docs/route-contract.md").read_text()
+    typed = (ROOT / "website/src/content/docs/guides/typed-api.md").read_text()
+    for slug, title in (
+        ("parsed-cookie-pairs", "Parsed cookie pairs"),
+        ("direct-socket-peer", "Direct socket peer"),
+    ):
+        assert f'\n<span id="{slug}-development-checkout"></span>\n\n### {title}\n' in route
+        assert f"(/route-contract/#{slug})" in typed

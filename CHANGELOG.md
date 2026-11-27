@@ -10,6 +10,14 @@ preparation assembles them here. Run `make changelog-draft` to preview the next 
 
 <!-- towncrier release notes start -->
 
+## [0.11.0] - 2026-11-27
+
+### Added
+
+- Add `Request.cookie_pairs()` for on-demand parsing of ordered request cookies, preserving duplicate names without changing headers or typed scalar bindings.
+- Expose the direct TCP endpoint as `Request.peer` for handlers that request context, with `None` when unavailable and no forwarded-header trust.
+
+
 ## [0.10.0] - 2026-11-25
 
 ### Added

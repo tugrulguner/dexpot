@@ -47,13 +47,13 @@ raw; application state is not shared across GIL worker processes.
 
 ## Direct socket peer
 
-Requires the development checkout. Run `uv run python examples/request_peer.py` and
+Requires Dexpot 0.11.0 or newer. Run `uv run python examples/request_peer.py` and
 request `http://127.0.0.1:8000/peer`. The response contains the local client's IP and
 source port. The example binds only to loopback. Do not treat a peer address as identity.
 
 ## Cookie preferences
 
-Requires a development checkout (not v0.10.0). Start with
+Requires Dexpot 0.11.0 or newer. Start with
 `uv run python examples/cookie_preferences.py`, then try:
 
 ```sh
