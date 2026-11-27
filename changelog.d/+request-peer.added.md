@@ -1,0 +1,1 @@
+Expose the direct TCP endpoint as `Request.peer` for handlers that request context, with `None` when unavailable and no forwarded-header trust.

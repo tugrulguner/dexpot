@@ -644,10 +644,11 @@ def test_request_is_constructed_once_only_after_body_validation(
         headers: dict[str, str],
         raw_body: bytes = b"",
         body: object = None,
+        peer: tuple[str, int] | None = None,
     ) -> Request:
         nonlocal calls
         calls += 1
-        return original_request(method, path, params, query, headers, raw_body, body)
+        return original_request(method, path, params, query, headers, raw_body, body, peer=peer)
 
     def process(body: bytes) -> bytes:
         client, server = socket.socketpair()

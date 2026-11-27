@@ -293,6 +293,15 @@ Pass only the required names, not an entire frame's `locals()`. Dexpot shallow-c
 
 ## Request context
 
+### Direct socket peer (development checkout)
+
+Not available in v0.10.0. `request.peer` is the direct TCP endpoint as an immutable
+`(ip, port)` tuple. A manually constructed request defaults to `None`; a non-IP socket
+or failed peer lookup also yields `None`. IPv6 flow and scope fields are not included.
+Only handlers that ask for `Request` incur the lookup. Forwarded headers do not affect
+this field: behind a reverse proxy, the peer is the proxy, not necessarily the caller.
+Do not use the peer address as authentication.
+
 Annotate a parameter with the public `Request` type:
 
 ```python

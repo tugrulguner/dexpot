@@ -458,6 +458,10 @@ applications with different route contracts.
 
 ### Request context
 
+The development checkout exposes `request.peer`, the direct TCP peer as `(IP, port)`
+or `None` when unavailable. [Try the local diagnostic](examples/request_peer.py).
+Behind a proxy this is the proxy's endpoint; forwarded headers do not affect it.
+
 Annotate a handler parameter with the public `Request` type to receive the parsed request
 through the endpoint's precompiled direct-call path:
 

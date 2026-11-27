@@ -95,6 +95,10 @@ Raw supported captures remain strings; JSON body and response schemas have separ
 
 ### Typed scalar input sources
 
+Keep `Request.peer` sourced only from the direct IP socket, with `None` for unavailable
+or non-IP peers. Do not add lookup work on routes that do not request `Request` or derive
+peer metadata from HTTP headers.
+
 Since v0.10.0, list bindings are query-only. Preserve occurrence order, exact scalar
 item conversion, first-error behavior and sanitized 422s. Snapshot exact list defaults at
 registration and give each handler invocation its own list. Preserve the raw query and

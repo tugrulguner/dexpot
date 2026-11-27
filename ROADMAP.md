@@ -292,8 +292,8 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
   decoded pairs in wire order on demand. Raw `Request.query` is unchanged.
 - **Development checkout: parsed cookie pairs.** `Request.cookie_pairs()` parses ordered
   cookies on demand without changing normalized headers or typed scalar cookie bindings.
-- Extend request context with explicitly sourced client metadata.
-  Define missing versus null and trusted-proxy behavior separately.
+- **Development checkout: direct socket peer.** `Request.peer` exposes the connected
+  TCP endpoint or `None` when unavailable. Trusted-proxy behavior remains separate.
 - Add typed query/header/cookie binding with explicit ambiguity resolution and registration-time
   validation, keeping ordinary Python functions and annotations central.
 - **Included in v0.9.0:** opt-in OpenAPI export captures the same normalized endpoint

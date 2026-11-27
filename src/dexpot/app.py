@@ -108,6 +108,16 @@ def _path_segments(path: str) -> list[str]:
     return path[1:].split("/")
 
 
+def _request_peer(conn: socket.socket) -> tuple[str, int] | None:
+    if conn.family not in (socket.AF_INET, socket.AF_INET6):
+        return None
+    try:
+        address = conn.getpeername()
+    except OSError:
+        return None
+    return address[0], address[1]
+
+
 class Dex:
     """The application. ``@dex.get(...)`` / ``@dex.post(...)`` register routes."""
 
@@ -511,6 +521,7 @@ class Dex:
                     request.headers,
                     request.body,
                     body_arg,
+                    peer=_request_peer(conn),
                 )
                 result = (
                     route.invoke(captures_list, body_arg, context, inputs)
