@@ -258,7 +258,7 @@ See the [runnable filtering example](examples/repeated_query.py).
 For dynamic names, `request.query_pairs()` decodes ordered pairs
 on demand without changing `Request.query`. See [dynamic query filters](examples/decoded_query.py).
 
-In the development checkout, `request.cookie_pairs()` parses cookies on demand without
+Starting with Dexpot 0.11.0, `request.cookie_pairs()` parses cookies on demand without
 changing the normalized Cookie header or typed bindings. See the
 [display preference example](examples/cookie_preferences.py).
 
@@ -458,7 +458,7 @@ applications with different route contracts.
 
 ### Request context
 
-The development checkout exposes `request.peer`, the direct TCP peer as `(IP, port)`
+Dexpot 0.11.0 adds `request.peer`, the direct TCP peer as `(IP, port)`
 or `None` when unavailable. [Try the local diagnostic](examples/request_peer.py).
 Behind a proxy this is the proxy's endpoint; forwarded headers do not affect it.
 
@@ -670,8 +670,7 @@ The shipped foundation now includes the HTTP-hardening gate and the optional nat
 request-head seam. Remaining work is organized around four gates:
 
 1. Consolidate the already-shipped request-aware response handling and output policy, then
-   extend the shipped request context with cookie views and client metadata,
-   and complete middleware and schemas;
+   build on the shipped cookie and direct-peer views, and complete middleware and schemas;
 2. publish reproducible GIL and free-threaded benchmarks with correctness parity; and
 3. add production operations without replacing the synchronous execution model; and
 4. grow runnable examples, testing support, deployment guidance, and stable extension points.

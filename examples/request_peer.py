@@ -1,4 +1,4 @@
-"""Inspect a direct connection locally with a Dexpot development checkout."""
+"""Inspect a direct connection locally with Dexpot 0.11.0 or newer."""
 
 import os
 

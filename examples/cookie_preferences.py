@@ -1,4 +1,4 @@
-"""Read a display preference with the development checkout of Dexpot."""
+"""Read a display preference with Dexpot 0.11.0 or newer."""
 
 import os
 

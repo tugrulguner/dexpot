@@ -290,9 +290,9 @@ Do not replace a failed throughput/tail gate with a source-level simplification 
   Validate pool ownership, leases, thread safety, and total connection budgets explicitly.
 - **Included in v0.10.0: decoded query pairs.** `Request.query_pairs()` returns immutable
   decoded pairs in wire order on demand. Raw `Request.query` is unchanged.
-- **Development checkout: parsed cookie pairs.** `Request.cookie_pairs()` parses ordered
+- **Included in v0.11.0: parsed cookie pairs.** `Request.cookie_pairs()` parses ordered
   cookies on demand without changing normalized headers or typed scalar cookie bindings.
-- **Development checkout: direct socket peer.** `Request.peer` exposes the connected
+- **Included in v0.11.0: direct socket peer.** `Request.peer` exposes the connected
   TCP endpoint or `None` when unavailable. Trusted-proxy behavior remains separate.
 - Add typed query/header/cookie binding with explicit ambiguity resolution and registration-time
   validation, keeping ordinary Python functions and annotations central.

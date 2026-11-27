@@ -1,1 +1,0 @@
-Add `Request.cookie_pairs()` for on-demand parsing of ordered request cookies, preserving duplicate names without changing headers or typed scalar bindings.
